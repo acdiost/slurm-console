@@ -59,6 +59,7 @@ func user(t *testing.T, app core.App, collectionName string) *core.Record {
 	if collectionName == "users" {
 		record.Set("name", "测试用户")
 		record.Set("active", true)
+		record.Set("auth_source", "local")
 	}
 	if err := app.Save(record); err != nil {
 		t.Fatal(err)

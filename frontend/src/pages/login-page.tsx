@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label"
 import { authErrorMessage, login, useAuth } from "@/stores/auth"
 
 const schema = z.object({
-  email: z.email("请输入有效的邮箱地址").max(255),
+  identity: z.string().trim().min(1, "请输入用户名或邮箱").max(255),
   password: z.string().min(1, "请输入密码").max(255, "密码过长"),
 })
 type LoginValues = z.infer<typeof schema>
@@ -36,14 +36,14 @@ export function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { identity: "", password: "" },
   })
   if (status === "authenticated")
     return <Navigate to="/design-system" replace />
-  const submit = handleSubmit(async ({ email, password }) => {
+  const submit = handleSubmit(async ({ identity, password }) => {
     setError("")
     try {
-      await login(email, password)
+      await login(identity, password)
       if (useAuth.getState().status === "authenticated")
         navigate("/design-system", { replace: true })
     } catch (cause) {
@@ -107,7 +107,7 @@ export function LoginPage() {
               登录工作空间
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              使用管理员为你创建的平台账户登录。
+              使用平台邮箱或已关联的系统用户名登录。
             </p>
           </div>
           <form className="space-y-5" onSubmit={submit} noValidate>
@@ -116,23 +116,25 @@ export function LoginPage() {
               className="space-y-5 disabled:opacity-70"
             >
               <div className="space-y-2">
-                <Label htmlFor="login-email">邮箱</Label>
+                <Label htmlFor="login-identity">用户名或邮箱</Label>
                 <Input
-                  id="login-email"
-                  type="email"
+                  id="login-identity"
+                  type="text"
                   autoComplete="username"
-                  placeholder="name@company.com"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  placeholder="username 或 name@company.com"
                   className="h-10"
-                  aria-invalid={!!errors.email}
-                  aria-describedby="login-email-error"
-                  {...register("email")}
+                  aria-invalid={!!errors.identity}
+                  aria-describedby="login-identity-error"
+                  {...register("identity")}
                 />
                 <p
-                  id="login-email-error"
+                  id="login-identity-error"
                   aria-live="polite"
                   className="text-2xs text-destructive"
                 >
-                  {errors.email?.message}
+                  {errors.identity?.message}
                 </p>
               </div>
               <div className="space-y-2">

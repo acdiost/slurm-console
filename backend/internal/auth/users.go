@@ -50,6 +50,7 @@ func UsersCommand(app core.App) *cobra.Command {
 			record.SetEmail(strings.TrimSpace(email))
 			record.Set("name", strings.TrimSpace(name))
 			record.Set("active", true)
+			record.Set("auth_source", "local")
 			record.SetPassword(password)
 			if err := app.Save(record); err != nil {
 				return fmt.Errorf("create user: %w", err)
@@ -62,5 +63,6 @@ func UsersCommand(app core.App) *cobra.Command {
 	create.Flags().StringVar(&name, "name", "", "Display name")
 	_ = create.MarkFlagRequired("email")
 	root.AddCommand(create)
+	root.AddCommand(pamUserCommand(app, false), pamUserCommand(app, true))
 	return root
 }

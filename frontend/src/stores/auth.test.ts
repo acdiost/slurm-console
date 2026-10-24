@@ -53,6 +53,23 @@ afterEach(() => {
 })
 
 describe("平台会话", () => {
+  it("以系统用户名登录并保留服务器返回的 PAM 认证来源", async () => {
+    const pamRecord = { ...record, username: "fixture_linux", auth_source: "pam" }
+    fetchMock.mockImplementation((input: RequestInfo | URL) =>
+      Promise.resolve(
+        String(input).includes("/auth/me")
+          ? json({ data: { ...user, username: "fixture_linux", authSource: "pam" } })
+          : json({ token: fixtureToken(), record: pamRecord })
+      )
+    )
+    await login("fixture_linux", "system-password")
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).identity).toBe("fixture_linux")
+    expect(useAuth.getState().user).toMatchObject({
+      username: "fixture_linux",
+      authSource: "pam",
+    })
+    expect(sessionStorage.getItem("slurm-console-session")).not.toContain("system-password")
+  })
   it("复用 SDK 登录并校验当前用户，保存会话时不保存密码", async () => {
     queryClient.setQueryData(["private-data"], "old-account-data")
     await login(record.email, "fixture-password-123")
@@ -76,7 +93,7 @@ describe("平台会话", () => {
     } catch (error) {
       failure = error
     }
-    expect(authErrorMessage(failure)).toBe("邮箱或密码不正确，或账户已被禁用。")
+    expect(authErrorMessage(failure)).toBe("用户名、邮箱或密码不正确，或账户不可用。")
     expect(pb.authStore.isValid).toBe(false)
     expect(useAuth.getState().status).toBe("anonymous")
   })

@@ -5,14 +5,16 @@ import {
   Server,
   ShieldCheck,
   ShieldOff,
+  UserRound,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/services/api"
-import { accessSchema, type PlatformUser } from "@/stores/auth"
+import { accessSchema, useAuth, type PlatformUser } from "@/stores/auth"
 
 export function AccessPage() {
+  const user = useAuth((state) => state.user)
   const {
     data: access,
     isPending,
@@ -53,6 +55,21 @@ export function AccessPage() {
           刷新权限
         </Button>
       </header>
+      {user && (
+        <div className="panel flex flex-wrap items-center gap-3 p-4">
+          <UserRound className="size-5 text-muted-foreground" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">{user.name || user.email}</p>
+            <p className="mt-1 text-2xs text-muted-foreground">
+              {user.email}
+              {user.username && ` · ${user.username}`}
+            </p>
+          </div>
+          <Badge variant="outline">
+            {user.authSource === "pam" ? "PAM 系统认证" : "平台密码认证"}
+          </Badge>
+        </div>
+      )}
       <div className="rounded-lg border bg-primary/5 p-4 text-xs leading-6 text-muted-foreground">
         权限由管理员统一授予，服务器在每次请求时验证动作和集群范围。登录账户本身不授予集群管理权限。
       </div>

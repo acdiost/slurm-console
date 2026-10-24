@@ -1,6 +1,6 @@
 # 平台认证与首次授权
 
-第二项使用 PocketBase v0.40.6 的密码认证，第三项实现平台及集群范围 RBAC。PAM、LDAP、FreeIPA 和 Slurm 身份映射尚未接入；这里的账户属于平台，不是 Linux/Slurm 用户。
+使用 PocketBase v0.40.6 管理平台账户、令牌及 RBAC；支持平台密码和 Linux PAM 两种认证来源。PAM 账户必须由管理员显式关联系统用户名，平台 ID 与集群权限独立保存；系统密码不进入 PocketBase。安装及关联命令见 [PAM 接入](pam.md)。LDAP、FreeIPA 的专门配置及 Slurm 操作身份映射尚未接入。
 
 ## 首次启动
 
@@ -56,9 +56,10 @@ go run . access revoke --email operator@example.com --role viewer --cluster rese
 
 ## 认证流程和会话
 
-- 登录、密码哈希校验和刷新使用 PocketBase 原生 `/api/collections/users/auth-with-password` 和 `/auth-refresh`，保留框架的认证规则与限流，不自行实现密码验证。
+- 登录和刷新使用 PocketBase 原生 `/api/collections/users/auth-with-password` 和 `/auth-refresh`，保留框架的认证规则与限流。本地账户使用 PocketBase 哈希校验；`auth_source=pam` 的账户只调用受限 PAM helper，绝不回退到平台密码。
 - `users.active` 必须为 true；公开注册、普通用户 CRUD、自行修改启用状态和权限均关闭。管理员可在 PocketBase 控制台维护账户（控制台 `_superusers` 身份不作为平台用户接受）。
 - 登录或恢复会话后调用 `/api/v1/auth/me`，校验活动平台用户并读取实际角色和动作权限。
+- PAM 登录同时调用 `pam_authenticate` 和 `pam_acct_mgmt`。刷新令牌及业务 API 请求再次检查 PAM account 策略；账户到期、密码过期要求变更等拒绝结果会阻止访问。PAM 故障返回 503，前端保留可重试状态。
 - 平台 JWT 有效期为一小时，当前标签页的 sessionStorage 保存 SDK 会话，页面刷新必须到服务器重新校验；存储不可用时只使用内存。密码不保存，退出时清空令牌和业务请求缓存。前端识别到过期或 API 401 时返回登录。
 - 认证服务不可用时不会进入受保护工作空间，保留可重试的会话恢复状态。
 - PocketBase 使用无服务端会话的令牌认证：退出只清除本标签页的会话，不使已复制的令牌立即失效。需要立即阻断账户时，将 `active` 设为 false；已签发令牌也不能通过当前用户和业务授权检查。
@@ -70,4 +71,4 @@ go run . access revoke --email operator@example.com --role viewer --cluster rese
 
 Go 迁移随程序编译，启动时应用。关闭控制台自动生成迁移；集合变更需要在 Git 中评审。初始迁移关闭 PocketBase 默认公开注册，创建锁定的权限集合并初始化角色和动作。
 
-这两项迁移不支持自动 down：自动删除认证字段或授权记录可能重新启用禁用账户或丢失授权证据，因此命令会明确返回错误。需要回退时，在停服状态下使用升级前的一致性数据库备份，并恢复对应版本的程序。完整备份部署流程在后续事项实施。
+认证、RBAC 和 PAM 迁移不支持自动 down：自动删除认证字段、身份关联或授权记录可能重新启用禁用账户或丢失授权证据，因此命令会明确返回错误。需要回退时，在停服状态下使用升级前的一致性数据库备份，并恢复对应版本的程序。完整备份部署流程在后续事项实施。

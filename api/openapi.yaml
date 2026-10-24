@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.2.0
-  description: 平台认证和基础 RBAC。集群接口当前只提供授权范围内的标识信息，尚未连接 Slurm。
+  version: 0.3.0
+  description: 平台密码/PAM 认证和基础 RBAC。PAM 账户的业务请求复查系统 account 策略，服务不可用时返回 503。集群接口当前只提供授权范围内的标识信息，尚未连接 Slurm。
 servers:
   - url: /
 paths:
@@ -59,6 +59,8 @@ paths:
           $ref: '#/components/responses/Error'
         '403':
           $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /api/v1/clusters:
     get:
       operationId: listClusters
@@ -109,6 +111,8 @@ paths:
           $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /api/v1/clusters/{clusterId}:
     get:
       operationId: getCluster
@@ -140,10 +144,12 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /api/collections/users/auth-with-password:
     post:
       operationId: login
-      summary: PocketBase 原生密码认证，每 IP 每分钟最多 5 次
+      summary: 用户名或邮箱登录，按账户来源验证平台密码或 PAM，每 IP 每分钟最多 5 次
       requestBody:
         required: true
         content:
@@ -154,11 +160,15 @@ paths:
               properties:
                 identity:
                   type: string
-                  format: email
+                  description: 平台邮箱或管理员已关联的非 root 系统用户名，不自动创建平台账户
+                  minLength: 1
+                  maxLength: 255
                 password:
                   type: string
                   format: password
                   writeOnly: true
+                  minLength: 1
+                  maxLength: 255
       responses:
         '200':
           $ref: '#/components/responses/NativeAuth'
@@ -168,10 +178,12 @@ paths:
           $ref: '#/components/responses/NativeError'
         '429':
           $ref: '#/components/responses/NativeError'
+        '503':
+          $ref: '#/components/responses/NativeError'
   /api/collections/users/auth-refresh:
     post:
       operationId: refreshSession
-      summary: PocketBase 原生令牌刷新，重新校验账户启用状态
+      summary: PocketBase 原生令牌刷新，复查平台启用状态和 PAM account 策略
       security:
         - platformToken: []
       responses:
@@ -180,6 +192,8 @@ paths:
         '401':
           $ref: '#/components/responses/NativeError'
         '403':
+          $ref: '#/components/responses/NativeError'
+        '503':
           $ref: '#/components/responses/NativeError'
 components:
   securitySchemes:
@@ -292,7 +306,7 @@ components:
                   type: string
     User:
       type: object
-      required: [id, email, name, access]
+      required: [id, email, name, username, authSource, access]
       properties:
         id:
           type: string
@@ -301,5 +315,11 @@ components:
           format: email
         name:
           type: string
+        username:
+          type: string
+          description: PAM 系统用户名，本地账户为空字符串
+        authSource:
+          type: string
+          enum: [local, pam]
         access:
           $ref: '#/components/schemas/Access'

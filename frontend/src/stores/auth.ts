@@ -25,6 +25,8 @@ const userSchema = z.object({
   id: z.string().min(1),
   email: z.email(),
   name: z.string(),
+  username: z.string().default(""),
+  authSource: z.enum(["local", "pam"]).default("local"),
   access: accessSchema,
 })
 export type PlatformUser = z.infer<typeof userSchema>
@@ -46,7 +48,7 @@ export function authErrorMessage(error: unknown) {
   if (error instanceof ClientResponseError) {
     if (error.status === 429) return "登录请求过于频繁，请稍后再试。"
     if ([400, 401, 403].includes(error.status))
-      return "邮箱或密码不正确，或账户已被禁用。"
+      return "用户名、邮箱或密码不正确，或账户不可用。"
   }
   return "暂时无法连接认证服务，请稍后重试。"
 }
@@ -64,7 +66,7 @@ export function logout(message = "") {
   clearSession(message)
 }
 
-async function authenticate(credentials?: { email: string; password: string }) {
+async function authenticate(credentials?: { identity: string; password: string }) {
   activeFlow?.abort()
   const controller = new AbortController()
   activeFlow = controller
@@ -77,7 +79,7 @@ async function authenticate(credentials?: { email: string; password: string }) {
     if (credentials)
       await client
         .collection("users")
-        .authWithPassword(credentials.email, credentials.password, options)
+        .authWithPassword(credentials.identity, credentials.password, options)
     else {
       client.authStore.save(pb.authStore.token, pb.authStore.record)
       await client.collection("users").authRefresh(options)
@@ -130,7 +132,7 @@ export function restoreSession(): Promise<void> {
   return pending
 }
 
-export async function login(email: string, password: string) {
+export async function login(identity: string, password: string) {
   clearSession()
-  await authenticate({ email, password })
+  await authenticate({ identity, password })
 }

@@ -7,7 +7,7 @@
 
 ## 当前进度与本地启动
 
-已完成阶段一前三项：项目初始化及 UI 设计系统、PocketBase Go 框架与认证、基础 RBAC 及集群权限。当前支持平台登录、会话刷新、退出、按动作及集群授权的查询，以及 `/design-system` 和 `/access` 页面。
+已完成阶段一前三项：项目初始化及 UI 设计系统、PocketBase Go 框架与认证、基础 RBAC 及集群权限，并按实施顺序提前接入 Linux PAM。当前支持用户名或邮箱登录、会话刷新、退出、按动作及集群授权的查询，以及 `/design-system` 和 `/access` 页面。
 
 要求 Node.js 22.16+（22.x）或 24 LTS、npm 10+、Go 1.27.3+（Go 的自动工具链可按 `go.mod` 下载）。PocketBase 固定为 v0.40.6：
 
@@ -21,7 +21,7 @@ make dev          # 终端二，打开 Vite 输出的地址
 
 首次登录前，在 `backend/` 中运行 `go run . users create --email <你的邮箱> --name <显示名称>`，在隐藏输入提示中设置密码。账户默认没有集群权限；本机管理员可用 `access grant` 授权，详见 [认证与授权](docs/authentication.md)。没有内置账户或默认密码，公开注册已关闭。
 
-设计系统的作业记录仍为固定样例；`clusters` 目前只登记授权所需的非敏感标识，不连接 Slurm。下一项为“集群连接配置”。PAM、LDAP、FreeIPA 尚未实现，本阶段使用 PocketBase 平台账户密码认证。
+设计系统的作业记录仍为固定样例；`clusters` 目前只登记授权所需的非敏感标识，不连接 Slurm。下一项为“集群连接配置”。PAM 使用独立受限辅助程序，Web 服务以普通用户运行；Rocky Linux 安装及账户关联见 [PAM 接入](docs/pam.md)。本地开发默认保留 PocketBase 平台密码登录，LDAP、FreeIPA 的专门配置尚未实现。
 
 开发说明见 [本地开发](docs/deployment.md)、[UI 设计系统](docs/design-system.md) 和 [工程架构](docs/architecture.md)。
 

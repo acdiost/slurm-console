@@ -9,7 +9,7 @@ afterEach(() => {
   logout()
   vi.unstubAllGlobals()
 })
-it("校验输入并在拒绝登录后清空密码、保留邮箱", async () => {
+it("支持系统用户名并在拒绝登录后清空密码、保留身份", async () => {
   logout()
   useAuth.setState({ status: "anonymous", user: null, message: "" })
   const fetchMock = vi.fn().mockResolvedValue(
@@ -25,11 +25,11 @@ it("校验输入并在拒绝登录后清空密码、保留邮箱", async () => {
     </MemoryRouter>
   )
   await user.click(screen.getByRole("button", { name: "登录" }))
-  expect(await screen.findByText("请输入有效的邮箱地址")).toBeVisible()
+  expect(await screen.findByText("请输入用户名或邮箱")).toBeVisible()
   expect(fetchMock).not.toHaveBeenCalled()
   await user.type(
-    screen.getByLabelText("邮箱", { exact: true }),
-    "fixture@example.com"
+    screen.getByLabelText("用户名或邮箱", { exact: true }),
+    "fixture_linux"
   )
   await user.type(
     screen.getByLabelText("密码", { exact: true }),
@@ -41,9 +41,10 @@ it("校验输入并在拒绝登录后清空密码、保留邮箱", async () => {
     "text"
   )
   await user.click(screen.getByRole("button", { name: "登录" }))
-  expect(await screen.findByRole("alert")).toHaveTextContent("邮箱或密码不正确")
+  expect(await screen.findByRole("alert")).toHaveTextContent("用户名、邮箱或密码不正确")
+  expect(fetchMock.mock.calls[0][1].body).toContain('"identity":"fixture_linux"')
   expect(screen.getByLabelText("密码", { exact: true })).toHaveValue("")
-  expect(screen.getByLabelText("邮箱", { exact: true })).toHaveValue(
-    "fixture@example.com"
+  expect(screen.getByLabelText("用户名或邮箱", { exact: true })).toHaveValue(
+    "fixture_linux"
   )
 })

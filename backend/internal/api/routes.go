@@ -18,10 +18,12 @@ import (
 )
 
 type User struct {
-	ID     string      `json:"id"`
-	Email  string      `json:"email"`
-	Name   string      `json:"name"`
-	Access rbac.Access `json:"access"`
+	ID         string      `json:"id"`
+	Email      string      `json:"email"`
+	Name       string      `json:"name"`
+	Username   string      `json:"username"`
+	AuthSource string      `json:"authSource"`
+	Access     rbac.Access `json:"access"`
 }
 
 func Register(routes *router.Router[*core.RequestEvent], publicDir string) {
@@ -68,7 +70,7 @@ func Register(routes *router.Router[*core.RequestEvent], publicDir string) {
 		if err != nil {
 			return e.InternalServerError("", err)
 		}
-		return response(e, User{ID: e.Auth.Id, Email: e.Auth.Email(), Name: e.Auth.GetString("name"), Access: access})
+		return response(e, User{ID: e.Auth.Id, Email: e.Auth.Email(), Name: e.Auth.GetString("name"), Username: e.Auth.GetString("username"), AuthSource: e.Auth.GetString("auth_source"), Access: access})
 	}).Bind(apis.RequireAuth("users")).BindFunc(auth.RequireActiveUser)
 	registerClusterRoutes(group)
 	// Never serve the SPA for missing API routes.
