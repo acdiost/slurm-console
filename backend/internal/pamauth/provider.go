@@ -19,24 +19,33 @@ type Process struct {
 	Sudo    bool
 	Timeout time.Duration
 	slots   chan struct{}
+	pending chan struct{}
 }
 
 func NewProcess(path string, sudo bool) (*Process, error) {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
 		return nil, fmt.Errorf("PAM helper must use an absolute clean path")
 	}
-	return &Process{Path: path, Sudo: sudo, Timeout: 9 * time.Second, slots: make(chan struct{}, 4)}, nil
+	return &Process{Path: path, Sudo: sudo, Timeout: 9 * time.Second, slots: make(chan struct{}, 4), pending: make(chan struct{}, 16)}, nil
 }
 
 func (p *Process) Run(ctx context.Context, request Request) (Result, error) {
+	ctx, cancel := context.WithTimeout(ctx, p.Timeout)
+	defer cancel()
+	// Bound both helper processes and queued requests. A short page-load burst
+	// waits for a slot without caching or skipping any account-policy check.
 	select {
-	case p.slots <- struct{}{}:
-		defer func() { <-p.slots }()
+	case p.pending <- struct{}{}:
+		defer func() { <-p.pending }()
 	default:
 		return Result{}, ErrUnavailable
 	}
-	ctx, cancel := context.WithTimeout(ctx, p.Timeout)
-	defer cancel()
+	select {
+	case p.slots <- struct{}{}:
+		defer func() { <-p.slots }()
+	case <-ctx.Done():
+		return Result{}, ErrUnavailable
+	}
 	input, err := json.Marshal(request)
 	if err != nil {
 		return Result{}, ErrUnavailable

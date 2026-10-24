@@ -27,7 +27,7 @@ bash deploy/install-pam-rocky.sh
 | `/etc/sudoers.d/slurm-console-pam` | root 所有、0440，只允许服务账户运行无参数 helper |
 | `/var/lib/slurm-console/pb_data` | 服务账户所有、0700，平台数据库 |
 
-helper 固定使用 `slurm-console` PAM service，拒绝 UID 0、空密码、多次密码询问、身份重写及可被非 root 写入的策略文件。密码只通过 stdin 传入，不使用参数、环境变量或临时文件。helper 不创建会话、不设置用户凭据、不运行用户命令；8 秒硬超时，Web 侧最多并发 4 个 helper。Web 服务保持普通用户身份；因此此 systemd 单元不能增加 `NoNewPrivileges=true`，否则 sudo 将被阻止。
+helper 固定使用 `slurm-console` PAM service，拒绝 UID 0、空密码、多次密码询问、身份重写及可被非 root 写入的策略文件。密码只通过 stdin 传入，不使用参数、环境变量或临时文件。helper 不创建会话、不设置用户凭据、不运行用户命令；8 秒硬超时，Web 侧最多并发 4 个 helper，最多接纳 16 个处理中/排队请求；排队计入 9 秒总截止时间，取消会释放队列位置，溢出或超时返回 503。每次请求仍独立执行 account 检查。Web 服务保持普通用户身份；因此此 systemd 单元不能增加 `NoNewPrivileges=true`，否则 sudo 将被阻止。
 
 ## 关联平台账户
 

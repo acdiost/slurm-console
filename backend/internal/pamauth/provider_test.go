@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -42,6 +43,55 @@ func TestHelperProtocolAndTimeout(t *testing.T) {
 				t.Fatal("invalid result")
 			}
 		})
+	}
+}
+
+func TestHelperQueuesPageLoadBurstAndHonorsQueueCancellation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "helper")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\ncat >/dev/null\nsleep 0.1\nprintf '%s' '{\"ok\":true,\"username\":\"fixture\"}'\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	process, err := NewProcess(path, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var group sync.WaitGroup
+	results := make(chan error, 8)
+	for range 8 {
+		group.Go(func() {
+			_, err := process.Run(context.Background(), Request{Mode: "account", Username: "fixture"})
+			results <- err
+		})
+	}
+	group.Wait()
+	close(results)
+	for err := range results {
+		if err != nil {
+			t.Fatalf("page load burst rejected: %v", err)
+		}
+	}
+	for range cap(process.slots) {
+		process.slots <- struct{}{}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if _, err := process.Run(ctx, Request{Mode: "account", Username: "fixture"}); !errors.Is(err, ErrUnavailable) {
+		t.Fatal("queued cancellation ignored")
+	}
+	if len(process.pending) != 0 {
+		t.Fatal("cancelled request leaked queue capacity")
+	}
+	for range cap(process.slots) {
+		<-process.slots
+	}
+	for range cap(process.pending) {
+		process.pending <- struct{}{}
+	}
+	if _, err := process.Run(context.Background(), Request{Mode: "account", Username: "fixture"}); !errors.Is(err, ErrUnavailable) {
+		t.Fatal("queue bound ignored")
+	}
+	for range cap(process.pending) {
+		<-process.pending
 	}
 }
 
