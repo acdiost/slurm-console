@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.3.0
-  description: 平台密码/PAM 认证和基础 RBAC。PAM 账户的业务请求复查系统 account 策略，服务不可用时返回 503。集群接口当前只提供授权范围内的标识信息，尚未连接 Slurm。
+  version: 0.4.0
+  description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群接口当前只提供授权范围内的标识信息，尚未连接 Slurm。
 servers:
   - url: /
 paths:
@@ -149,7 +149,7 @@ paths:
   /api/collections/users/auth-with-password:
     post:
       operationId: login
-      summary: 用户名或邮箱登录，按账户来源验证平台密码或 PAM，每 IP 每分钟最多 5 次
+      summary: 用户名或邮箱登录，按账户来源验证平台密码/PAM/LDAP，每 IP 每分钟最多 5 次
       requestBody:
         required: true
         content:
@@ -160,7 +160,7 @@ paths:
               properties:
                 identity:
                   type: string
-                  description: 平台邮箱或管理员已关联的非 root 系统用户名，不自动创建平台账户
+                  description: 平台邮箱或管理员已关联的系统/目录用户名，不自动创建平台账户；PAM 不允许 UID 0
                   minLength: 1
                   maxLength: 255
                 password:
@@ -183,7 +183,7 @@ paths:
   /api/collections/users/auth-refresh:
     post:
       operationId: refreshSession
-      summary: PocketBase 原生令牌刷新，复查平台启用状态和 PAM account 策略
+      summary: PocketBase 原生令牌刷新，复查平台启用状态及外部账户资格/目录唯一标识
       security:
         - platformToken: []
       responses:
@@ -317,9 +317,9 @@ components:
           type: string
         username:
           type: string
-          description: PAM 系统用户名，本地账户为空字符串
+          description: PAM/LDAP 外部用户名，本地账户为空字符串
         authSource:
           type: string
-          enum: [local, pam]
+          enum: [local, pam, ldap]
         access:
           $ref: '#/components/schemas/Access'

@@ -1,0 +1,2 @@
+[Service]
+Environment=SLURM_CONSOLE_LDAP_CONFIG=/etc/slurm-console/ldap.json

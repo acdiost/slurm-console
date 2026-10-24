@@ -107,7 +107,7 @@ export function LoginPage() {
               登录工作空间
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              使用平台邮箱或已关联的系统用户名登录。
+              使用平台邮箱或已关联的用户名登录。
             </p>
           </div>
           <form className="space-y-5" onSubmit={submit} noValidate>

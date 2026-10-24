@@ -22,6 +22,6 @@ make build # frontend/dist 和 backend/slurm-console
 
 构建后，可在 `backend/` 中运行 `./slurm-console serve --http=127.0.0.1:8090`，PocketBase 默认从 `../frontend/dist` 提供 SPA。`SLURM_CONSOLE_PUBLIC_DIR` 可指定绝对静态目录；`--dir` 指定数据库目录。未知 `/api` 不回退到 HTML。所有 CLI 与服务应使用同一数据目录，初始化迁移前停止服务。
 
-`deploy/` 提供 Rocky Linux PAM 安装脚本及以普通用户运行的 systemd 单元，详见 [PAM 接入](pam.md)。反向代理、一致性备份和恢复验证仍在“基础部署与备份”事项中实现。内网正式环境应经 HTTPS 反向代理提供服务；PocketBase 默认监听回环地址。
+`deploy/` 提供 Rocky Linux PAM 安装脚本、普通用户 systemd 单元、LDAP 配置模板和隔离测试目录，详见 [PAM 接入](pam.md)、[LDAP 接入](ldap.md)。反向代理、一致性备份和恢复验证仍在“基础部署与备份”事项中实现。内网正式环境应经 HTTPS 反向代理提供服务；PocketBase 默认监听回环地址。
 
-目前具备平台密码/PAM 登录和授权查询，没有 Slurm 连接能力。不要在前端环境变量中放入 Slurm JWT 或连接凭据。SMTP、LDAP/FreeIPA 专门配置尚未接入；账户恢复当前由可信管理员维护。
+目前具备平台密码/PAM/LDAP 登录和授权查询，没有 Slurm 连接能力。不要在前端环境变量中放入 Slurm JWT、目录查询密码或连接凭据。SMTP、FreeIPA/AD 专属生命周期与目录组同步尚未接入；账户恢复当前由可信管理员维护。

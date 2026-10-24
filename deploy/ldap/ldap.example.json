@@ -1,0 +1,10 @@
+{
+  "url": "ldaps://ldap.internal.example:636",
+  "baseDN": "ou=people,dc=example,dc=com",
+  "bindDN": "cn=console-reader,ou=service,dc=example,dc=com",
+  "bindPasswordFile": "/etc/slurm-console/ldap-bind-password",
+  "caFile": "/etc/slurm-console/ldap-ca.pem",
+  "usernameAttribute": "uid",
+  "idAttribute": "entryUUID",
+  "userFilter": "(&(objectClass=inetOrgPerson)(uid={username})(!(pwdAccountLockedTime=*))(!(pwdReset=TRUE)))"
+}

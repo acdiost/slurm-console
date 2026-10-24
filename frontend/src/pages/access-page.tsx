@@ -66,7 +66,7 @@ export function AccessPage() {
             </p>
           </div>
           <Badge variant="outline">
-            {user.authSource === "pam" ? "PAM 系统认证" : "平台密码认证"}
+            {{local: "平台密码认证", pam: "PAM 系统认证", ldap: "LDAP 目录认证"}[user.authSource]}
           </Badge>
         </div>
       )}

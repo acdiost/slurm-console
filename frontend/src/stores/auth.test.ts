@@ -53,12 +53,12 @@ afterEach(() => {
 })
 
 describe("平台会话", () => {
-  it("以系统用户名登录并保留服务器返回的 PAM 认证来源", async () => {
-    const pamRecord = { ...record, username: "fixture_linux", auth_source: "pam" }
+  it.each(["pam", "ldap"])("以用户名登录并保留服务器返回的 %s 认证来源", async (source) => {
+    const pamRecord = { ...record, username: "fixture_linux", auth_source: source }
     fetchMock.mockImplementation((input: RequestInfo | URL) =>
       Promise.resolve(
         String(input).includes("/auth/me")
-          ? json({ data: { ...user, username: "fixture_linux", authSource: "pam" } })
+          ? json({ data: { ...user, username: "fixture_linux", authSource: source } })
           : json({ token: fixtureToken(), record: pamRecord })
       )
     )
@@ -66,7 +66,7 @@ describe("平台会话", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).identity).toBe("fixture_linux")
     expect(useAuth.getState().user).toMatchObject({
       username: "fixture_linux",
-      authSource: "pam",
+      authSource: source,
     })
     expect(sessionStorage.getItem("slurm-console-session")).not.toContain("system-password")
   })

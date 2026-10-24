@@ -12,5 +12,10 @@ func RequireActiveUser(e *core.RequestEvent) error {
 			return err
 		}
 	}
+	if e.Auth.GetString("auth_source") == "ldap" {
+		if err := checkLDAP(e, e.Auth, "", false); err != nil {
+			return err
+		}
+	}
 	return e.Next()
 }

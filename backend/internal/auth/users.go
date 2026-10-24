@@ -63,6 +63,7 @@ func UsersCommand(app core.App) *cobra.Command {
 	create.Flags().StringVar(&name, "name", "", "Display name")
 	_ = create.MarkFlagRequired("email")
 	root.AddCommand(create)
-	root.AddCommand(pamUserCommand(app, false), pamUserCommand(app, true))
+	root.AddCommand(externalUserCommand(app, "pam", false), externalUserCommand(app, "pam", true))
+	root.AddCommand(externalUserCommand(app, "ldap", false), externalUserCommand(app, "ldap", true), ldapCheckCommand(app))
 	return root
 }
