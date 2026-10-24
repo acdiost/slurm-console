@@ -15,3 +15,5 @@
 认证例外：密码登录和刷新复用 PocketBase 原生 `/api/collections/users/auth-with-password`、`/auth-refresh`，保留官方 SDK 需要的 `{ token, record }` 与原生错误格式。原生接口同样附带 `X-Request-ID`。不存在服务端 logout 端点，退出通过清空 SDK 会话和缓存实现。
 
 集群配置管理接口要求平台范围 `platform.clusters.manage`：`GET /cluster-connection-profiles`、`GET/POST /cluster-configurations`、`PATCH /cluster-configurations/{clusterId}`、`POST /cluster-configurations/{clusterId}/test` 和 `/disable`。列表采用相同分页约束；POST/PATCH 为完整配置（新建 revision=0），test/disable 只接受 revision。拒绝未知字段和任意 endpoint/凭据输入，配置冲突或检测繁忙返回 409 `CONFLICT`。Slurm 检测失败仍以 200 返回结构化 `lastProbe`；详细状态见 OpenAPI 和 [部署说明](cluster-connections.md)。
+
+集群只读业务查询已通过 Slurm Adapter 实现：`GET /clusters/{clusterId}/health`、`/jobs`、`/jobs/{jobId}`、`/nodes`、`/nodes/{nodeName}`、`/partitions`。它们按对应集群动作鉴权，返回统一 DTO 与缓存时间，不暴露原始 Slurm 响应；接口、分页、筛选和错误码详见 [Adapter 契约](slurm-adapter.md)。

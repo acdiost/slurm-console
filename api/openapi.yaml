@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.5.0
+  version: 0.6.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -567,6 +567,584 @@ paths:
             ],
         },
     }
+  /api/v1/clusters/{clusterId}/health:
+    {
+      "get":
+        {
+          "operationId": "slurmHealth",
+          "summary": "查询 Slurm health",
+          "description": "要求活动用户及对应集群的 clusters.read。固定受限身份访问 v0.0.43，只读，不自动重试。列表在 Go 中有界读取后分页；cached/fetchedAt 表达缓存来源及时间。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "统一 DTO，不包含原始上游敏感字段；healthy status 可为 controller_down",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "type": "object",
+                                      "required":
+                                        ["fetchedAt", "cached", "item"],
+                                      "properties":
+                                        {
+                                          "fetchedAt":
+                                            {
+                                              "type": "string",
+                                              "format": "date-time",
+                                            },
+                                          "cached": { "type": "boolean" },
+                                          "item":
+                                            {
+                                              "$ref": "#/components/schemas/SlurmHealth",
+                                            },
+                                        },
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/jobs:
+    {
+      "get":
+        {
+          "operationId": "slurmJobs",
+          "summary": "查询 Slurm jobs",
+          "description": "要求活动用户及对应集群的 jobs.read。固定受限身份访问 v0.0.43，只读，不自动重试。列表在 Go 中有界读取后分页；cached/fetchedAt 表达缓存来源及时间。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "query",
+                "name": "page",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000,
+                    "default": 1,
+                  },
+              },
+              {
+                "in": "query",
+                "name": "perPage",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 20,
+                  },
+              },
+              {
+                "in": "query",
+                "name": "q",
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+              {
+                "in": "query",
+                "name": "state",
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+              {
+                "in": "query",
+                "name": "user",
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+              {
+                "in": "query",
+                "name": "partition",
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "统一 DTO，不包含原始上游敏感字段；healthy status 可为 controller_down",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "type": "object",
+                                      "required":
+                                        [
+                                          "fetchedAt",
+                                          "cached",
+                                          "items",
+                                          "page",
+                                          "perPage",
+                                          "totalItems",
+                                        ],
+                                      "properties":
+                                        {
+                                          "fetchedAt":
+                                            {
+                                              "type": "string",
+                                              "format": "date-time",
+                                            },
+                                          "cached": { "type": "boolean" },
+                                          "items":
+                                            {
+                                              "type": "array",
+                                              "items":
+                                                {
+                                                  "$ref": "#/components/schemas/SlurmJob",
+                                                },
+                                            },
+                                          "page": { "type": "integer" },
+                                          "perPage": { "type": "integer" },
+                                          "totalItems": { "type": "integer" },
+                                        },
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/jobs/{jobId}:
+    {
+      "get":
+        {
+          "operationId": "slurmJobsjobid",
+          "summary": "查询 Slurm jobs/{jobId}",
+          "description": "要求活动用户及对应集群的 jobs.read。固定受限身份访问 v0.0.43，只读，不自动重试。列表在 Go 中有界读取后分页；cached/fetchedAt 表达缓存来源及时间。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "jobId",
+                "required": true,
+                "schema": { "type": "string", "pattern": "^[1-9][0-9]{0,9}$" },
+                "description": "实际数字 Job ID，最大 4294967295",
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "统一 DTO，不包含原始上游敏感字段；healthy status 可为 controller_down",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "type": "object",
+                                      "required":
+                                        ["fetchedAt", "cached", "item"],
+                                      "properties":
+                                        {
+                                          "fetchedAt":
+                                            {
+                                              "type": "string",
+                                              "format": "date-time",
+                                            },
+                                          "cached": { "type": "boolean" },
+                                          "item":
+                                            {
+                                              "$ref": "#/components/schemas/SlurmJob",
+                                            },
+                                        },
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/nodes:
+    {
+      "get":
+        {
+          "operationId": "slurmNodes",
+          "summary": "查询 Slurm nodes",
+          "description": "要求活动用户及对应集群的 nodes.read。固定受限身份访问 v0.0.43，只读，不自动重试。列表在 Go 中有界读取后分页；cached/fetchedAt 表达缓存来源及时间。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "query",
+                "name": "page",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000,
+                    "default": 1,
+                  },
+              },
+              {
+                "in": "query",
+                "name": "perPage",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 20,
+                  },
+              },
+              {
+                "in": "query",
+                "name": "q",
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+              {
+                "in": "query",
+                "name": "state",
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+              {
+                "in": "query",
+                "name": "partition",
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "统一 DTO，不包含原始上游敏感字段；healthy status 可为 controller_down",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "type": "object",
+                                      "required":
+                                        [
+                                          "fetchedAt",
+                                          "cached",
+                                          "items",
+                                          "page",
+                                          "perPage",
+                                          "totalItems",
+                                        ],
+                                      "properties":
+                                        {
+                                          "fetchedAt":
+                                            {
+                                              "type": "string",
+                                              "format": "date-time",
+                                            },
+                                          "cached": { "type": "boolean" },
+                                          "items":
+                                            {
+                                              "type": "array",
+                                              "items":
+                                                {
+                                                  "$ref": "#/components/schemas/SlurmNode",
+                                                },
+                                            },
+                                          "page": { "type": "integer" },
+                                          "perPage": { "type": "integer" },
+                                          "totalItems": { "type": "integer" },
+                                        },
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/nodes/{nodeName}:
+    {
+      "get":
+        {
+          "operationId": "slurmNodesnodename",
+          "summary": "查询 Slurm nodes/{nodeName}",
+          "description": "要求活动用户及对应集群的 nodes.read。固定受限身份访问 v0.0.43，只读，不自动重试。列表在 Go 中有界读取后分页；cached/fetchedAt 表达缓存来源及时间。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "nodeName",
+                "required": true,
+                "schema":
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$",
+                  },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "统一 DTO，不包含原始上游敏感字段；healthy status 可为 controller_down",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "type": "object",
+                                      "required":
+                                        ["fetchedAt", "cached", "item"],
+                                      "properties":
+                                        {
+                                          "fetchedAt":
+                                            {
+                                              "type": "string",
+                                              "format": "date-time",
+                                            },
+                                          "cached": { "type": "boolean" },
+                                          "item":
+                                            {
+                                              "$ref": "#/components/schemas/SlurmNode",
+                                            },
+                                        },
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/partitions:
+    {
+      "get":
+        {
+          "operationId": "slurmPartitions",
+          "summary": "查询 Slurm partitions",
+          "description": "要求活动用户及对应集群的 partitions.read。固定受限身份访问 v0.0.43，只读，不自动重试。列表在 Go 中有界读取后分页；cached/fetchedAt 表达缓存来源及时间。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "query",
+                "name": "page",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000,
+                    "default": 1,
+                  },
+              },
+              {
+                "in": "query",
+                "name": "perPage",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 20,
+                  },
+              },
+              {
+                "in": "query",
+                "name": "q",
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+              {
+                "in": "query",
+                "name": "state",
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "统一 DTO，不包含原始上游敏感字段；healthy status 可为 controller_down",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "type": "object",
+                                      "required":
+                                        [
+                                          "fetchedAt",
+                                          "cached",
+                                          "items",
+                                          "page",
+                                          "perPage",
+                                          "totalItems",
+                                        ],
+                                      "properties":
+                                        {
+                                          "fetchedAt":
+                                            {
+                                              "type": "string",
+                                              "format": "date-time",
+                                            },
+                                          "cached": { "type": "boolean" },
+                                          "items":
+                                            {
+                                              "type": "array",
+                                              "items":
+                                                {
+                                                  "$ref": "#/components/schemas/SlurmPartition",
+                                                },
+                                            },
+                                          "page": { "type": "integer" },
+                                          "perPage": { "type": "integer" },
+                                          "totalItems": { "type": "integer" },
+                                        },
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
 components:
   securitySchemes:
     platformToken:
@@ -610,6 +1188,21 @@ components:
                         RATE_LIMITED,
                         UNAVAILABLE,
                         INTERNAL_ERROR,
+                        REQUEST_TIMEOUT,
+                        SLURM_NOT_FOUND,
+                        SLURM_INVALID_REQUEST,
+                        SLURM_DISABLED,
+                        SLURM_CONFIGURATION_CHANGED,
+                        SLURM_BUSY,
+                        SLURM_TIMEOUT,
+                        SLURM_TLS_FAILED,
+                        SLURM_AUTH_FAILED,
+                        SLURM_API_UNSUPPORTED,
+                        SLURM_INVALID_RESPONSE,
+                        SLURM_UPSTREAM_ERROR,
+                        SLURM_PROFILE_UNAVAILABLE,
+                        SLURM_CREDENTIALS_UNAVAILABLE,
+                        SLURM_UNREACHABLE,
                       ]
                   message:
                     type: string
@@ -893,5 +1486,163 @@ components:
             "authType": { "type": "string", "enum": ["", "local", "jwt"] },
             "profileAvailable": { "type": "boolean" },
             "lastProbe": { "$ref": "#/components/schemas/ProbeResult" },
+          },
+      }
+
+    SlurmNumber:
+      {
+        "type": "object",
+        "required": ["value", "infinite"],
+        "properties":
+          {
+            "value":
+              {
+                "type": "integer",
+                "format": "int64",
+                "nullable": true,
+                "minimum": 0,
+              },
+            "infinite": { "type": "boolean" },
+          },
+      }
+    SlurmJob:
+      {
+        "type": "object",
+        "required":
+          [
+            "id",
+            "name",
+            "user",
+            "account",
+            "partition",
+            "reason",
+            "nodes",
+            "states",
+            "cpus",
+            "nodeCount",
+            "timeLimitMinutes",
+            "submitTime",
+            "startTime",
+            "endTime",
+            "arrayJobId",
+            "arrayTaskId",
+          ],
+        "properties":
+          {
+            "id": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+            "name": { "type": "string" },
+            "user": { "type": "string" },
+            "account": { "type": "string" },
+            "partition": { "type": "string" },
+            "reason": { "type": "string" },
+            "nodes": { "type": "string" },
+            "states":
+              { "type": "array", "minItems": 1, "items": { "type": "string" } },
+            "cpus": { "$ref": "#/components/schemas/SlurmNumber" },
+            "nodeCount": { "$ref": "#/components/schemas/SlurmNumber" },
+            "timeLimitMinutes": { "$ref": "#/components/schemas/SlurmNumber" },
+            "submitTime": { "$ref": "#/components/schemas/SlurmNumber" },
+            "startTime": { "$ref": "#/components/schemas/SlurmNumber" },
+            "endTime": { "$ref": "#/components/schemas/SlurmNumber" },
+            "arrayJobId": { "$ref": "#/components/schemas/SlurmNumber" },
+            "arrayTaskId": { "$ref": "#/components/schemas/SlurmNumber" },
+          },
+      }
+    SlurmNode:
+      {
+        "type": "object",
+        "required":
+          [
+            "name",
+            "hostname",
+            "reason",
+            "gres",
+            "states",
+            "cpus",
+            "allocatedCpus",
+            "memoryMiB",
+            "allocatedMemoryMiB",
+            "freeMemoryMiB",
+            "partitions",
+          ],
+        "properties":
+          {
+            "name": { "type": "string" },
+            "hostname": { "type": "string" },
+            "reason": { "type": "string" },
+            "gres": { "type": "string" },
+            "states":
+              { "type": "array", "minItems": 1, "items": { "type": "string" } },
+            "cpus": { "type": "integer", "format": "int64", "minimum": 0 },
+            "allocatedCpus":
+              { "type": "integer", "format": "int64", "minimum": 0 },
+            "memoryMiB": { "type": "integer", "format": "int64", "minimum": 0 },
+            "allocatedMemoryMiB":
+              { "type": "integer", "format": "int64", "minimum": 0 },
+            "freeMemoryMiB": { "$ref": "#/components/schemas/SlurmNumber" },
+            "partitions": { "type": "array", "items": { "type": "string" } },
+          },
+      }
+    SlurmPartition:
+      {
+        "type": "object",
+        "required":
+          [
+            "name",
+            "nodes",
+            "states",
+            "cpus",
+            "nodeCount",
+            "defaultTimeMinutes",
+            "maxTimeMinutes",
+          ],
+        "properties":
+          {
+            "name": { "type": "string" },
+            "nodes": { "type": "string" },
+            "states":
+              { "type": "array", "minItems": 1, "items": { "type": "string" } },
+            "cpus": { "type": "integer", "format": "int64", "minimum": 0 },
+            "nodeCount": { "type": "integer", "format": "int64", "minimum": 0 },
+            "defaultTimeMinutes":
+              { "$ref": "#/components/schemas/SlurmNumber" },
+            "maxTimeMinutes": { "$ref": "#/components/schemas/SlurmNumber" },
+          },
+      }
+    SlurmHealth:
+      {
+        "type": "object",
+        "required":
+          [
+            "status",
+            "serverVersion",
+            "apiVersion",
+            "cluster",
+            "controllers",
+            "capabilities",
+          ],
+        "properties":
+          {
+            "status":
+              { "type": "string", "enum": ["connected", "controller_down"] },
+            "serverVersion": { "type": "string" },
+            "apiVersion": { "type": "string", "enum": ["v0.0.43"] },
+            "cluster": { "type": "string" },
+            "controllers":
+              {
+                "type": "array",
+                "items":
+                  {
+                    "type": "object",
+                    "required": ["hostname", "state", "role"],
+                    "properties":
+                      {
+                        "hostname": { "type": "string" },
+                        "state": { "type": "string", "enum": ["UP", "DOWN"] },
+                        "role": { "type": "string" },
+                      },
+                  },
+              },
+            "capabilities": { "type": "array", "items": { "type": "string" } },
           },
       }

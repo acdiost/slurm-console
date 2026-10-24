@@ -4,18 +4,18 @@ PAM 验证后端所在 Linux 主机的系统身份。当前提供 Rocky Linux 9 
 
 ## 构建与安装
 
-在目标 Linux 架构上构建，Go 1.27.3+、gcc、PAM 开发包及 sudo 为必需。前端可在开发机执行 `npm --prefix frontend ci && npm --prefix frontend run build` 后将 `frontend/dist/` 传入同一检出目录。
+在目标 Linux 架构构建应用及 helper，准备 gcc、PAM 开发包和 sudo：
 
 ```sh
-dnf install -y gcc pam-devel sudo
-cd backend
-go build -o slurm-console .
-CGO_ENABLED=1 go build -o slurm-console-pam-helper ./cmd/pam-helper
-cd ..
-bash deploy/install-pam-rocky.sh
+make install
+make build
+make pam-helper
+sudo bash deploy/install.sh --pam
 ```
 
-安装脚本需要 root，只安装本应用的二进制、静态资源、PAM 文件、sudoers 文件和 systemd 单元。它创建无登录 shell 的 `slurm-console` 服务账户，不修改 SSH、Slurm、authselect 的 `password-auth/system-auth`。已有 `/etc/pam.d/slurm-console` 会保留。升级时先停止服务，并按现有运维流程备份数据库，再安装新版本。
+安装器仅管理本应用，具体见 [部署说明](deployment.md)。已有安装可以单独运行 `sudo bash deploy/setup-pam.sh`，脚本会安装/更新已构建 helper、生成独立 PAM 策略（已有策略保留）、验证并设置 sudoers、在统一环境文件中启用 PAM，并以服务账户执行 helper probe。只有配置内容变化且应用正在运行时才重启；连续运行不会重复追加环境变量、角色或用户。
+
+共享 `password-auth/system-auth`、authselect、SSH、Slurm 和目录服务均不修改；其他发行版的策略由管理员适配。已配置的 LDAP 与集群环境项保持不变。脚本拒绝配置目标符号链接，不执行环境文件内容，也不扩大到通用 sudo 权限。
 
 安装后的路径：
 
@@ -65,7 +65,7 @@ systemctl status slurm-console
 单元默认监听虚拟机的 `127.0.0.1:18090`，可通过 SSH 转发访问构建后的完整应用：
 
 ```sh
-ssh -N -L 18090:127.0.0.1:18090 root@192.168.100.134
+ssh -N -L 18090:127.0.0.1:18090 root@your-server
 ```
 
 打开 `http://127.0.0.1:18090`。开发前端可使用同一转发：`SLURM_CONSOLE_API_TARGET=http://127.0.0.1:18090 npm --prefix frontend run dev`。正式内网发布应使用 HTTPS 反向代理；本任务不修改防火墙或对外开放端口。

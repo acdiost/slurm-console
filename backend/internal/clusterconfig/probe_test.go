@@ -24,7 +24,7 @@ func tlsProfile(t *testing.T, handler http.HandlerFunc) (Profile, *atomic.Int32)
 	calls := &atomic.Int32{}
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
-		if r.Method != "GET" || r.URL.Path != "/slurm/v0.0.43/ping" || r.Header.Get("X-SLURM-USER-NAME") != "monitor" || r.Header.Get("X-SLURM-USER-TOKEN") != secret {
+		if r.Method != "GET" || r.URL.Path != "/slurm/v0.0.43/ping/" || r.Header.Get("X-SLURM-USER-NAME") != "monitor" || r.Header.Get("X-SLURM-USER-TOKEN") != secret {
 			t.Error("unexpected Slurm request or credentials")
 		}
 		handler(w, r)
@@ -66,7 +66,7 @@ func TestProbeClassifiesFailuresWithoutEchoingUpstreamBody(t *testing.T) {
 		{"malformed", 200, "sensitive upstream response", "invalid_response"},
 		{"wrong-parser", 200, strings.Replace(validPing, "data_parser/v0.0.43", "data_parser/v0.0.42", 1), "api_unsupported"},
 		{"down-controller", 200, strings.Replace(validPing, `"UP"`, `"DOWN"`, 1), "controller_down"},
-		{"oversized", 200, strings.Repeat("x", 1048577), "invalid_response"},
+		{"oversized", 200, strings.Repeat("x", (8<<20)+1), "invalid_response"},
 	} {
 		t.Run(sample.name, func(t *testing.T) {
 			profile, _ := tlsProfile(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(sample.status); fmt.Fprint(w, sample.body) })

@@ -16,6 +16,7 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
+      - run: bash -n ../deploy/install.sh ../deploy/setup-pam.sh
       - run: go mod verify
       - run: sudo apt-get update && sudo apt-get install -y libpam0g-dev
       - run: go vet ./...

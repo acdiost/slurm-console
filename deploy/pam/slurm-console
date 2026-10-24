@@ -1,5 +1,0 @@
-#%PAM-1.0
-# Application policy; password-auth remains managed by authselect.
-auth       include      password-auth
-account    required     pam_nologin.so
-account    include      password-auth

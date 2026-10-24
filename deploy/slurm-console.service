@@ -7,7 +7,7 @@ Type=simple
 User=slurm-console
 Group=slurm-console
 WorkingDirectory=/var/lib/slurm-console
-Environment=SLURM_CONSOLE_PAM_ENABLED=true
+EnvironmentFile=-/etc/slurm-console/slurm-console.env
 Environment=SLURM_CONSOLE_PUBLIC_DIR=/opt/slurm-console/public
 ExecStart=/opt/slurm-console/slurm-console serve --http=127.0.0.1:18090 --dir=/var/lib/slurm-console/pb_data
 Restart=on-failure

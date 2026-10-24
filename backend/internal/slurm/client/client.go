@@ -1,0 +1,226 @@
+// Package client implements bounded, authenticated access to approved Slurm REST origins.
+package client
+
+import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"errors"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+)
+
+type Error struct {
+	Code    string
+	Message string
+}
+
+func (e *Error) Error() string           { return e.Message }
+func Failure(code, message string) error { return &Error{code, message} }
+func Code(err error) string {
+	var failure *Error
+	if errors.As(err, &failure) {
+		return failure.Code
+	}
+	return "unreachable"
+}
+
+type Config struct {
+	Endpoint, AuthType, Username, TokenFile, Version string
+	TLS                                              *tls.Config
+	Timeout                                          time.Duration
+}
+type Client struct{ config Config }
+type Resource string
+
+const (
+	Ping       Resource = "ping"
+	Jobs       Resource = "jobs"
+	Job        Resource = "job"
+	Nodes      Resource = "nodes"
+	Node       Resource = "node"
+	Partitions Resource = "partitions"
+)
+
+var nodePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`)
+var jobPattern = regexp.MustCompile(`^[1-9][0-9]{0,9}$`)
+
+func ValidJobID(id string) bool {
+	_, err := strconv.ParseUint(id, 10, 32)
+	return jobPattern.MatchString(id) && err == nil
+}
+func ValidNodeName(name string) bool { return nodePattern.MatchString(name) }
+func New(config Config) (*Client, error) {
+	u, err := url.Parse(config.Endpoint)
+	if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" || config.Timeout <= 0 || config.Timeout > 30*time.Second || !slices.Contains([]string{"v0.0.41", "v0.0.42", "v0.0.43", "v0.0.44"}, config.Version) {
+		return nil, Failure("api_unsupported", "Slurm REST 连接或版本配置不受支持。")
+	}
+	if u.Scheme == "unix" {
+		if u.Host != "" || !filepath.IsAbs(u.Path) || filepath.Clean(u.Path) != u.Path || u.RawPath != "" || config.AuthType != "local" {
+			return nil, Failure("profile_unavailable", "本地连接配置不合法。")
+		}
+	} else if u.Scheme != "https" || u.Hostname() == "" || (u.Path != "" && u.Path != "/") || config.AuthType != "jwt" || config.Username == "" || strings.ContainsAny(config.Username, "\r\n\x00") || !filepath.IsAbs(config.TokenFile) {
+		return nil, Failure("profile_unavailable", "远程连接配置不合法。")
+	}
+	if config.TLS != nil {
+		config.TLS = config.TLS.Clone()
+		if config.TLS.InsecureSkipVerify {
+			return nil, Failure("tls_failed", "不允许跳过 Slurm TLS 证书校验。")
+		}
+		config.TLS.MinVersion = tls.VersionTLS12
+	}
+	return &Client{config}, nil
+}
+
+type Envelope struct {
+	Meta struct {
+		Plugin struct {
+			Parser string `json:"data_parser"`
+		} `json:"plugin"`
+		Slurm struct {
+			Release string `json:"release"`
+			Cluster string `json:"cluster"`
+		} `json:"slurm"`
+	} `json:"meta"`
+	Errors     []json.RawMessage `json:"errors"`
+	Pings      json.RawMessage   `json:"pings"`
+	Jobs       json.RawMessage   `json:"jobs"`
+	Nodes      json.RawMessage   `json:"nodes"`
+	Partitions json.RawMessage   `json:"partitions"`
+}
+
+func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelope, error) {
+	var empty Envelope
+	path := "/slurm/" + c.config.Version + "/"
+	switch resource {
+	case Ping, Jobs, Nodes, Partitions:
+		if id != "" {
+			return empty, Failure("invalid_request", "查询参数不合法。")
+		}
+		path += string(resource) + "/"
+	case Job:
+		if !ValidJobID(id) {
+			return empty, Failure("invalid_request", "作业 ID 不合法。")
+		}
+		path += "job/" + id
+	case Node:
+		if !ValidNodeName(id) {
+			return empty, Failure("invalid_request", "节点名称不合法。")
+		}
+		path += "node/" + id
+	default:
+		return empty, Failure("invalid_request", "不支持的 Slurm 查询。")
+	}
+	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
+	defer cancel()
+	dialer := &net.Dialer{Timeout: c.config.Timeout}
+	transport := &http.Transport{Proxy: nil, TLSClientConfig: c.config.TLS, DisableKeepAlives: true, ResponseHeaderTimeout: c.config.Timeout, MaxResponseHeaderBytes: 16384, DialContext: dialer.DialContext}
+	defer transport.CloseIdleConnections()
+	endpoint := strings.TrimRight(c.config.Endpoint, "/")
+	if strings.HasPrefix(c.config.Endpoint, "unix:") {
+		u, _ := url.Parse(c.config.Endpoint)
+		transport.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return dialer.DialContext(ctx, "unix", u.Path)
+		}
+		endpoint = "http://slurm-local"
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+path, nil)
+	if err != nil {
+		return empty, Failure("profile_unavailable", "Slurm 连接配置不合法。")
+	}
+	request.Header.Set("Accept", "application/json")
+	if c.config.AuthType == "jwt" {
+		token, err := readToken(c.config.TokenFile)
+		if err != nil {
+			return empty, err
+		}
+		request.Header.Set("X-SLURM-USER-NAME", c.config.Username)
+		request.Header.Set("X-SLURM-USER-TOKEN", token)
+	}
+	httpClient := &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	response, err := httpClient.Do(request)
+	if err != nil {
+		if ctx.Err() != nil {
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return empty, context.Canceled
+			}
+			return empty, Failure("timeout", "Slurm 请求超时。")
+		}
+		var timeout net.Error
+		if errors.As(err, &timeout) && timeout.Timeout() {
+			return empty, Failure("timeout", "Slurm 请求超时。")
+		}
+		var verification *tls.CertificateVerificationError
+		var unknown x509.UnknownAuthorityError
+		if errors.As(err, &verification) || errors.As(err, &unknown) {
+			return empty, Failure("tls_failed", "Slurm TLS 证书校验失败。")
+		}
+		return empty, Failure("unreachable", "无法连接 Slurm REST 服务。")
+	}
+	defer response.Body.Close()
+	switch response.StatusCode {
+	case 200:
+	case 401, 403:
+		return empty, Failure("auth_failed", "Slurm REST 拒绝该连接身份。")
+	case 404:
+		if resource == Job || resource == Node {
+			return empty, Failure("not_found", "Slurm 资源不存在或对连接身份不可见。")
+		}
+		return empty, Failure("api_unsupported", "Slurm REST 不支持该版本或查询。")
+	default:
+		return empty, Failure("unreachable", "Slurm REST 服务未正常响应。")
+	}
+	body, err := io.ReadAll(io.LimitReader(response.Body, (8<<20)+1))
+	if ctx.Err() != nil {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return empty, context.Canceled
+		}
+		return empty, Failure("timeout", "Slurm 请求超时。")
+	}
+	if err != nil || len(body) > 8<<20 || json.Unmarshal(body, &empty) != nil {
+		return Envelope{}, Failure("invalid_response", "Slurm 响应格式异常或超过大小限制。")
+	}
+	if len(empty.Errors) > 0 {
+		return Envelope{}, Failure("upstream_error", "Slurm 未完成查询，请检查上游权限与服务状态。")
+	}
+	if strings.TrimPrefix(empty.Meta.Plugin.Parser, "data_parser/") != c.config.Version {
+		return Envelope{}, Failure("api_unsupported", "Slurm 响应 API 版本与配置不一致。")
+	}
+	if empty.Meta.Slurm.Release == "" || len(empty.Meta.Slurm.Release) > 64 {
+		return Envelope{}, Failure("invalid_response", "Slurm 未返回有效版本元数据。")
+	}
+	return empty, nil
+}
+func readToken(path string) (string, error) {
+	failure := Failure("credentials_unavailable", "服务端 Slurm 凭据不可用。")
+	before, err := os.Lstat(path)
+	if err != nil || !before.Mode().IsRegular() || before.Mode().Perm()&0027 != 0 {
+		return "", failure
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "", failure
+	}
+	defer f.Close()
+	after, err := f.Stat()
+	if err != nil || !os.SameFile(before, after) {
+		return "", failure
+	}
+	data, err := io.ReadAll(io.LimitReader(f, 16385))
+	defer clear(data)
+	token := strings.TrimSpace(string(data))
+	if err != nil || len(data) > 16384 || token == "" || strings.ContainsAny(token, "\r\n\x00 \t") {
+		return "", failure
+	}
+	return token, nil
+}

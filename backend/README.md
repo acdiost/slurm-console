@@ -6,7 +6,7 @@ PocketBase v0.40.6 内嵌 Go 应用，要求 Go 1.27.3+。启动 `go run . serve
 
 Linux PAM 使用 `cmd/pam-helper`（Linux CGO 构建），由普通 Web 服务通过限定的 sudo 规则调用。`users create-pam` 创建关联账户，`users link-pam` 切换已有账户；部署及故障排查见 `../docs/pam.md`。PAM 默认关闭，关联账户不会回退到平台密码。
 
-LDAP 通过 `SLURM_CONSOLE_LDAP_CONFIG` 指向服务端 JSON 配置，支持 LDAPS / 必须成功的 StartTLS。`users check-ldap` 验证 TLS 与只读查询凭据；`users create-ldap` / `link-ldap` 关联目录唯一标识并保持 RBAC。配置和测试目录见 `../docs/ldap.md`，目录密码不保存在 PocketBase。
+LDAP 通过 `SLURM_CONSOLE_LDAP_CONFIG` 指向服务端 JSON 配置，支持 LDAPS / 必须成功的 StartTLS。`users check-ldap` 验证 TLS 与只读查询凭据；`users create-ldap` / `link-ldap` 关联目录唯一标识并保持 RBAC。客户端配置见 `../docs/ldap.md`，目录密码不保存在 PocketBase。
 
 启动时应用 Go 迁移并关闭公开注册，所有业务和授权 Collection 原生 CRUD 规则均锁定。`GET /api/v1/auth/me` 校验活动平台用户并返回实时权限；`GET /api/v1/clusters` 在服务端筛选授权范围，详情接口要求 `clusters.read`。
 
@@ -22,3 +22,5 @@ LDAP 通过 `SLURM_CONSOLE_LDAP_CONFIG` 指向服务端 JSON 配置，支持 LDA
 - `migrations`：PocketBase 数据迁移。
 
 不在浏览器保存集群凭据；不将作业、节点持久化为平台业务主表。平台用户、Slurm 身份和集群权限分别建模。
+
+Slurm Adapter 的版本、查询及缓存约束见 `../docs/slurm-adapter.md`；部署只有应用安装器和可独立重复运行的 PAM 设置脚本，不安装 LDAP/FreeIPA/slurmrestd。

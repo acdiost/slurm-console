@@ -6,7 +6,7 @@
 
 LDAP 直接由普通用户运行的 Go 后端访问，不经过 PAM、SSH 或特权 helper。固定使用 `go-ldap/ldap/v3`，支持验证证书和主机名的 LDAPS、StartTLS。`ldap://` 始终先执行 StartTLS，失败后立即关闭连接；没有明文绑定或跳过证书校验的选项。目录查询账户只需读取指定用户子树及身份/资格属性，不应具备目录管理或修改密码权限。
 
-配置模板见 [`deploy/ldap/ldap.example.json`](../deploy/ldap/ldap.example.json)。将配置安装为 `/etc/slurm-console/ldap.json`，设置环境变量 `SLURM_CONSOLE_LDAP_CONFIG` 为其绝对路径。未设置时关闭 LDAP，但已关联 LDAP 的账户仍拒绝平台密码登录。
+配置模板见 [`deploy/ldap.example.json`](../deploy/ldap.example.json)。将配置安装为 `/etc/slurm-console/ldap.json`，设置环境变量 `SLURM_CONSOLE_LDAP_CONFIG` 为其绝对路径。未设置时关闭 LDAP，但已关联 LDAP 的账户仍拒绝平台密码登录。
 
 | 字段 | 含义 |
 |---|---|
@@ -50,20 +50,10 @@ SLURM_CONSOLE_LDAP_CONFIG=/etc/slurm-console/ldap.json \
 
 目录用户删除后同名重建会产生新 `entryUUID`，已有映射不能登录或继续使用令牌。确需把新的目录身份关联至旧平台账户时，由管理员审核后显式执行 `link-ldap`；不会自动继承旧用户权限。
 
-将 [`deploy/systemd/ldap.conf.example`](../deploy/systemd/ldap.conf.example) 安装为 `/etc/systemd/system/slurm-console.service.d/ldap.conf`，根据实际路径编辑，再执行 `systemctl daemon-reload && systemctl restart slurm-console`。新账户没有任何角色，授权仍通过现有 `access grant` 单独管理。PAM 和本地恢复账户继续可用；目录网络故障不会使 LDAP 请求切换认证来源。
+在 `/etc/slurm-console/slurm-console.env` 中设置 `SLURM_CONSOLE_LDAP_CONFIG=/etc/slurm-console/ldap.json`，再执行 `systemctl restart slurm-console`。新账户没有角色，仍通过 `access grant` 单独管理。PAM 与本地恢复账户继续可用；目录故障不会切换认证来源。
 
-## 隔离测试目录
+## 管理员提供的目录服务
 
-用户提供的 Rocky Linux 虚拟机已安装 OpenLDAP。以下脚本创建独立配置、MDB、测试 CA、只读查询账户和 `ldapdemo` 目录用户，不修改原有 `/etc/openldap/slapd.d`、389/636 服务、PAM、SSH 或 Slurm 配置：
+目录服务器、TLS 证书、只读查询账户、测试用户和目录运维由系统管理员负责。仓库只提供应用客户端配置和协议测试，不安装 LDAP/FreeIPA/AD，不生成目录服务单元或演示目录。对接前使用 `users check-ldap` 检查 TLS、绑定和用户可见性，再按实际目录规则验证锁定/禁用、同名重建及故障恢复行为。不要启用会记录密码的客户端调试日志。
 
-```sh
-python3 deploy/ldap-lab/setup.py
-```
-
-该脚本拒绝覆盖已有测试目录，要求 root、OpenLDAP 工具、openssl、`ldap` 和平台服务账户。测试单元为 `slurm-console-ldap-lab`，只监听 `127.0.0.1:7389`（StartTLS）及 `127.0.0.1:3269`（LDAPS），使用 Rocky 已有的 LDAP 端口类型，不放宽 SELinux。测试配置为 `/etc/slurm-console/ldap-lab.json`，管理密码只在 root 可读文件中保留。它是演示目录，不替代生产目录。
-
-将新版本后端安装为 `/opt/slurm-console/slurm-console-ldap-candidate` 后，可运行 `python3 deploy/ldap-lab/verify.py`。验证脚本创建独立平台数据库、临时目录条目和服务，完成后清理；测试内容包括 TLS、StartTLS、用户名/邮箱、错误密码、限流、RBAC、锁定、重复 uid、同名重建及故障恢复。运行前确认现有平台服务已启动，避免把原有故障误判为测试影响。
-
-演示目录停用前，应先禁用/迁移演示关联并移除对应服务 drop-in；LDAP 关联不会自动切换为平台密码。保留 SELinux enforcing。排查可使用 `users check-ldap` 和 `journalctl -u slurm-console-ldap-lab`，不要启用会记录密码的 LDAP 客户端调试日志。
-
-参考：[OpenLDAP TLS 安全机制](https://www.openldap.org/doc/admin26/security.html)、[OpenLDAP overlays 与密码策略](https://www.openldap.org/doc/admin26/overlays.html)、[go-ldap API](https://pkg.go.dev/github.com/go-ldap/ldap/v3)。
+参考：[OpenLDAP TLS 安全机制](https://www.openldap.org/doc/admin26/security.html)、[go-ldap API](https://pkg.go.dev/github.com/go-ldap/ldap/v3)。

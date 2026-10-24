@@ -181,16 +181,16 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
           <FlaskConical className="size-3.5 text-primary" />
           工程初始化
           <span className="ml-auto font-mono text-2xs text-muted-foreground">
-            04 / 11
+            05 / 11
           </span>
         </div>
         <div className="h-1 overflow-hidden rounded-full bg-muted">
           <div className="h-full w-[36.36%] bg-primary" />
         </div>
         <p className="mt-2 text-2xs leading-relaxed text-muted-foreground">
-          阶段一 · 集群连接配置已就绪
+          阶段一 · Slurm Adapter 已就绪
           <br />
-          下一步：Slurm Adapter
+          下一步：集群总览
         </p>
       </div>
       <div className="flex items-center gap-2.5 border-t p-4">

@@ -1,2 +1,0 @@
-# Only this root-owned helper, with no command-line arguments.
-slurm-console ALL=(root) NOPASSWD: /usr/local/libexec/slurm-console-pam-helper ""
