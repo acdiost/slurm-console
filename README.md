@@ -7,18 +7,21 @@
 
 ## 当前进度与本地启动
 
-已完成阶段一第一项：项目初始化及 UI 设计系统。当前提供 `/design-system` 交互预览，包含 Mira 组件、浅色/深色主题、科研红/Slurm 蓝、状态语义色、紧凑表格、表单校验和操作确认。
+已完成阶段一前三项：项目初始化及 UI 设计系统、PocketBase Go 框架与认证、基础 RBAC 及集群权限。当前支持平台登录、会话刷新、退出、按动作及集群授权的查询，以及 `/design-system` 和 `/access` 页面。
 
-要求 Node.js 22.16+（22.x）或 24 LTS、npm 10+：
+要求 Node.js 22.16+（22.x）或 24 LTS、npm 10+、Go 1.27.3+（Go 的自动工具链可按 `go.mod` 下载）。PocketBase 固定为 v0.40.6：
 
 ```sh
 make install
-make dev
+make dev-backend  # 终端一，后端监听 127.0.0.1:8090
+make dev          # 终端二，打开 Vite 输出的地址
 ```
 
 打开 Vite 输出的本地地址。校验使用 `make check`、`make test`、`make build`。
 
-本阶段使用明确标注的固定样例，尚未接入 PocketBase 认证、集群或 Slurm 业务接口。后端目录和 Go module 已建立，下一项为“PocketBase Go 框架与认证”。
+首次登录前，在 `backend/` 中运行 `go run . users create --email <你的邮箱> --name <显示名称>`，在隐藏输入提示中设置密码。账户默认没有集群权限；本机管理员可用 `access grant` 授权，详见 [认证与授权](docs/authentication.md)。没有内置账户或默认密码，公开注册已关闭。
+
+设计系统的作业记录仍为固定样例；`clusters` 目前只登记授权所需的非敏感标识，不连接 Slurm。下一项为“集群连接配置”。PAM、LDAP、FreeIPA 尚未实现，本阶段使用 PocketBase 平台账户密码认证。
 
 开发说明见 [本地开发](docs/deployment.md)、[UI 设计系统](docs/design-system.md) 和 [工程架构](docs/architecture.md)。
 
@@ -593,8 +596,8 @@ PocketBase + Go
 目标：完成 Slurm 基本管理闭环。
 
 - [x] 项目初始化及 UI 设计系统
-- [ ] PocketBase Go 框架与认证
-- [ ] 基础 RBAC 及集群权限
+- [x] PocketBase Go 框架与认证
+- [x] 基础 RBAC 及集群权限
 - [ ] 集群连接配置
 - [ ] Slurm Adapter
 - [ ] 集群总览

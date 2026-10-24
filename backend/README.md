@@ -1,8 +1,15 @@
 # 后端工程边界
 
-当前完成目录和 Go module 初始化，尚未提供 HTTP 服务。下一项“PocketBase Go 框架与认证”将在这里实现应用入口、固定 PocketBase 版本和认证迁移。
+PocketBase v0.40.6 内嵌 Go 应用，要求 Go 1.27.3+。启动 `go run . serve --http=127.0.0.1:8090`。数据库默认写入当前工作目录的 `pb_data/`，通过 `--dir` 可选择其他目录；数据库与凭据不提交 Git。
+
+`go run . users create --email <邮箱> --name <名称>` 创建平台账户，密码通过隐藏终端输入或 stdin 读取。初始账户没有任何集群授权。`go run . access --help` 查看平台/集群授权命令。认证和权限约定见 `../docs/authentication.md`、`../docs/permissions.md`。
+
+启动时应用 Go 迁移并关闭公开注册，所有业务和授权 Collection 原生 CRUD 规则均锁定。`GET /api/v1/auth/me` 校验活动平台用户并返回实时权限；`GET /api/v1/clusters` 在服务端筛选授权范围，详情接口要求 `clusters.read`。
+
+`SLURM_CONSOLE_PUBLIC_DIR` 可指定已构建的前端目录，默认 `../frontend/dist`；如果存在 `index.html`，同一后端提供 SPA 回退。未知 `/api` 请求始终返回 API 错误，不回退到 HTML。
 
 - `internal/api`：平台 `/api/v1` 路由。
+- `internal/application`：PocketBase 初始化、迁移和命令注册。
 - `internal/auth`、`internal/rbac`：平台身份和集群范围授权。
 - `internal/slurm/{client,adapter,models}`：独立的 Slurm 接口适配。
 - `internal/services`：应用服务。

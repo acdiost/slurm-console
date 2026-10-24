@@ -6,7 +6,7 @@ coverage/
 .env
 .env.*
 !.env.example
-backend/pb_data/
+pb_data/
 backend/pb_public/
 backend/slurm-console
 *.log

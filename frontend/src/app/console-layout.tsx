@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { NavLink, Outlet } from "react-router"
+import { NavLink, Outlet, useLocation } from "react-router"
 import {
   Activity,
   ArrowUpRight,
@@ -11,6 +11,7 @@ import {
   FlaskConical,
   Layers3,
   LayoutDashboard,
+  LogOut,
   Menu,
   Monitor,
   Moon,
@@ -46,6 +47,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { usePreferences, type Theme } from "@/stores/preferences"
+import { logout, useAuth } from "@/stores/auth"
 
 const sections = [
   {
@@ -74,8 +76,9 @@ const sections = [
 ]
 
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
+  const user = useAuth((state) => state.user)
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-y-auto">
       <div className="flex h-17 items-center gap-2.5 px-5">
         <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <Boxes className="size-4.5" />
@@ -105,8 +108,9 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
           <NavLink
             to="/design-system"
             onClick={onNavigate}
-            className="nav-item mt-1 bg-primary/10 font-medium text-primary"
-            aria-current="page"
+            className={({ isActive }) =>
+              `nav-item mt-1 ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
+            }
           >
             <Palette />
             <span>设计系统</span>
@@ -129,39 +133,66 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
             ))}
           </div>
         ))}
+        <NavLink
+          to="/access"
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
+          }
+        >
+          <ShieldCheck />
+          <span>我的权限</span>
+        </NavLink>
       </nav>
       <div className="m-3 mt-8 rounded-lg border bg-background/60 p-3">
         <div className="mb-2 flex items-center gap-2 text-xs font-medium">
           <FlaskConical className="size-3.5 text-primary" />
           工程初始化
           <span className="ml-auto font-mono text-2xs text-muted-foreground">
-            01 / 11
+            03 / 11
           </span>
         </div>
         <div className="h-1 overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-[9.09%] bg-primary" />
+          <div className="h-full w-[27.27%] bg-primary" />
         </div>
         <p className="mt-2 text-2xs leading-relaxed text-muted-foreground">
-          阶段一 · UI 基础设施已就绪
+          阶段一 · 认证与权限已就绪
           <br />
-          下一步：PocketBase 与认证
+          下一步：集群连接配置
         </p>
       </div>
       <div className="flex items-center gap-2.5 border-t p-4">
         <div className="flex size-7 items-center justify-center rounded-full border bg-background text-2xs font-medium">
-          DEV
+          {user?.name.slice(0, 1) ||
+            user?.email.slice(0, 1).toUpperCase() ||
+            "U"}
         </div>
-        <div className="flex-1">
-          <p className="text-xs font-medium">本地开发环境</p>
-          <p className="text-2xs text-muted-foreground">设计系统预览</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-medium">
+            {user?.name || "平台用户"}
+          </p>
+          <p
+            className="truncate text-2xs text-muted-foreground"
+            title={user?.email}
+          >
+            {user?.email}
+          </p>
         </div>
-        <Monitor className="size-3.5 text-muted-foreground" />
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="退出登录"
+          onClick={() => logout()}
+        >
+          <LogOut />
+        </Button>
       </div>
     </div>
   )
 }
 
 export function ConsoleLayout() {
+  const { pathname } = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const { theme, setTheme } = usePreferences()
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor
@@ -208,7 +239,7 @@ export function ConsoleLayout() {
               工作空间
             </span>
             <ChevronRight className="hidden size-3 text-muted-foreground sm:inline" />
-            <span>设计系统</span>
+            <span>{pathname === "/access" ? "我的权限" : "设计系统"}</span>
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <Badge
@@ -216,7 +247,7 @@ export function ConsoleLayout() {
               className="hidden gap-1.5 font-normal sm:flex"
             >
               <span className="size-1.5 rounded-full bg-[var(--blue-9)]" />
-              本地预览
+              已登录
             </Badge>
             <div className="hidden h-4 w-px bg-border sm:block" />
             <ThemeIcon
@@ -244,7 +275,13 @@ export function ConsoleLayout() {
                   aria-label="查看设计规范"
                   asChild
                 >
-                  <a href="#design-notes">
+                  <a
+                    href={
+                      pathname === "/design-system"
+                        ? "#design-notes"
+                        : "/design-system#design-notes"
+                    }
+                  >
                     <CircleHelp />
                   </a>
                 </Button>
