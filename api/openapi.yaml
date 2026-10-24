@@ -1,0 +1,8 @@
+openapi: 3.0.3
+info:
+  title: Slurm Console API
+  version: 0.1.0
+  description: 项目初始化占位契约；尚无已实现的业务端点，后续按 README 第 5 节扩展。
+servers:
+  - url: /api/v1
+paths: {}

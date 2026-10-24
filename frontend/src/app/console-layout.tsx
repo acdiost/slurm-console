@@ -1,0 +1,264 @@
+import { useState } from "react"
+import { NavLink, Outlet } from "react-router"
+import {
+  Activity,
+  ArrowUpRight,
+  Boxes,
+  ChevronRight,
+  CircleHelp,
+  Cpu,
+  Database,
+  FlaskConical,
+  Layers3,
+  LayoutDashboard,
+  Menu,
+  Monitor,
+  Moon,
+  Network,
+  Palette,
+  PanelLeftClose,
+  Server,
+  Settings2,
+  ShieldCheck,
+  Sun,
+  Users,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { usePreferences, type Theme } from "@/stores/preferences"
+
+const sections = [
+  {
+    label: "资源与调度",
+    items: [
+      { label: "作业管理", icon: Layers3 },
+      { label: "节点管理", icon: Server },
+      { label: "分区管理", icon: Network },
+      { label: "CPU / GPU 资源", icon: Cpu },
+    ],
+  },
+  {
+    label: "身份与策略",
+    items: [
+      { label: "Linux 用户", icon: Users },
+      { label: "账户与策略", icon: ShieldCheck },
+    ],
+  },
+  {
+    label: "平台管理",
+    items: [
+      { label: "监控与统计", icon: Activity },
+      { label: "平台设置", icon: Settings2 },
+    ],
+  },
+]
+
+function Navigation({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex h-17 items-center gap-2.5 px-5">
+        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <Boxes className="size-4.5" />
+        </div>
+        <div>
+          <span className="text-[15px] font-semibold tracking-tight">
+            Slurm Console
+          </span>
+          <div className="font-mono text-micro tracking-[0.18em] text-muted-foreground">
+            COMPUTE OPERATIONS
+          </div>
+        </div>
+      </div>
+      <div className="mx-3 mb-5 flex items-center gap-2 rounded-md border bg-background/60 px-3 py-2.5 text-xs text-muted-foreground">
+        <Database className="size-3.5" />
+        <span className="flex-1">尚未连接集群</span>
+        <span className="size-1.5 rounded-full bg-muted-foreground/50" />
+      </div>
+      <nav aria-label="主导航" className="flex-1 space-y-5 px-3">
+        <div>
+          <p className="nav-label">工作空间</p>
+          <button disabled className="nav-item">
+            <LayoutDashboard />
+            <span>集群总览</span>
+            <span className="ml-auto text-2xs">待接入</span>
+          </button>
+          <NavLink
+            to="/design-system"
+            onClick={onNavigate}
+            className="nav-item mt-1 bg-primary/10 font-medium text-primary"
+            aria-current="page"
+          >
+            <Palette />
+            <span>设计系统</span>
+            <Badge
+              variant="outline"
+              className="ml-auto border-primary/20 text-micro text-primary"
+            >
+              MVP
+            </Badge>
+          </NavLink>
+        </div>
+        {sections.map((section) => (
+          <div key={section.label}>
+            <p className="nav-label">{section.label}</p>
+            {section.items.map(({ label, icon: Icon }) => (
+              <button key={label} disabled className="nav-item">
+                <Icon />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+      </nav>
+      <div className="m-3 mt-8 rounded-lg border bg-background/60 p-3">
+        <div className="mb-2 flex items-center gap-2 text-xs font-medium">
+          <FlaskConical className="size-3.5 text-primary" />
+          工程初始化
+          <span className="ml-auto font-mono text-2xs text-muted-foreground">
+            01 / 11
+          </span>
+        </div>
+        <div className="h-1 overflow-hidden rounded-full bg-muted">
+          <div className="h-full w-[9.09%] bg-primary" />
+        </div>
+        <p className="mt-2 text-2xs leading-relaxed text-muted-foreground">
+          阶段一 · UI 基础设施已就绪
+          <br />
+          下一步：PocketBase 与认证
+        </p>
+      </div>
+      <div className="flex items-center gap-2.5 border-t p-4">
+        <div className="flex size-7 items-center justify-center rounded-full border bg-background text-2xs font-medium">
+          DEV
+        </div>
+        <div className="flex-1">
+          <p className="text-xs font-medium">本地开发环境</p>
+          <p className="text-2xs text-muted-foreground">设计系统预览</p>
+        </div>
+        <Monitor className="size-3.5 text-muted-foreground" />
+      </div>
+    </div>
+  )
+}
+
+export function ConsoleLayout() {
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const { theme, setTheme } = usePreferences()
+  const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor
+  return (
+    <div className="min-h-svh bg-background">
+      <a
+        href="#main-content"
+        className="sr-only fixed top-2 left-2 z-50 rounded bg-primary p-2 text-primary-foreground focus:not-sr-only"
+      >
+        跳转到主要内容
+      </a>
+      <aside className="fixed inset-y-0 left-0 hidden w-57 border-r bg-sidebar lg:block">
+        <Navigation />
+      </aside>
+      <div className="lg:pl-57">
+        <header className="flex h-14 items-center gap-3 border-b bg-card px-4 sm:px-7">
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="打开导航"
+                className="lg:hidden"
+              >
+                <Menu />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-64 gap-0 p-0">
+              <SheetHeader className="sr-only">
+                <SheetTitle>主导航</SheetTitle>
+                <SheetDescription>
+                  Slurm Console 工作空间与功能导航
+                </SheetDescription>
+              </SheetHeader>
+              <Navigation onNavigate={() => setMobileOpen(false)} />
+            </SheetContent>
+          </Sheet>
+          <PanelLeftClose
+            className="hidden size-4 text-muted-foreground lg:block"
+            aria-hidden="true"
+          />
+          <div className="flex items-center gap-2 text-xs">
+            <span className="hidden text-muted-foreground sm:inline">
+              工作空间
+            </span>
+            <ChevronRight className="hidden size-3 text-muted-foreground sm:inline" />
+            <span>设计系统</span>
+          </div>
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <Badge
+              variant="outline"
+              className="hidden gap-1.5 font-normal sm:flex"
+            >
+              <span className="size-1.5 rounded-full bg-[var(--blue-9)]" />
+              本地预览
+            </Badge>
+            <div className="hidden h-4 w-px bg-border sm:block" />
+            <ThemeIcon
+              className="size-3.5 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Select
+              value={theme}
+              onValueChange={(value) => setTheme(value as Theme)}
+            >
+              <SelectTrigger aria-label="界面主题" className="w-25">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="system">跟随系统</SelectItem>
+                <SelectItem value="light">浅色模式</SelectItem>
+                <SelectItem value="dark">深色模式</SelectItem>
+              </SelectContent>
+            </Select>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="查看设计规范"
+                  asChild
+                >
+                  <a href="#design-notes">
+                    <CircleHelp />
+                  </a>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                查看设计规范 <ArrowUpRight className="ml-1 inline size-3" />
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </header>
+        <main id="main-content" tabIndex={-1}>
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  )
+}
