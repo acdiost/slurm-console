@@ -40,7 +40,7 @@ make dev
 
 ## 集群范围授权
 
-当前集群集合只保存 `id/name/slug/description`，用于权限隔离，不包含 endpoint、JWT 或其他凭据，也不检查 Slurm 连接。
+集群集合保存标识、服务端连接引用及非敏感配置/检测结果；普通授权接口只返回 `id/name/slug/description`。平台 Super Admin 可通过 [集群配置](cluster-connections.md) 接入真实连接；CLI 登记的旧标识默认停用。数据库不保存 JWT 或其他凭据。
 
 在 `backend/` 中登记集群标识后，可分配集群角色：
 

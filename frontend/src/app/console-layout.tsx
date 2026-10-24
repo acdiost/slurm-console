@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { NavLink, Outlet, useLocation } from "react-router"
 import {
   Activity,
@@ -48,6 +49,7 @@ import {
 } from "@/components/ui/tooltip"
 import { usePreferences, type Theme } from "@/stores/preferences"
 import { logout, useAuth } from "@/stores/auth"
+import { api } from "@/services/api"
 
 const sections = [
   {
@@ -77,6 +79,16 @@ const sections = [
 
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const user = useAuth((state) => state.user)
+  const inventory = useQuery({
+    queryKey: ["cluster-inventory"],
+    queryFn: ({ signal }) =>
+      api<{ totalItems: number }>("/clusters?perPage=1", { signal }),
+    staleTime: 30000,
+    retry: false,
+  })
+  const canManage =
+    user?.access.platformPermissions.includes("platform.clusters.manage") ??
+    false
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <div className="flex h-17 items-center gap-2.5 px-5">
@@ -94,7 +106,15 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
       </div>
       <div className="mx-3 mb-5 flex items-center gap-2 rounded-md border bg-background/60 px-3 py-2.5 text-xs text-muted-foreground">
         <Database className="size-3.5" />
-        <span className="flex-1">尚未连接集群</span>
+        <span className="flex-1">
+          {inventory.isPending
+            ? "正在读取集群…"
+            : inventory.isError
+              ? "集群信息暂不可用"
+              : inventory.data?.totalItems
+                ? `${inventory.data.totalItems} 个已登记集群`
+                : "暂无可见集群"}
+        </span>
         <span className="size-1.5 rounded-full bg-muted-foreground/50" />
       </div>
       <nav aria-label="主导航" className="flex-1 space-y-5 px-3">
@@ -125,6 +145,18 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
         {sections.map((section) => (
           <div key={section.label}>
             <p className="nav-label">{section.label}</p>
+            {section.label === "平台管理" && canManage && (
+              <NavLink
+                to="/clusters"
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
+                }
+              >
+                <Network />
+                <span>集群配置</span>
+              </NavLink>
+            )}
             {section.items.map(({ label, icon: Icon }) => (
               <button key={label} disabled className="nav-item">
                 <Icon />
@@ -149,16 +181,16 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
           <FlaskConical className="size-3.5 text-primary" />
           工程初始化
           <span className="ml-auto font-mono text-2xs text-muted-foreground">
-            03 / 11
+            04 / 11
           </span>
         </div>
         <div className="h-1 overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-[27.27%] bg-primary" />
+          <div className="h-full w-[36.36%] bg-primary" />
         </div>
         <p className="mt-2 text-2xs leading-relaxed text-muted-foreground">
-          阶段一 · 认证与权限已就绪
+          阶段一 · 集群连接配置已就绪
           <br />
-          下一步：集群连接配置
+          下一步：Slurm Adapter
         </p>
       </div>
       <div className="flex items-center gap-2.5 border-t p-4">
@@ -239,7 +271,13 @@ export function ConsoleLayout() {
               工作空间
             </span>
             <ChevronRight className="hidden size-3 text-muted-foreground sm:inline" />
-            <span>{pathname === "/access" ? "我的权限" : "设计系统"}</span>
+            <span>
+              {pathname === "/clusters"
+                ? "集群配置"
+                : pathname === "/access"
+                  ? "我的权限"
+                  : "设计系统"}
+            </span>
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <Badge

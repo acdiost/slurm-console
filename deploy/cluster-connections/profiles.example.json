@@ -1,0 +1,19 @@
+{
+  "profiles": {
+    "local-slurm": {
+      "label": "本机 Slurm",
+      "endpoint": "unix:///run/slurm-console-rest/rest.sock",
+      "authType": "local",
+      "apiVersions": ["v0.0.43"]
+    },
+    "remote-slurm": {
+      "label": "远程 Slurm（配置后再启用）",
+      "endpoint": "https://slurm-rest.example.internal:6820",
+      "authType": "jwt",
+      "username": "slurm-console",
+      "tokenFile": "/etc/slurm-console/secrets/remote-slurm.jwt",
+      "caFile": "/etc/slurm-console/tls/slurm-ca.pem",
+      "apiVersions": ["v0.0.43"]
+    }
+  }
+}

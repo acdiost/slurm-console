@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.4.0
-  description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群接口当前只提供授权范围内的标识信息，尚未连接 Slurm。
+  version: 0.5.0
+  description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
 paths:
@@ -11,11 +11,11 @@ paths:
       operationId: health
       summary: 检查应用数据库健康
       responses:
-        '200':
+        "200":
           description: 数据库可访问
           headers:
             X-Request-ID:
-              $ref: '#/components/headers/RequestId'
+              $ref: "#/components/headers/RequestId"
           content:
             application/json:
               schema:
@@ -31,8 +31,8 @@ paths:
                         enum: [ok]
                   requestId:
                     type: string
-        '503':
-          $ref: '#/components/responses/Error'
+        "503":
+          $ref: "#/components/responses/Error"
   /api/v1/auth/me:
     get:
       operationId: currentUser
@@ -40,11 +40,11 @@ paths:
       security:
         - platformToken: []
       responses:
-        '200':
+        "200":
           description: 本人的用户信息和权限，不包含密码、tokenKey 或 Slurm 凭据
           headers:
             X-Request-ID:
-              $ref: '#/components/headers/RequestId'
+              $ref: "#/components/headers/RequestId"
           content:
             application/json:
               schema:
@@ -52,15 +52,15 @@ paths:
                 required: [data, requestId]
                 properties:
                   data:
-                    $ref: '#/components/schemas/User'
+                    $ref: "#/components/schemas/User"
                   requestId:
                     type: string
-        '401':
-          $ref: '#/components/responses/Error'
-        '403':
-          $ref: '#/components/responses/Error'
-        '503':
-          $ref: '#/components/responses/Error'
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
   /api/v1/clusters:
     get:
       operationId: listClusters
@@ -83,7 +83,7 @@ paths:
             maximum: 100
             default: 20
       responses:
-        '200':
+        "200":
           description: 只包含已授权集群；未授权用户得到空列表
           content:
             application/json:
@@ -100,19 +100,19 @@ paths:
                       items:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Cluster'
+                          $ref: "#/components/schemas/Cluster"
                       page:
                         type: integer
                       perPage:
                         type: integer
                       totalItems:
                         type: integer
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        '503':
-          $ref: '#/components/responses/Error'
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
   /api/v1/clusters/{clusterId}:
     get:
       operationId: getCluster
@@ -126,7 +126,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: 授权集群的非敏感元数据
           content:
             application/json:
@@ -135,17 +135,17 @@ paths:
                 required: [data, requestId]
                 properties:
                   data:
-                    $ref: '#/components/schemas/Cluster'
+                    $ref: "#/components/schemas/Cluster"
                   requestId:
                     type: string
-        '401':
-          $ref: '#/components/responses/Error'
-        '403':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        '503':
-          $ref: '#/components/responses/Error'
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
   /api/collections/users/auth-with-password:
     post:
       operationId: login
@@ -170,16 +170,16 @@ paths:
                   minLength: 1
                   maxLength: 255
       responses:
-        '200':
-          $ref: '#/components/responses/NativeAuth'
-        '400':
-          $ref: '#/components/responses/NativeError'
-        '403':
-          $ref: '#/components/responses/NativeError'
-        '429':
-          $ref: '#/components/responses/NativeError'
-        '503':
-          $ref: '#/components/responses/NativeError'
+        "200":
+          $ref: "#/components/responses/NativeAuth"
+        "400":
+          $ref: "#/components/responses/NativeError"
+        "403":
+          $ref: "#/components/responses/NativeError"
+        "429":
+          $ref: "#/components/responses/NativeError"
+        "503":
+          $ref: "#/components/responses/NativeError"
   /api/collections/users/auth-refresh:
     post:
       operationId: refreshSession
@@ -187,14 +187,386 @@ paths:
       security:
         - platformToken: []
       responses:
-        '200':
-          $ref: '#/components/responses/NativeAuth'
-        '401':
-          $ref: '#/components/responses/NativeError'
-        '403':
-          $ref: '#/components/responses/NativeError'
-        '503':
-          $ref: '#/components/responses/NativeError'
+        "200":
+          $ref: "#/components/responses/NativeAuth"
+        "401":
+          $ref: "#/components/responses/NativeError"
+        "403":
+          $ref: "#/components/responses/NativeError"
+        "503":
+          $ref: "#/components/responses/NativeError"
+  /api/v1/cluster-connection-profiles:
+    {
+      "get":
+        {
+          "operationId": "listConnectionProfiles",
+          "summary": "列出服务端批准的连接方式",
+          "description": "要求活动用户及平台范围 platform.clusters.manage。结果不含凭据、用户名、凭据文件路径或原始上游响应。",
+          "security": [{ "platformToken": [] }],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "成功；检测失败通过 lastProbe.status 表达",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "type": "array",
+                                      "items":
+                                        {
+                                          "$ref": "#/components/schemas/ConnectionProfile",
+                                        },
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
+  /api/v1/cluster-configurations:
+    {
+      "get":
+        {
+          "operationId": "listClusterConfigurations",
+          "summary": "分页列出集群连接配置及上次检测结果",
+          "description": "要求活动用户及平台范围 platform.clusters.manage。结果不含凭据、用户名、凭据文件路径或原始上游响应。",
+          "security": [{ "platformToken": [] }],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "成功；检测失败通过 lastProbe.status 表达",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "type": "object",
+                                      "required":
+                                        [
+                                          "items",
+                                          "page",
+                                          "perPage",
+                                          "totalItems",
+                                        ],
+                                      "properties":
+                                        {
+                                          "items":
+                                            {
+                                              "type": "array",
+                                              "items":
+                                                {
+                                                  "$ref": "#/components/schemas/ClusterConfiguration",
+                                                },
+                                            },
+                                          "page": { "type": "integer" },
+                                          "perPage": { "type": "integer" },
+                                          "totalItems": { "type": "integer" },
+                                        },
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+          "parameters":
+            [
+              {
+                "in": "query",
+                "name": "page",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000,
+                    "default": 1,
+                  },
+              },
+              {
+                "in": "query",
+                "name": "perPage",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 20,
+                  },
+              },
+            ],
+        },
+      "post":
+        {
+          "operationId": "createClusterConfiguration",
+          "summary": "创建集群连接配置",
+          "description": "要求活动用户及平台范围 platform.clusters.manage。结果不含凭据、用户名、凭据文件路径或原始上游响应。",
+          "security": [{ "platformToken": [] }],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "成功；检测失败通过 lastProbe.status 表达",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/ClusterConfiguration",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        {
+                          "$ref": "#/components/schemas/ClusterConfigurationInput",
+                        },
+                    },
+                },
+            },
+        },
+    }
+  /api/v1/cluster-configurations/{clusterId}:
+    {
+      "patch":
+        {
+          "operationId": "updateClusterConfiguration",
+          "summary": "更新完整配置，revision 冲突返回 409",
+          "description": "要求活动用户及平台范围 platform.clusters.manage。结果不含凭据、用户名、凭据文件路径或原始上游响应。",
+          "security": [{ "platformToken": [] }],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "成功；检测失败通过 lastProbe.status 表达",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/ClusterConfiguration",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        {
+                          "$ref": "#/components/schemas/ClusterConfigurationInput",
+                        },
+                    },
+                },
+            },
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+        },
+    }
+  /api/v1/cluster-configurations/{clusterId}/test:
+    {
+      "post":
+        {
+          "operationId": "testClusterConnection",
+          "summary": "只读检测 REST 与控制器并持久化结果",
+          "description": "要求活动用户及平台范围 platform.clusters.manage。结果不含凭据、用户名、凭据文件路径或原始上游响应。",
+          "security": [{ "platformToken": [] }],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "成功；检测失败通过 lastProbe.status 表达",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/ClusterConfiguration",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    { "schema": { "$ref": "#/components/schemas/Revision" } },
+                },
+            },
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+        },
+    }
+  /api/v1/cluster-configurations/{clusterId}/disable:
+    {
+      "post":
+        {
+          "operationId": "disableClusterConnection",
+          "summary": "停用平台连接，保留标识与授权",
+          "description": "要求活动用户及平台范围 platform.clusters.manage。结果不含凭据、用户名、凭据文件路径或原始上游响应。",
+          "security": [{ "platformToken": [] }],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "成功；检测失败通过 lastProbe.status 表达",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/ClusterConfiguration",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    { "schema": { "$ref": "#/components/schemas/Revision" } },
+                },
+            },
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+        },
+    }
 components:
   securitySchemes:
     platformToken:
@@ -212,7 +584,7 @@ components:
       description: 平台错误响应，Cache-Control 为 no-store
       headers:
         X-Request-ID:
-          $ref: '#/components/headers/RequestId'
+          $ref: "#/components/headers/RequestId"
       content:
         application/json:
           schema:
@@ -227,14 +599,25 @@ components:
                 properties:
                   code:
                     type: string
-                    enum: [BAD_REQUEST, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, METHOD_NOT_ALLOWED, RATE_LIMITED, UNAVAILABLE, INTERNAL_ERROR]
+                    enum:
+                      [
+                        BAD_REQUEST,
+                        UNAUTHENTICATED,
+                        FORBIDDEN,
+                        NOT_FOUND,
+                        METHOD_NOT_ALLOWED,
+                        CONFLICT,
+                        RATE_LIMITED,
+                        UNAVAILABLE,
+                        INTERNAL_ERROR,
+                      ]
                   message:
                     type: string
     NativeError:
       description: 保留 PocketBase 原生错误格式供官方 SDK 使用
       headers:
         X-Request-ID:
-          $ref: '#/components/headers/RequestId'
+          $ref: "#/components/headers/RequestId"
       content:
         application/json:
           schema:
@@ -250,7 +633,7 @@ components:
       description: PocketBase 原生认证响应，令牌有效期一小时
       headers:
         X-Request-ID:
-          $ref: '#/components/headers/RequestId'
+          $ref: "#/components/headers/RequestId"
       content:
         application/json:
           schema:
@@ -295,7 +678,7 @@ components:
             required: [cluster, roles, permissions]
             properties:
               cluster:
-                $ref: '#/components/schemas/Cluster'
+                $ref: "#/components/schemas/Cluster"
               roles:
                 type: array
                 items:
@@ -322,4 +705,193 @@ components:
           type: string
           enum: [local, pam, ldap]
         access:
-          $ref: '#/components/schemas/Access'
+          $ref: "#/components/schemas/Access"
+
+    ClusterConfigurationInput:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required":
+          [
+            "name",
+            "slug",
+            "description",
+            "connectionRef",
+            "apiVersion",
+            "enabled",
+            "timeoutSeconds",
+            "revision",
+          ],
+        "properties":
+          {
+            "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+            "slug":
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9-]*$",
+                "description": "创建后不可修改",
+              },
+            "description": { "type": "string", "maxLength": 1000 },
+            "connectionRef":
+              {
+                "type": "string",
+                "description": "服务端批准的引用，不接受任意 endpoint 或凭据",
+              },
+            "apiVersion":
+              {
+                "type": "string",
+                "enum": ["v0.0.41", "v0.0.42", "v0.0.43", "v0.0.44"],
+              },
+            "enabled": { "type": "boolean" },
+            "timeoutSeconds":
+              { "type": "integer", "minimum": 1, "maximum": 30 },
+            "revision":
+              {
+                "type": "integer",
+                "minimum": 0,
+                "description": "新建为 0，修改使用上次读取的版本",
+              },
+          },
+      }
+    Revision:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["revision"],
+        "properties": { "revision": { "type": "integer", "minimum": 0 } },
+      }
+    ConnectionProfile:
+      {
+        "type": "object",
+        "required": ["ref", "label", "endpoint", "authType", "apiVersions"],
+        "properties":
+          {
+            "ref": { "type": "string" },
+            "label": { "type": "string" },
+            "endpoint":
+              {
+                "type": "string",
+                "description": "已批准的 HTTPS origin 或绝对 Unix socket URL",
+              },
+            "authType": { "type": "string", "enum": ["local", "jwt"] },
+            "apiVersions": { "type": "array", "items": { "type": "string" } },
+          },
+      }
+    ProbeResult:
+      {
+        "type": "object",
+        "required":
+          [
+            "status",
+            "message",
+            "checkedAt",
+            "durationMs",
+            "serverVersion",
+            "controllers",
+          ],
+        "properties":
+          {
+            "status":
+              {
+                "type": "string",
+                "enum":
+                  [
+                    "not_tested",
+                    "connected",
+                    "unreachable",
+                    "timeout",
+                    "tls_failed",
+                    "auth_failed",
+                    "api_unsupported",
+                    "invalid_response",
+                    "controller_down",
+                    "credentials_unavailable",
+                    "profile_unavailable",
+                  ],
+              },
+            "message": { "type": "string" },
+            "checkedAt":
+              {
+                "type": "string",
+                "description": "RFC3339 检测结束时间，未检测为空",
+              },
+            "durationMs": { "type": "integer", "minimum": 0 },
+            "serverVersion":
+              {
+                "type": "string",
+                "description": "RESTD 元数据版本，未检测为空",
+              },
+            "controllers":
+              {
+                "type": "array",
+                "items":
+                  {
+                    "type": "object",
+                    "required": ["hostname", "state", "role"],
+                    "properties":
+                      {
+                        "hostname": { "type": "string" },
+                        "state": { "type": "string", "enum": ["UP", "DOWN"] },
+                        "role": { "type": "string" },
+                      },
+                  },
+              },
+          },
+      }
+    ClusterConfiguration:
+      {
+        "type": "object",
+        "required":
+          [
+            "name",
+            "slug",
+            "description",
+            "connectionRef",
+            "apiVersion",
+            "enabled",
+            "timeoutSeconds",
+            "revision",
+            "id",
+            "endpoint",
+            "authType",
+            "profileAvailable",
+            "lastProbe",
+          ],
+        "properties":
+          {
+            "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+            "slug":
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9-]*$",
+                "description": "创建后不可修改",
+              },
+            "description": { "type": "string", "maxLength": 1000 },
+            "connectionRef":
+              {
+                "type": "string",
+                "description": "服务端批准的引用，不接受任意 endpoint 或凭据",
+              },
+            "apiVersion":
+              {
+                "type": "string",
+                "enum": ["v0.0.41", "v0.0.42", "v0.0.43", "v0.0.44"],
+              },
+            "enabled": { "type": "boolean" },
+            "timeoutSeconds":
+              { "type": "integer", "minimum": 1, "maximum": 30 },
+            "revision":
+              {
+                "type": "integer",
+                "minimum": 0,
+                "description": "新建为 0，修改使用上次读取的版本",
+              },
+            "id": { "type": "string" },
+            "endpoint": { "type": "string" },
+            "authType": { "type": "string", "enum": ["", "local", "jwt"] },
+            "profileAvailable": { "type": "boolean" },
+            "lastProbe": { "$ref": "#/components/schemas/ProbeResult" },
+          },
+      }

@@ -24,4 +24,4 @@ make build # frontend/dist 和 backend/slurm-console
 
 `deploy/` 提供 Rocky Linux PAM 安装脚本、普通用户 systemd 单元、LDAP 配置模板和隔离测试目录，详见 [PAM 接入](pam.md)、[LDAP 接入](ldap.md)。反向代理、一致性备份和恢复验证仍在“基础部署与备份”事项中实现。内网正式环境应经 HTTPS 反向代理提供服务；PocketBase 默认监听回环地址。
 
-目前具备平台密码/PAM/LDAP 登录和授权查询，没有 Slurm 连接能力。不要在前端环境变量中放入 Slurm JWT、目录查询密码或连接凭据。SMTP、FreeIPA/AD 专属生命周期与目录组同步尚未接入；账户恢复当前由可信管理员维护。
+目前具备平台密码/PAM/LDAP 登录和授权查询，支持 Slurm 连接配置和只读控制器检测，配置文件及 REST 服务部署见 [集群连接配置](cluster-connections.md)。不要在前端环境变量中放入 Slurm JWT、目录查询密码或连接凭据。SMTP、FreeIPA/AD 专属生命周期与目录组同步尚未接入；账户恢复当前由可信管理员维护。

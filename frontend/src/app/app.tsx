@@ -32,6 +32,11 @@ const AccessPage = lazy(() =>
     default: module.AccessPage,
   }))
 )
+const ClusterConfigurationsPage = lazy(() =>
+  import("@/pages/cluster-configurations-page").then((module) => ({
+    default: module.ClusterConfigurationsPage,
+  }))
+)
 
 export function App() {
   useAppearance()
@@ -59,12 +64,16 @@ export function App() {
                   <Route path="design-system" element={<DesignSystemPage />} />
                   <Route path="access" element={<AccessPage />} />
                   <Route
+                    path="clusters"
+                    element={<ClusterConfigurationsPage />}
+                  />
+                  <Route
                     path="*"
                     element={
                       <div className="space-y-4 p-10">
                         <h1 className="text-xl font-semibold">页面不存在</h1>
                         <p className="text-muted-foreground">
-                          当前阶段提供 UI 设计系统预览。
+                          请通过左侧导航访问可用功能。
                         </p>
                         <Button asChild>
                           <Link to="/design-system">返回设计系统</Link>
@@ -89,9 +98,11 @@ function RouteTitle() {
     const title =
       pathname === "/login"
         ? "登录"
-        : pathname === "/access"
-          ? "我的权限"
-          : "设计系统"
+        : pathname === "/clusters"
+          ? "集群配置"
+          : pathname === "/access"
+            ? "我的权限"
+            : "设计系统"
     document.title = `${title} · Slurm Console`
   }, [pathname])
   return null

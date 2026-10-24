@@ -66,7 +66,13 @@ export function AccessPage() {
             </p>
           </div>
           <Badge variant="outline">
-            {{local: "平台密码认证", pam: "PAM 系统认证", ldap: "LDAP 目录认证"}[user.authSource]}
+            {
+              {
+                local: "平台密码认证",
+                pam: "PAM 系统认证",
+                ldap: "LDAP 目录认证",
+              }[user.authSource]
+            }
           </Badge>
         </div>
       )}
@@ -106,7 +112,8 @@ export function AccessPage() {
                   </div>
                   <PermissionList values={access.platformPermissions} />
                   <p className="text-2xs text-muted-foreground">
-                    平台授权中的集群动作适用于所有集群。配置连接和真实操作在后续阶段开放。
+                    平台授权中的集群动作适用于所有集群。配置管理需要平台级授权，Slurm
+                    业务操作将在后续阶段接入。
                   </p>
                 </>
               ) : (

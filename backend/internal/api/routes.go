@@ -43,7 +43,7 @@ func Register(routes *router.Router[*core.RequestEvent], publicDir string) {
 			if err != nil {
 				apiError := router.ToApiError(err)
 				status = apiError.Status
-				code := map[int]string{400: "BAD_REQUEST", 401: "UNAUTHENTICATED", 403: "FORBIDDEN", 404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED", 429: "RATE_LIMITED", 503: "UNAVAILABLE"}[status]
+				code := map[int]string{400: "BAD_REQUEST", 401: "UNAUTHENTICATED", 403: "FORBIDDEN", 404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED", 409: "CONFLICT", 429: "RATE_LIMITED", 503: "UNAVAILABLE"}[status]
 				if code == "" {
 					code = "INTERNAL_ERROR"
 				}
@@ -73,6 +73,7 @@ func Register(routes *router.Router[*core.RequestEvent], publicDir string) {
 		return response(e, User{ID: e.Auth.Id, Email: e.Auth.Email(), Name: e.Auth.GetString("name"), Username: e.Auth.GetString("username"), AuthSource: e.Auth.GetString("auth_source"), Access: access})
 	}).Bind(apis.RequireAuth("users")).BindFunc(auth.RequireActiveUser)
 	registerClusterRoutes(group)
+	registerConfigurationRoutes(group)
 	// Never serve the SPA for missing API routes.
 	routes.Any("/api/{path...}", func(e *core.RequestEvent) error { return e.NotFoundError("接口不存在。", nil) })
 	if _, err := os.Stat(publicDir + "/index.html"); err == nil {

@@ -1,6 +1,6 @@
 # API 实施约定
 
-`api/openapi.yaml` 记录已实现的认证和集群授权查询契约。后续业务实现必须同步扩展契约。
+`api/openapi.yaml` 记录已实现的认证、集群授权查询和集群连接配置契约。后续业务实现必须同步扩展契约。
 
 - 所有业务请求统一走 Go 的 `/api/v1`，浏览器不直接访问 slurmrestd。
 - 错误统一包含业务错误码、信息和请求标识。
@@ -13,3 +13,5 @@
 平台自定义成功响应为 `{ data, requestId }`，错误为 `{ error: { code, message }, requestId }`，响应头包含 `X-Request-ID`；会话和权限响应使用 `Cache-Control: no-store`。未认证返回 401，无动作或集群权限返回 403，未知资源返回 404，分页非法返回 400。
 
 认证例外：密码登录和刷新复用 PocketBase 原生 `/api/collections/users/auth-with-password`、`/auth-refresh`，保留官方 SDK 需要的 `{ token, record }` 与原生错误格式。原生接口同样附带 `X-Request-ID`。不存在服务端 logout 端点，退出通过清空 SDK 会话和缓存实现。
+
+集群配置管理接口要求平台范围 `platform.clusters.manage`：`GET /cluster-connection-profiles`、`GET/POST /cluster-configurations`、`PATCH /cluster-configurations/{clusterId}`、`POST /cluster-configurations/{clusterId}/test` 和 `/disable`。列表采用相同分页约束；POST/PATCH 为完整配置（新建 revision=0），test/disable 只接受 revision。拒绝未知字段和任意 endpoint/凭据输入，配置冲突或检测繁忙返回 409 `CONFLICT`。Slurm 检测失败仍以 200 返回结构化 `lastProbe`；详细状态见 OpenAPI 和 [部署说明](cluster-connections.md)。
