@@ -27,6 +27,9 @@ const DesignSystemPage = lazy(() =>
     default: module.DesignSystemPage,
   }))
 )
+const JobsPage = lazy(() =>
+  import("@/pages/jobs-page").then((module) => ({ default: module.JobsPage }))
+)
 const OverviewPage = lazy(() =>
   import("@/pages/overview-page").then((module) => ({
     default: module.OverviewPage,
@@ -64,6 +67,7 @@ export function App() {
                 <Route element={<ConsoleLayout />}>
                   <Route index element={<Navigate to="/overview" replace />} />
                   <Route path="overview" element={<OverviewPage />} />
+                  <Route path="jobs" element={<JobsPage />} />
                   <Route path="design-system" element={<DesignSystemPage />} />
                   <Route path="access" element={<AccessPage />} />
                   <Route
@@ -101,13 +105,15 @@ function RouteTitle() {
     const title =
       pathname === "/login"
         ? "登录"
-        : pathname === "/overview"
-          ? "集群总览"
-          : pathname === "/clusters"
-            ? "集群配置"
-            : pathname === "/access"
-              ? "我的权限"
-              : "设计系统"
+        : pathname === "/jobs"
+          ? "作业管理"
+          : pathname === "/overview"
+            ? "集群总览"
+            : pathname === "/clusters"
+              ? "集群配置"
+              : pathname === "/access"
+                ? "我的权限"
+                : "设计系统"
     document.title = `${title} · Slurm Console`
   }, [pathname])
   return null

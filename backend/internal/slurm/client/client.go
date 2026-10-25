@@ -121,6 +121,21 @@ func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelo
 	default:
 		return empty, Failure("invalid_request", "不支持的 Slurm 查询。")
 	}
+	return c.request(ctx, http.MethodGet, path, nil)
+}
+
+// Cancel only targets one validated numeric job. Callers must enforce platform
+// permissions, ownership, fresh state and a durable audit before invoking it.
+func (c *Client) Cancel(ctx context.Context, id string) (bool, error) {
+	if !ValidJobID(id) {
+		return false, Failure("invalid_request", "作业 ID 不合法。")
+	}
+	sent := false
+	_, err := c.request(ctx, http.MethodDelete, "/slurm/"+c.config.Version+"/job/"+id+"?signal=KILL", &sent)
+	return sent, err
+}
+func (c *Client) request(ctx context.Context, method, path string, sent *bool) (Envelope, error) {
+	var empty Envelope
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
 	dialer := &net.Dialer{Timeout: c.config.Timeout}
@@ -134,7 +149,7 @@ func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelo
 		}
 		endpoint = "http://slurm-local"
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+path, nil)
+	request, err := http.NewRequestWithContext(ctx, method, endpoint+path, nil)
 	if err != nil {
 		return empty, Failure("profile_unavailable", "Slurm 连接配置不合法。")
 	}
@@ -148,6 +163,9 @@ func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelo
 		request.Header.Set("X-SLURM-USER-TOKEN", token)
 	}
 	httpClient := &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	if sent != nil {
+		*sent = true
+	}
 	response, err := httpClient.Do(request)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -171,9 +189,15 @@ func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelo
 	switch response.StatusCode {
 	case 200:
 	case 401, 403:
+		if sent != nil {
+			*sent = false
+		}
 		return empty, Failure("auth_failed", "Slurm REST 拒绝该连接身份。")
 	case 404:
-		if resource == Job || resource == Node {
+		if sent != nil {
+			*sent = false
+		}
+		if strings.Contains(path, "/job/") || strings.Contains(path, "/node/") {
 			return empty, Failure("not_found", "Slurm 资源不存在或对连接身份不可见。")
 		}
 		return empty, Failure("api_unsupported", "Slurm REST 不支持该版本或查询。")

@@ -116,6 +116,17 @@ func (a *Adapter) Health(ctx context.Context) (models.Health, error) {
 }
 
 type wireJob struct {
+	UserID          *int64 `json:"user_id"`
+	QOS             string `json:"qos"`
+	Priority        noVal  `json:"priority"`
+	MemoryPerNode   noVal  `json:"memory_per_node"`
+	MemoryPerCPU    noVal  `json:"memory_per_cpu"`
+	HetID           noVal  `json:"het_job_id"`
+	HetOffset       noVal  `json:"het_job_offset"`
+	HetIDSet        string `json:"het_job_id_set"`
+	ArrayTaskString string `json:"array_task_string"`
+	Restarts        *int64 `json:"restart_cnt"`
+
 	ID        *int64   `json:"job_id"`
 	Name      string   `json:"name"`
 	User      string   `json:"user_name"`
@@ -154,7 +165,7 @@ func (a *Adapter) jobs(ctx context.Context, id string) ([]models.Job, error) {
 			return nil, invalid()
 		}
 		seen[*j.ID] = true
-		result = append(result, models.Job{ID: strconv.FormatInt(*j.ID, 10), Name: j.Name, User: j.User, Account: j.Account, Partition: j.Partition, States: j.States, Reason: j.Reason, Nodes: j.Nodes, CPUs: j.CPUs.Number, NodeCount: j.NodeCount.Number, TimeLimitMinutes: j.TimeLimit.Number, SubmitTime: j.Submit.Number, StartTime: j.Start.Number, EndTime: j.End.Number, ArrayJobID: j.ArrayID.Number, ArrayTaskID: j.ArrayTask.Number})
+		result = append(result, models.Job{UserID: j.UserID, QOS: j.QOS, Priority: j.Priority.Number, MemoryPerNodeMiB: j.MemoryPerNode.Number, MemoryPerCPUMiB: j.MemoryPerCPU.Number, HetJobID: j.HetID.Number, HetJobOffset: j.HetOffset.Number, HetJobIDSet: j.HetIDSet, ArrayTaskString: j.ArrayTaskString, RestartCount: j.Restarts, ID: strconv.FormatInt(*j.ID, 10), Name: j.Name, User: j.User, Account: j.Account, Partition: j.Partition, States: j.States, Reason: j.Reason, Nodes: j.Nodes, CPUs: j.CPUs.Number, NodeCount: j.NodeCount.Number, TimeLimitMinutes: j.TimeLimit.Number, SubmitTime: j.Submit.Number, StartTime: j.Start.Number, EndTime: j.End.Number, ArrayJobID: j.ArrayID.Number, ArrayTaskID: j.ArrayTask.Number})
 	}
 	return result, nil
 }

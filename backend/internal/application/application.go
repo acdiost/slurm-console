@@ -11,6 +11,7 @@ import (
 	"slurm-console/backend/internal/api"
 	"slurm-console/backend/internal/auth"
 	"slurm-console/backend/internal/clusterconfig"
+	"slurm-console/backend/internal/jobcontrol"
 	"slurm-console/backend/internal/rbac"
 	_ "slurm-console/backend/migrations"
 )
@@ -34,6 +35,7 @@ func New() (*pocketbase.PocketBase, error) {
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{Automigrate: false})
 	app.RootCmd.AddCommand(auth.UsersCommand(app))
 	app.RootCmd.AddCommand(rbac.Commands(app))
+	app.RootCmd.AddCommand(jobcontrol.Command(app))
 	app.OnServe().BindFunc(func(event *core.ServeEvent) error {
 		publicDir := os.Getenv("SLURM_CONSOLE_PUBLIC_DIR")
 		if publicDir == "" {

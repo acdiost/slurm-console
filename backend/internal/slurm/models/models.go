@@ -19,6 +19,17 @@ type Health struct {
 	Capabilities  []string     `json:"capabilities"`
 }
 type Job struct {
+	UserID           *int64 `json:"userId"`
+	QOS              string `json:"qos"`
+	Priority         Number `json:"priority"`
+	MemoryPerNodeMiB Number `json:"memoryPerNodeMiB"`
+	MemoryPerCPUMiB  Number `json:"memoryPerCpuMiB"`
+	HetJobID         Number `json:"hetJobId"`
+	HetJobOffset     Number `json:"hetJobOffset"`
+	HetJobIDSet      string `json:"hetJobIdSet"`
+	ArrayTaskString  string `json:"arrayTaskString"`
+	RestartCount     *int64 `json:"restartCount"`
+
 	ID               string   `json:"id"`
 	Name             string   `json:"name"`
 	User             string   `json:"user"`

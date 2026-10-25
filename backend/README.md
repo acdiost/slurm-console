@@ -17,10 +17,13 @@ LDAP 通过 `SLURM_CONSOLE_LDAP_CONFIG` 指向服务端 JSON 配置，支持 LDA
 - `internal/auth`、`internal/rbac`：平台身份和集群范围授权。
 - `internal/ldapauth`、`internal/pamauth`：LDAP 加密绑定和 PAM 子进程适配。
 - `internal/slurm/{client,adapter,models}`：独立的 Slurm 接口适配。
-- `internal/services`：应用服务。
+- `internal/services`：应用服务、版本隔离缓存与取消后失效。
+- `internal/jobcontrol`：显式 Slurm 身份 CLI、最新确认及持久审计取消。
 - `internal/monitoring`、`internal/audit`、`internal/cache`：监控、审计、缓存。
 - `migrations`：PocketBase 数据迁移。
 
 不在浏览器保存集群凭据；不将作业、节点持久化为平台业务主表。平台用户、Slurm 身份和集群权限分别建模。
 
 Slurm Adapter 的版本、查询及缓存约束见 `../docs/slurm-adapter.md`；部署只有应用安装器和可独立重复运行的 PAM 设置脚本，不安装 LDAP/FreeIPA/slurmrestd。
+
+作业管理与 `slurm-identity link/unlink` 见 `../docs/jobs.md`。没有显式关联时，即使平台 Super Admin 也不能取消作业；默认仅本人范围。

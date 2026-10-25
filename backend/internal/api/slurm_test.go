@@ -15,7 +15,7 @@ import (
 	"slurm-console/backend/internal/slurm/client"
 )
 
-const fixtureJobs = `"jobs":[{"job_id":42,"name":"training","user_name":"alice","account":"research","partition":"gpu","job_state":["RUNNING"],"cpus":{"set":true,"infinite":false,"number":8},"node_count":{"set":true,"infinite":false,"number":1},"time_limit":{"set":false,"infinite":true,"number":0},"environment":["not-public"],"script":"not-public"},{"job_id":7,"name":"analysis","user_name":"bob","partition":"cpu","job_state":["PENDING"],"state_reason":"Resources"}]`
+const fixtureJobs = `"jobs":[{"job_id":42,"name":"training","user_name":"alice","account":"research","qos":"normal","partition":"gpu","job_state":["RUNNING"],"cpus":{"set":true,"infinite":false,"number":8},"node_count":{"set":true,"infinite":false,"number":1},"time_limit":{"set":false,"infinite":true,"number":0},"environment":["not-public"],"script":"not-public"},{"job_id":7,"name":"analysis","user_name":"bob","partition":"cpu","job_state":["PENDING"],"state_reason":"Resources"}]`
 const fixtureNodes = `"nodes":[{"name":"node2","hostname":"node2","state":["MIXED","DRAIN"],"cpus":16,"alloc_cpus":8,"real_memory":32768,"alloc_memory":4096,"free_mem":{"set":false,"infinite":false,"number":0},"partitions":["gpu"]},{"name":"node1","hostname":"node1","state":["IDLE"],"cpus":8,"real_memory":8192,"partitions":["cpu"]}]`
 const fixturePartitions = `"partitions":[{"name":"gpu","partition":{"state":["UP"]},"nodes":{"configured":"node2","total":1},"cpus":{"total":16},"maximums":{"time":{"set":false,"infinite":true,"number":0}}}]`
 
@@ -60,7 +60,7 @@ func TestSlurmReadRoutesEnforceScopePaginateFilterAndNormalize(t *testing.T) {
 			t.Fatal("raw upstream fields escaped")
 		}
 	}
-	res := request(mux, "GET", base+"/jobs?user=alice&state=RUNNING&perPage=1", "", token)
+	res := request(mux, "GET", base+"/jobs?user=alice&account=research&qos=normal&state=RUNNING&perPage=1", "", token)
 	if res.Code != 200 || !strings.Contains(res.Body.String(), `"id":"42"`) || !strings.Contains(res.Body.String(), `"totalItems":1`) || !strings.Contains(res.Body.String(), `"infinite":true`) || !strings.Contains(res.Body.String(), `"cached":true`) {
 		t.Fatalf("job filter/cache: %s", res.Body.String())
 	}
@@ -77,7 +77,7 @@ func TestSlurmReadRoutesEnforceScopePaginateFilterAndNormalize(t *testing.T) {
 	if res := request(mux, "GET", "/api/v1/clusters/"+other.Id+"/jobs", "", token); res.Code != 403 {
 		t.Fatal("cross-cluster access")
 	}
-	for _, path := range []string{"/jobs?page=0", "/jobs?user=a&user=b", "/jobs?endpoint=evil", "/jobs/4294967296", "/nodes/bad%3Fname"} {
+	for _, path := range []string{"/jobs?sort=script", "/jobs?order=reverse", "/jobs?page=0", "/jobs?user=a&user=b", "/jobs?endpoint=evil", "/jobs/4294967296", "/nodes/bad%3Fname"} {
 		res := request(mux, "GET", base+path, "", token)
 		if res.Code != 400 && res.Code != 404 {
 			t.Fatalf("invalid request accepted: %s %d", path, res.Code)
@@ -95,8 +95,8 @@ func TestSlurmReadRoutesEnforceScopePaginateFilterAndNormalize(t *testing.T) {
 	if res := request(mux, "GET", base+"/jobs", "", ""); res.Code != 401 {
 		t.Fatal("anonymous Slurm read")
 	}
-	if res := request(mux, "POST", base+"/jobs/42/cancel", "{}", token); res.Code != 404 {
-		t.Fatal("mutation exposed before identity/audit integration")
+	if res := request(mux, "POST", base+"/jobs/42/suspend", "{}", token); res.Code != 404 {
+		t.Fatal("unimplemented mutation exposed")
 	}
 }
 func TestSlurmCacheUsesRevisionAndDoesNotCacheFailures(t *testing.T) {

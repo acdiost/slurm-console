@@ -60,7 +60,11 @@ func Register(routes *router.Router[*core.RequestEvent], publicDir string) {
 				}
 				err = e.JSON(status, map[string]any{"error": map[string]string{"code": code, "message": message}, "requestId": requestID})
 			}
-			slog.InfoContext(e.Request.Context(), "api request", "requestId", requestID, "method", e.Request.Method, "path", e.Request.URL.Path, "status", status, "durationMs", time.Since(started).Milliseconds())
+			actorID := ""
+			if e.Auth != nil {
+				actorID = e.Auth.Id
+			}
+			slog.InfoContext(e.Request.Context(), "api request", "actorId", actorID, "requestId", requestID, "method", e.Request.Method, "path", e.Request.URL.Path, "status", status, "durationMs", time.Since(started).Milliseconds())
 			return err
 		},
 	})
@@ -82,6 +86,7 @@ func Register(routes *router.Router[*core.RequestEvent], publicDir string) {
 	registerConfigurationRoutes(group)
 	registerSlurmRoutes(group)
 	registerOverviewRoutes(group)
+	registerJobControlRoutes(group)
 	// Never serve the SPA for missing API routes.
 	routes.Any("/api/{path...}", func(e *core.RequestEvent) error { return e.NotFoundError("接口不存在。", nil) })
 	if _, err := os.Stat(publicDir + "/index.html"); err == nil {

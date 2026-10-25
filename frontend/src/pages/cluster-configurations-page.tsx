@@ -106,6 +106,8 @@ export function ClusterConfigurationsPage() {
     await Promise.all([
       client.invalidateQueries({ queryKey: ["cluster-configurations"] }),
       client.invalidateQueries({ queryKey: ["cluster-inventory"] }),
+      client.invalidateQueries({ queryKey: ["accessible-clusters"] }),
+      client.invalidateQueries({ queryKey: ["cluster-metadata"] }),
     ])
   }
   const save = useMutation({

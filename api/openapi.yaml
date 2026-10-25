@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.7.0
+  version: 0.8.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -693,6 +693,36 @@ paths:
                 "name": "partition",
                 "schema": { "type": "string", "maxLength": 128 },
               },
+              {
+                "in": "query",
+                "name": "account",
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+              {
+                "in": "query",
+                "name": "qos",
+                "schema": { "type": "string", "maxLength": 128 },
+              },
+              {
+                "in": "query",
+                "name": "sort",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["id", "submitTime", "cpus"],
+                    "default": "id",
+                  },
+              },
+              {
+                "in": "query",
+                "name": "order",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["asc", "desc"],
+                    "default": "desc",
+                  },
+              },
             ],
           "responses":
             {
@@ -1197,6 +1227,192 @@ paths:
             },
         },
     }
+  /api/v1/clusters/{clusterId}/jobs/{jobId}/cancel-context:
+    {
+      "get":
+        {
+          "operationId": "prepareJobCancellation",
+          "summary": "要求jobs.read；无取消权限/身份关联返回allowed=false；不使用缓存",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "jobId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "responses":
+            {
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+              "200":
+                {
+                  "description": "安全平台DTO；未知结果不会自动重试写入",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/JobCancelContext",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/jobs/{jobId}/cancel:
+    {
+      "post":
+        {
+          "operationId": "cancelJob",
+          "summary": "要求jobs.read及jobs.cancel、显式Slurm身份和最新确认；仅普通非root单作业；持久审计后仅发送一次DELETE",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "jobId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "responses":
+            {
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+              "200":
+                {
+                  "description": "安全平台DTO；未知结果不会自动重试写入",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/JobOperation",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        { "$ref": "#/components/schemas/JobCancelInput" },
+                    },
+                },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/job-operations/{operationId}:
+    {
+      "get":
+        {
+          "operationId": "getJobOperation",
+          "summary": "要求jobs.read，且本人操作或platform.audit.read；只读核实，配置变化或作业移除不推断成功",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "operationId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "responses":
+            {
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+              "200":
+                {
+                  "description": "安全平台DTO；未知结果不会自动重试写入",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/JobOperation",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
 components:
   securitySchemes:
     platformToken:
@@ -1578,6 +1794,16 @@ components:
             "endTime",
             "arrayJobId",
             "arrayTaskId",
+            "userId",
+            "restartCount",
+            "qos",
+            "arrayTaskString",
+            "hetJobIdSet",
+            "priority",
+            "memoryPerNodeMiB",
+            "memoryPerCpuMiB",
+            "hetJobId",
+            "hetJobOffset",
           ],
         "properties":
           {
@@ -1598,6 +1824,28 @@ components:
             "endTime": { "$ref": "#/components/schemas/SlurmNumber" },
             "arrayJobId": { "$ref": "#/components/schemas/SlurmNumber" },
             "arrayTaskId": { "$ref": "#/components/schemas/SlurmNumber" },
+            "userId":
+              {
+                "type": "integer",
+                "format": "int64",
+                "nullable": true,
+                "minimum": 0,
+              },
+            "restartCount":
+              {
+                "type": "integer",
+                "format": "int64",
+                "nullable": true,
+                "minimum": 0,
+              },
+            "qos": { "type": "string" },
+            "arrayTaskString": { "type": "string" },
+            "hetJobIdSet": { "type": "string" },
+            "priority": { "$ref": "#/components/schemas/SlurmNumber" },
+            "memoryPerNodeMiB": { "$ref": "#/components/schemas/SlurmNumber" },
+            "memoryPerCpuMiB": { "$ref": "#/components/schemas/SlurmNumber" },
+            "hetJobId": { "$ref": "#/components/schemas/SlurmNumber" },
+            "hetJobOffset": { "$ref": "#/components/schemas/SlurmNumber" },
           },
       }
     SlurmNode:
@@ -2135,5 +2383,96 @@ components:
                     },
                   ],
               },
+          },
+      }
+    JobCancelContext:
+      {
+        "type": "object",
+        "required":
+          [
+            "allowed",
+            "message",
+            "job",
+            "identity",
+            "proof",
+            "operationId",
+            "expiresAt",
+          ],
+        "properties":
+          {
+            "allowed": { "type": "boolean" },
+            "message": { "type": "string" },
+            "job": { "$ref": "#/components/schemas/SlurmJob" },
+            "identity":
+              {
+                "type": "object",
+                "nullable": true,
+                "required": ["username", "uid", "scope"],
+                "properties":
+                  {
+                    "username": { "type": "string" },
+                    "uid":
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4294967295,
+                      },
+                    "scope": { "type": "string", "enum": ["own", "all"] },
+                  },
+              },
+            "proof":
+              {
+                "type": "string",
+                "description": "绑定用户、集群、作业身份/状态、配置及身份关联的签名确认，有效2分钟；只放请求体",
+              },
+            "operationId": { "type": "string" },
+            "expiresAt":
+              {
+                "type": "string",
+                "description": "allowed=true时为RFC3339，否则为空",
+              },
+          },
+      }
+    JobCancelInput:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["proof", "confirmation", "reason"],
+        "properties":
+          {
+            "proof": { "type": "string", "maxLength": 4096 },
+            "confirmation":
+              { "type": "string", "description": "与路径Job ID完全一致" },
+            "reason": { "type": "string", "minLength": 2, "maxLength": 300 },
+          },
+      }
+    JobOperation:
+      {
+        "type": "object",
+        "required":
+          [
+            "operationId",
+            "jobId",
+            "status",
+            "message",
+            "reason",
+            "states",
+            "createdAt",
+            "updatedAt",
+          ],
+        "properties":
+          {
+            "operationId": { "type": "string" },
+            "jobId": { "type": "string" },
+            "message": { "type": "string" },
+            "reason": { "type": "string" },
+            "createdAt": { "type": "string" },
+            "updatedAt": { "type": "string" },
+            "status":
+              {
+                "type": "string",
+                "enum": ["confirmed", "accepted", "failed", "unknown"],
+              },
+            "states": { "type": "array", "items": { "type": "string" } },
           },
       }

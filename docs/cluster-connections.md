@@ -30,6 +30,6 @@
 
 迁移为既有 `clusters` 扩展连接字段，旧标识默认停用且不主动连接。编辑原记录即可接入连接方式并保留授权。CLI `access register-cluster` 继续只登记标识。升级前停止平台并做一致性备份；迁移不提供破坏性的自动 down，回退应同时恢复备份数据库及匹配的旧程序。
 
-当前已实现连接检测和 [Slurm Adapter](slurm-adapter.md) 的健康、作业、节点、分区只读 API。连接检测允许已配置的 `v0.0.41`–`v0.0.44`；业务 Adapter 明确限定已验证的 `v0.0.43`。设计系统作业仍为示例，业务查询不落地 PocketBase。
+当前已实现连接检测和 [Slurm Adapter](slurm-adapter.md) 的健康、作业、节点、分区只读 API。连接检测允许已配置的 `v0.0.41`–`v0.0.44`；业务 Adapter 明确限定已验证的 `v0.0.43`。设计系统作业仍为示例，业务查询不落地 PocketBase。[作业管理](jobs.md) 已增加受身份、确认和审计保护的单作业取消；操作证据保存在平台数据库。
 
 依据：[Slurm REST 服务文档](https://slurm.schedmd.com/slurmrestd.html)、[REST 客户端指南](https://slurm.schedmd.com/rest_clients.html)。

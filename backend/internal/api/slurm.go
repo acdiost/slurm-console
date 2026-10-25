@@ -53,9 +53,11 @@ func slurmFailure(e *core.RequestEvent, err error) error {
 	switch failure.Code {
 	case "not_found":
 		status = 404
+	case "operation_forbidden":
+		status = 403
 	case "invalid_request":
 		status = 400
-	case "disabled", "configuration_changed":
+	case "disabled", "configuration_changed", "data_changed", "confirmation_invalid", "confirmation_expired", "confirmation_changed":
 		status = 409
 	case "busy":
 		status = 429
@@ -111,30 +113,67 @@ func matchesState(query url.Values, states []string) bool {
 	return state == "" || slices.Contains(states, state)
 }
 func listJobs(e *core.RequestEvent) error {
-	if err := slurmQuery(e, "page", "perPage", "q", "user", "partition", "state"); err != nil {
+	if err := slurmQuery(e, "page", "perPage", "q", "user", "partition", "state", "account", "qos", "sort", "order"); err != nil {
 		return err
 	}
 	page, size, err := pagination(e)
 	if err != nil {
 		return err
 	}
+	query := e.Request.URL.Query()
+	sortKey, order := query.Get("sort"), query.Get("order")
+	if sortKey == "" {
+		sortKey = "id"
+	}
+	if order == "" {
+		order = "desc"
+	}
+	if !slices.Contains([]string{"id", "submitTime", "cpus"}, sortKey) || !slices.Contains([]string{"asc", "desc"}, order) {
+		return e.BadRequestError("排序参数不受支持。", nil)
+	}
 	values, result, err := fetchList[models.Job](e, "jobs")
 	if err != nil {
 		return err
 	}
-	query := e.Request.URL.Query()
 	filtered := make([]models.Job, 0, len(values))
 	for _, job := range values {
-		if (contains(query.Get("q"), job.Name) || contains(query.Get("q"), job.ID)) && (query.Get("user") == "" || query.Get("user") == job.User) && (query.Get("partition") == "" || query.Get("partition") == job.Partition) && matchesState(query, job.States) {
+		if (contains(query.Get("q"), job.Name) || contains(query.Get("q"), job.ID)) && (query.Get("user") == "" || query.Get("user") == job.User) && (query.Get("partition") == "" || query.Get("partition") == job.Partition) && matchesState(query, job.States) && (query.Get("account") == "" || query.Get("account") == job.Account) && (query.Get("qos") == "" || query.Get("qos") == job.QOS) {
 			filtered = append(filtered, job)
 		}
 	}
-	sort.Slice(filtered, func(i, j int) bool {
-		a, b := filtered[i].ID, filtered[j].ID
-		if len(a) != len(b) {
-			return len(a) > len(b)
+	sort.SliceStable(filtered, func(i, j int) bool {
+		a, b := filtered[i], filtered[j]
+		if sortKey != "id" {
+			var av, bv *int64
+			if sortKey == "cpus" {
+				av, bv = a.CPUs.Value, b.CPUs.Value
+			} else {
+				av, bv = a.SubmitTime.Value, b.SubmitTime.Value
+			}
+			if av == nil || bv == nil {
+				if av == nil && bv != nil {
+					return false
+				}
+				if av != nil && bv == nil {
+					return true
+				}
+			} else if *av != *bv {
+				if order == "asc" {
+					return *av < *bv
+				}
+				return *av > *bv
+			}
 		}
-		return a > b
+		if len(a.ID) != len(b.ID) {
+			if order == "asc" && sortKey == "id" {
+				return len(a.ID) < len(b.ID)
+			}
+			return len(a.ID) > len(b.ID)
+		}
+		if order == "asc" && sortKey == "id" {
+			return a.ID < b.ID
+		}
+		return a.ID > b.ID
 	})
 	return pageResult(e, filtered, result, page, size)
 }

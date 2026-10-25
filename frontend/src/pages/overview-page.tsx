@@ -61,7 +61,7 @@ export function OverviewPage() {
   )
   const client = useQueryClient()
   const inventory = useQuery({
-    queryKey: ["overview-clusters", page],
+    queryKey: ["accessible-clusters", page],
     queryFn: async ({ signal }) =>
       clusterPageSchema.parse(
         await api(`/clusters?page=${page}&perPage=20`, { signal })

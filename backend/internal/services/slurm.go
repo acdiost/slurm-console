@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,6 +38,7 @@ type Slurm struct {
 	pending map[string]*flight
 	slots   chan struct{}
 	bytes   int
+	epochs  map[string]uint64
 }
 
 var serviceMu sync.Mutex
@@ -48,48 +50,19 @@ func SlurmFor(app core.App) *Slurm {
 		return existing
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	s := &Slurm{app: app, ctx: ctx, cache: map[string]entry{}, pending: map[string]*flight{}, slots: make(chan struct{}, 4)}
+	s := &Slurm{app: app, ctx: ctx, cache: map[string]entry{}, pending: map[string]*flight{}, slots: make(chan struct{}, 4), epochs: map[string]uint64{}}
 	app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error { cancel(); return e.Next() })
 	app.Store().Set("platform.slurmAdapter", s)
 	return s
 }
 func (s *Slurm) Read(ctx context.Context, clusterID, kind, id string) (SlurmResult, error) {
-	record, err := s.app.FindRecordById("clusters", clusterID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return SlurmResult{}, client.Failure("not_found", "集群不存在。")
-	}
+	connection, err := ConnectionFor(s.app, clusterID)
 	if err != nil {
 		return SlurmResult{}, err
 	}
-	if !record.GetBool("enabled") {
-		return SlurmResult{}, client.Failure("disabled", "集群连接已停用。")
-	}
-	manager := clusterconfig.For(s.app)
-	view := manager.View(record)
-	profile, ok := manager.Registry.Profiles[view.ConnectionRef]
-	if !ok {
-		return SlurmResult{}, client.Failure("profile_unavailable", "服务端集群连接方式不可用。")
-	}
-	// Check the approved version again even when a prior result is cached.
-	approved := false
-	for _, v := range profile.Versions {
-		if v == view.APIVersion {
-			approved = true
-		}
-	}
-	if !approved {
-		return SlurmResult{}, client.Failure("api_unsupported", "连接版本未获服务端配置批准。")
-	}
-	connection, err := profile.Client(view.APIVersion, time.Duration(view.TimeoutSeconds)*time.Second)
-	if err != nil {
-		return SlurmResult{}, err
-	}
-	adapted, err := adapter.New(connection, view.APIVersion)
-	if err != nil {
-		return SlurmResult{}, err
-	}
-	key := clusterID + ":" + strconv.Itoa(view.Revision) + ":" + kind + ":" + id
 	s.mu.Lock()
+	epoch := s.epochs[clusterID]
+	key := clusterID + ":" + strconv.Itoa(connection.Revision) + ":" + strconv.FormatUint(epoch, 10) + ":" + kind + ":" + id
 	if cached, ok := s.cache[key]; ok && time.Now().Before(cached.expires) {
 		result := cached.result
 		result.Data = append(json.RawMessage(nil), result.Data...)
@@ -107,7 +80,7 @@ func (s *Slurm) Read(ctx context.Context, clusterID, kind, id string) (SlurmResu
 		}
 		current = &flight{done: make(chan struct{})}
 		s.pending[key] = current
-		go s.load(key, clusterID, view.Revision, kind, id, adapted, current)
+		go s.load(key, clusterID, connection.Revision, epoch, kind, id, connection.Adapter, current)
 	}
 	s.mu.Unlock()
 	select {
@@ -119,7 +92,7 @@ func (s *Slurm) Read(ctx context.Context, clusterID, kind, id string) (SlurmResu
 		return result, current.err
 	}
 }
-func (s *Slurm) load(key, clusterID string, revision int, kind, id string, a *adapter.Adapter, current *flight) {
+func (s *Slurm) load(key, clusterID string, revision int, epoch uint64, kind, id string, a *adapter.Adapter, current *flight) {
 	defer func() { <-s.slots }()
 	var value any
 	var err error
@@ -158,6 +131,9 @@ func (s *Slurm) load(key, clusterID string, revision int, kind, id string, a *ad
 	result := SlurmResult{Data: data, FetchedAt: time.Now().UTC().Format(time.RFC3339Nano)}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err == nil && s.epochs[clusterID] != epoch {
+		err = client.Failure("data_changed", "作业数据已变化，请重新读取。")
+	}
 	if err == nil {
 		// Bound both entry count and total serialized DTO memory; never cache failures.
 		for cacheKey, cached := range s.cache {
@@ -182,4 +158,60 @@ func (s *Slurm) load(key, clusterID string, revision int, kind, id string, a *ad
 	current.err = err
 	delete(s.pending, key)
 	close(current.done)
+}
+
+type Connection struct {
+	Client   *client.Client
+	Adapter  *adapter.Adapter
+	Revision int
+	Timeout  time.Duration
+}
+
+func ConnectionFor(app core.App, clusterID string) (Connection, error) {
+	record, err := app.FindRecordById("clusters", clusterID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Connection{}, client.Failure("not_found", "集群不存在。")
+	}
+	if err != nil {
+		return Connection{}, err
+	}
+	if !record.GetBool("enabled") {
+		return Connection{}, client.Failure("disabled", "集群连接已停用。")
+	}
+	manager := clusterconfig.For(app)
+	view := manager.View(record)
+	profile, ok := manager.Registry.Profiles[view.ConnectionRef]
+	if !ok {
+		return Connection{}, client.Failure("profile_unavailable", "服务端集群连接方式不可用。")
+	}
+	// Check the approved version again even when a prior result is cached.
+	approved := false
+	for _, v := range profile.Versions {
+		if v == view.APIVersion {
+			approved = true
+		}
+	}
+	if !approved {
+		return Connection{}, client.Failure("api_unsupported", "连接版本未获服务端配置批准。")
+	}
+	connection, err := profile.Client(view.APIVersion, time.Duration(view.TimeoutSeconds)*time.Second)
+	if err != nil {
+		return Connection{}, err
+	}
+	adapted, err := adapter.New(connection, view.APIVersion)
+	if err != nil {
+		return Connection{}, err
+	}
+	return Connection{connection, adapted, view.Revision, time.Duration(view.TimeoutSeconds) * time.Second}, nil
+}
+func (s *Slurm) Invalidate(clusterID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.epochs[clusterID]++
+	for key, cached := range s.cache {
+		if strings.HasPrefix(key, clusterID+":") {
+			s.bytes -= len(cached.result.Data)
+			delete(s.cache, key)
+		}
+	}
 }

@@ -19,12 +19,12 @@
 
 可信操作员使用 `access grant/revoke` 管理绑定，使用方法见 [认证与首次授权](authentication.md)。目前不提供通过浏览器写授权的接口。
 
-平台用户、Linux/Slurm 身份和角色分别建模。后续实际控制 Slurm 时，必须同时校验平台动作、目标资源范围及 Slurm 端权限；Operator 的动作集合不意味着可以任意代理 Linux 用户。
+平台用户、Linux/Slurm 身份和角色分别建模。作业取消已同时校验平台动作、目标资源范围及 Slurm 端权限；后续控制动作沿用此边界。Operator 的动作集合不意味着可以任意代理 Linux 用户。
 
 真实状态变更必须验证身份、集群、资源和操作范围，记录操作人、目标、时间、请求标识及结果；高风险操作使用二次确认。普通用户不得修改审计数据。
 
 集群配置页面及 `/api/v1/cluster-configurations`、`/cluster-connection-profiles` 全部要求平台范围 `platform.clusters.manage`，不会通过集群范围角色获得。停用连接保留现有权限绑定；配置引用只能选取可信部署管理员预设的连接方式。创建、编辑、检测和停用的操作上下文记录至 journald，完整操作审计仍待实现。
 
-Adapter 的健康、作业、节点、分区端点分别要求对应集群的 `clusters.read/jobs.read/nodes.read/partitions.read`，命中缓存也先检查实时授权。所有上游查询使用同一预配置受限身份，不按浏览器提供的用户名代理，也不开放写操作。
+Adapter 的健康、作业、节点、分区端点分别要求对应集群的 `clusters.read/jobs.read/nodes.read/partitions.read`，命中缓存也先检查实时授权。所有上游查询使用同一预配置受限身份，不按浏览器提供的用户名代理。单作业取消另需显式身份关联、最新确认和持久审计，见 [作业管理](jobs.md)。
 
 集群总览要求集群范围 `clusters.read`，并单独检查作业、节点、分区读取权限；缺少单项权限不访问该来源，响应明确返回 `forbidden/item=null`。总览不会把集群可见权限扩展为所有业务数据的读取权限。
