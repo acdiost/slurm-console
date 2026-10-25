@@ -40,6 +40,7 @@ type Node struct {
 	Name               string   `json:"name"`
 	Hostname           string   `json:"hostname"`
 	States             []string `json:"states"`
+	EffectiveCPUs      int64    `json:"effectiveCpus"`
 	CPUs               int64    `json:"cpus"`
 	AllocatedCPUs      int64    `json:"allocatedCpus"`
 	MemoryMiB          int64    `json:"memoryMiB"`
@@ -48,6 +49,7 @@ type Node struct {
 	Partitions         []string `json:"partitions"`
 	Reason             string   `json:"reason"`
 	GRES               string   `json:"gres"`
+	GRESUsed           string   `json:"gresUsed"`
 }
 type Partition struct {
 	Name               string   `json:"name"`

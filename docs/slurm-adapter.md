@@ -40,3 +40,5 @@
 所有查询使用部署管理员配置的固定受限 Slurm 身份，平台范围权限不提升该身份的 Slurm 权限。上游 `PrivateData` 等策略决定可见范围；平台用户/Slurm 用户身份映射、取消作业、Drain/Resume 和完整操作审计在对应业务阶段实现，本阶段没有写入或任意代理端点。记账数据仍由后续 slurmdb Adapter 扩展。
 
 slurmrestd、LDAP、FreeIPA 等外部服务由管理员负责；本项目只连接现有服务。版本选择依据 [Slurm REST 客户端指南](https://slurm.schedmd.com/rest_clients.html)，具体字段以管理员端点提供的版本化 OpenAPI 为准。
+
+集群总览复用以上来源与权限边界；节点 DTO 补充 `effectiveCpus` 和 `gresUsed`，用于区分预留 CPU 以及 GPU 已分配数量。聚合口径见 [集群总览](overview.md)。

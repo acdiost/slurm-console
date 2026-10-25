@@ -26,3 +26,5 @@
 集群配置页面及 `/api/v1/cluster-configurations`、`/cluster-connection-profiles` 全部要求平台范围 `platform.clusters.manage`，不会通过集群范围角色获得。停用连接保留现有权限绑定；配置引用只能选取可信部署管理员预设的连接方式。创建、编辑、检测和停用的操作上下文记录至 journald，完整操作审计仍待实现。
 
 Adapter 的健康、作业、节点、分区端点分别要求对应集群的 `clusters.read/jobs.read/nodes.read/partitions.read`，命中缓存也先检查实时授权。所有上游查询使用同一预配置受限身份，不按浏览器提供的用户名代理，也不开放写操作。
+
+集群总览要求集群范围 `clusters.read`，并单独检查作业、节点、分区读取权限；缺少单项权限不访问该来源，响应明确返回 `forbidden/item=null`。总览不会把集群可见权限扩展为所有业务数据的读取权限。

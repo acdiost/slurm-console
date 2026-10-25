@@ -189,12 +189,14 @@ func (a *Adapter) nodes(ctx context.Context, name string) ([]models.Node, error)
 		States          []string `json:"state"`
 		CPUs            *int64   `json:"cpus"`
 		AllocatedCPUs   int64    `json:"alloc_cpus"`
+		EffectiveCPUs   *int64   `json:"effective_cpus"`
 		Memory          *int64   `json:"real_memory"`
 		AllocatedMemory int64    `json:"alloc_memory"`
 		Free            noVal    `json:"free_mem"`
 		Partitions      []string `json:"partitions"`
 		Reason          string   `json:"reason"`
 		GRES            string   `json:"gres"`
+		GRESUsed        string   `json:"gres_used"`
 	}](envelope.Nodes)
 	if err != nil {
 		return nil, err
@@ -209,7 +211,14 @@ func (a *Adapter) nodes(ctx context.Context, name string) ([]models.Node, error)
 		if n.Partitions == nil {
 			n.Partitions = []string{}
 		}
-		result = append(result, models.Node{Name: n.Name, Hostname: n.Hostname, States: n.States, CPUs: *n.CPUs, AllocatedCPUs: n.AllocatedCPUs, MemoryMiB: *n.Memory, AllocatedMemoryMiB: n.AllocatedMemory, FreeMemoryMiB: n.Free.Number, Partitions: n.Partitions, Reason: n.Reason, GRES: n.GRES})
+		effective := n.CPUs
+		if n.EffectiveCPUs != nil {
+			effective = n.EffectiveCPUs
+		}
+		if *effective < 0 || *effective > *n.CPUs {
+			return nil, invalid()
+		}
+		result = append(result, models.Node{EffectiveCPUs: *effective, GRESUsed: n.GRESUsed, Name: n.Name, Hostname: n.Hostname, States: n.States, CPUs: *n.CPUs, AllocatedCPUs: n.AllocatedCPUs, MemoryMiB: *n.Memory, AllocatedMemoryMiB: n.AllocatedMemory, FreeMemoryMiB: n.Free.Number, Partitions: n.Partitions, Reason: n.Reason, GRES: n.GRES})
 	}
 	return result, nil
 }

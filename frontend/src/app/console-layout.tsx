@@ -120,11 +120,16 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
       <nav aria-label="主导航" className="flex-1 space-y-5 px-3">
         <div>
           <p className="nav-label">工作空间</p>
-          <button disabled className="nav-item">
+          <NavLink
+            to="/overview"
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
+            }
+          >
             <LayoutDashboard />
             <span>集群总览</span>
-            <span className="ml-auto text-2xs">待接入</span>
-          </button>
+          </NavLink>
           <NavLink
             to="/design-system"
             onClick={onNavigate}
@@ -181,16 +186,16 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
           <FlaskConical className="size-3.5 text-primary" />
           工程初始化
           <span className="ml-auto font-mono text-2xs text-muted-foreground">
-            05 / 11
+            06 / 11
           </span>
         </div>
         <div className="h-1 overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-[36.36%] bg-primary" />
+          <div className="h-full w-[54.55%] bg-primary" />
         </div>
         <p className="mt-2 text-2xs leading-relaxed text-muted-foreground">
-          阶段一 · Slurm Adapter 已就绪
+          阶段一 · 集群总览已就绪
           <br />
-          下一步：集群总览
+          下一步：作业管理
         </p>
       </div>
       <div className="flex items-center gap-2.5 border-t p-4">
@@ -272,11 +277,13 @@ export function ConsoleLayout() {
             </span>
             <ChevronRight className="hidden size-3 text-muted-foreground sm:inline" />
             <span>
-              {pathname === "/clusters"
-                ? "集群配置"
-                : pathname === "/access"
-                  ? "我的权限"
-                  : "设计系统"}
+              {pathname === "/overview"
+                ? "集群总览"
+                : pathname === "/clusters"
+                  ? "集群配置"
+                  : pathname === "/access"
+                    ? "我的权限"
+                    : "设计系统"}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">

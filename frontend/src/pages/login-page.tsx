@@ -38,14 +38,13 @@ export function LoginPage() {
     resolver: zodResolver(schema),
     defaultValues: { identity: "", password: "" },
   })
-  if (status === "authenticated")
-    return <Navigate to="/design-system" replace />
+  if (status === "authenticated") return <Navigate to="/overview" replace />
   const submit = handleSubmit(async ({ identity, password }) => {
     setError("")
     try {
       await login(identity, password)
       if (useAuth.getState().status === "authenticated")
-        navigate("/design-system", { replace: true })
+        navigate("/overview", { replace: true })
     } catch (cause) {
       setError(authErrorMessage(cause))
     } finally {

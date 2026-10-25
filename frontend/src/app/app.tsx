@@ -27,6 +27,11 @@ const DesignSystemPage = lazy(() =>
     default: module.DesignSystemPage,
   }))
 )
+const OverviewPage = lazy(() =>
+  import("@/pages/overview-page").then((module) => ({
+    default: module.OverviewPage,
+  }))
+)
 const AccessPage = lazy(() =>
   import("@/pages/access-page").then((module) => ({
     default: module.AccessPage,
@@ -57,10 +62,8 @@ export function App() {
               <Route path="login" element={<LoginPage />} />
               <Route element={<RequireSession />}>
                 <Route element={<ConsoleLayout />}>
-                  <Route
-                    index
-                    element={<Navigate to="/design-system" replace />}
-                  />
+                  <Route index element={<Navigate to="/overview" replace />} />
+                  <Route path="overview" element={<OverviewPage />} />
                   <Route path="design-system" element={<DesignSystemPage />} />
                   <Route path="access" element={<AccessPage />} />
                   <Route
@@ -76,7 +79,7 @@ export function App() {
                           请通过左侧导航访问可用功能。
                         </p>
                         <Button asChild>
-                          <Link to="/design-system">返回设计系统</Link>
+                          <Link to="/overview">返回集群总览</Link>
                         </Button>
                       </div>
                     }
@@ -98,11 +101,13 @@ function RouteTitle() {
     const title =
       pathname === "/login"
         ? "登录"
-        : pathname === "/clusters"
-          ? "集群配置"
-          : pathname === "/access"
-            ? "我的权限"
-            : "设计系统"
+        : pathname === "/overview"
+          ? "集群总览"
+          : pathname === "/clusters"
+            ? "集群配置"
+            : pathname === "/access"
+              ? "我的权限"
+              : "设计系统"
     document.title = `${title} · Slurm Console`
   }, [pathname])
   return null

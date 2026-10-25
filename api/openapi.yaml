@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.6.0
+  version: 0.7.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -1145,6 +1145,58 @@ paths:
             },
         },
     }
+  /api/v1/clusters/{clusterId}/overview:
+    {
+      "get":
+        {
+          "operationId": "clusterOverview",
+          "summary": "查询授权范围内的集群总览",
+          "description": "要求活动用户及 clusters.read。逐项检查 jobs.read/nodes.read/partitions.read；缺权不查询上游，失败/缺权 item=null，其他分项继续返回。数据按节点去重，非原子采样，每项有来源时间和缓存标志。无筛选参数。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "逐项成功、失败或无权限的总览；完整容量口径见 docs/overview.md",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/ClusterOverview",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
 components:
   securitySchemes:
     platformToken:
@@ -1564,6 +1616,8 @@ components:
             "allocatedMemoryMiB",
             "freeMemoryMiB",
             "partitions",
+            "effectiveCpus",
+            "gresUsed",
           ],
         "properties":
           {
@@ -1581,6 +1635,9 @@ components:
               { "type": "integer", "format": "int64", "minimum": 0 },
             "freeMemoryMiB": { "$ref": "#/components/schemas/SlurmNumber" },
             "partitions": { "type": "array", "items": { "type": "string" } },
+            "effectiveCpus":
+              { "type": "integer", "format": "int64", "minimum": 0 },
+            "gresUsed": { "type": "string" },
           },
       }
     SlurmPartition:
@@ -1644,5 +1701,439 @@ components:
                   },
               },
             "capabilities": { "type": "array", "items": { "type": "string" } },
+          },
+      }
+
+    OverviewResource:
+      {
+        "type": "object",
+        "required": ["total", "allocated", "idle", "unavailable"],
+        "properties":
+          {
+            "total": { "type": "integer", "format": "int64", "minimum": 0 },
+            "allocated": { "type": "integer", "format": "int64", "minimum": 0 },
+            "idle": { "type": "integer", "format": "int64", "minimum": 0 },
+            "unavailable":
+              { "type": "integer", "format": "int64", "minimum": 0 },
+          },
+      }
+    OverviewNodes:
+      {
+        "type": "object",
+        "required":
+          [
+            "total",
+            "idle",
+            "allocated",
+            "mixed",
+            "unavailable",
+            "cpus",
+            "memoryMiB",
+            "gpus",
+            "states",
+            "issues",
+          ],
+        "properties":
+          {
+            "total": { "type": "integer", "format": "int64", "minimum": 0 },
+            "idle": { "type": "integer", "format": "int64", "minimum": 0 },
+            "allocated": { "type": "integer", "format": "int64", "minimum": 0 },
+            "mixed": { "type": "integer", "format": "int64", "minimum": 0 },
+            "unavailable":
+              { "type": "integer", "format": "int64", "minimum": 0 },
+            "cpus": { "$ref": "#/components/schemas/OverviewResource" },
+            "memoryMiB": { "$ref": "#/components/schemas/OverviewResource" },
+            "gpus":
+              {
+                "type": "object",
+                "required":
+                  ["total", "allocated", "idle", "unavailable", "unknownNodes"],
+                "properties":
+                  {
+                    "total":
+                      {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0,
+                        "nullable": true,
+                      },
+                    "allocated":
+                      {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0,
+                        "nullable": true,
+                      },
+                    "idle":
+                      {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0,
+                        "nullable": true,
+                      },
+                    "unavailable":
+                      {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0,
+                        "nullable": true,
+                      },
+                    "unknownNodes":
+                      { "type": "integer", "format": "int64", "minimum": 0 },
+                  },
+              },
+            "states":
+              {
+                "type": "array",
+                "items":
+                  {
+                    "type": "object",
+                    "required": ["state", "count"],
+                    "properties":
+                      {
+                        "state": { "type": "string" },
+                        "count":
+                          {
+                            "type": "integer",
+                            "format": "int64",
+                            "minimum": 0,
+                          },
+                      },
+                  },
+              },
+            "issues":
+              {
+                "type": "array",
+                "maxItems": 5,
+                "items":
+                  {
+                    "type": "object",
+                    "required": ["name", "states", "reason"],
+                    "properties":
+                      {
+                        "name": { "type": "string" },
+                        "states":
+                          { "type": "array", "items": { "type": "string" } },
+                        "reason": { "type": "string" },
+                      },
+                  },
+              },
+          },
+      }
+    OverviewJobs:
+      {
+        "type": "object",
+        "required":
+          [
+            "total",
+            "running",
+            "pending",
+            "failed",
+            "completing",
+            "completed",
+            "cancelled",
+            "other",
+            "states",
+          ],
+        "properties":
+          {
+            "total": { "type": "integer", "format": "int64", "minimum": 0 },
+            "running": { "type": "integer", "format": "int64", "minimum": 0 },
+            "pending": { "type": "integer", "format": "int64", "minimum": 0 },
+            "failed": { "type": "integer", "format": "int64", "minimum": 0 },
+            "completing":
+              { "type": "integer", "format": "int64", "minimum": 0 },
+            "completed": { "type": "integer", "format": "int64", "minimum": 0 },
+            "cancelled": { "type": "integer", "format": "int64", "minimum": 0 },
+            "other": { "type": "integer", "format": "int64", "minimum": 0 },
+            "states":
+              {
+                "type": "array",
+                "items":
+                  {
+                    "type": "object",
+                    "required": ["state", "count"],
+                    "properties":
+                      {
+                        "state": { "type": "string" },
+                        "count":
+                          {
+                            "type": "integer",
+                            "format": "int64",
+                            "minimum": 0,
+                          },
+                      },
+                  },
+              },
+          },
+      }
+    OverviewPartitions:
+      {
+        "type": "object",
+        "required": ["total", "up", "items"],
+        "properties":
+          {
+            "total": { "type": "integer", "format": "int64", "minimum": 0 },
+            "up": { "type": "integer", "format": "int64", "minimum": 0 },
+            "items":
+              {
+                "type": "array",
+                "maxItems": 6,
+                "items": { "$ref": "#/components/schemas/SlurmPartition" },
+              },
+          },
+      }
+    ClusterOverview:
+      {
+        "type": "object",
+        "required":
+          [
+            "cluster",
+            "revision",
+            "generatedAt",
+            "health",
+            "nodes",
+            "jobs",
+            "partitions",
+          ],
+        "properties":
+          {
+            "cluster": { "$ref": "#/components/schemas/Cluster" },
+            "revision": { "type": "integer", "format": "int64", "minimum": 0 },
+            "generatedAt": { "type": "string", "format": "date-time" },
+            "health":
+              {
+                "oneOf":
+                  [
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status": { "type": "string", "enum": ["ok"] },
+                          "item":
+                            { "$ref": "#/components/schemas/SlurmHealth" },
+                        },
+                    },
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status":
+                            {
+                              "type": "string",
+                              "enum": ["error", "forbidden"],
+                            },
+                          "item":
+                            {
+                              "type": "object",
+                              "nullable": true,
+                              "enum": [null],
+                            },
+                        },
+                    },
+                  ],
+              },
+            "nodes":
+              {
+                "oneOf":
+                  [
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status": { "type": "string", "enum": ["ok"] },
+                          "item":
+                            { "$ref": "#/components/schemas/OverviewNodes" },
+                        },
+                    },
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status":
+                            {
+                              "type": "string",
+                              "enum": ["error", "forbidden"],
+                            },
+                          "item":
+                            {
+                              "type": "object",
+                              "nullable": true,
+                              "enum": [null],
+                            },
+                        },
+                    },
+                  ],
+              },
+            "jobs":
+              {
+                "oneOf":
+                  [
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status": { "type": "string", "enum": ["ok"] },
+                          "item":
+                            { "$ref": "#/components/schemas/OverviewJobs" },
+                        },
+                    },
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status":
+                            {
+                              "type": "string",
+                              "enum": ["error", "forbidden"],
+                            },
+                          "item":
+                            {
+                              "type": "object",
+                              "nullable": true,
+                              "enum": [null],
+                            },
+                        },
+                    },
+                  ],
+              },
+            "partitions":
+              {
+                "oneOf":
+                  [
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status": { "type": "string", "enum": ["ok"] },
+                          "item":
+                            {
+                              "$ref": "#/components/schemas/OverviewPartitions",
+                            },
+                        },
+                    },
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status":
+                            {
+                              "type": "string",
+                              "enum": ["error", "forbidden"],
+                            },
+                          "item":
+                            {
+                              "type": "object",
+                              "nullable": true,
+                              "enum": [null],
+                            },
+                        },
+                    },
+                  ],
+              },
           },
       }
