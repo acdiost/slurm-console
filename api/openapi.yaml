@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.10.0
+  version: 0.11.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -1775,6 +1775,196 @@ paths:
             },
         },
     }
+  /api/v1/operation-audits:
+    {
+      "get":
+        {
+          "operationId": "listOperationAudits",
+          "summary": "检索平台操作审计",
+          "description": "要求活动用户及平台范围platform.audit.read，每次重新解析授权。可以检索停用或删除集群的历史；不授予当前资源权限。拒绝未知、重复和非法查询参数。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "query",
+                "name": "page",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000,
+                    "default": 1,
+                  },
+              },
+              {
+                "in": "query",
+                "name": "perPage",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 20,
+                  },
+              },
+              {
+                "in": "query",
+                "name": "q",
+                "schema": { "type": "string", "maxLength": 255 },
+              },
+              {
+                "in": "query",
+                "name": "cluster",
+                "schema": { "type": "string", "maxLength": 32 },
+              },
+              {
+                "in": "query",
+                "name": "actor",
+                "schema": { "type": "string", "maxLength": 32 },
+              },
+              {
+                "in": "query",
+                "name": "action",
+                "schema": { "type": "string", "maxLength": 64 },
+              },
+              {
+                "in": "query",
+                "name": "from",
+                "description": "记录创建时间：from包含、to不包含，需时区且最多毫秒精度。",
+                "schema": { "type": "string", "format": "date-time" },
+              },
+              {
+                "in": "query",
+                "name": "to",
+                "description": "记录创建时间：from包含、to不包含，需时区且最多毫秒精度。",
+                "schema": { "type": "string", "format": "date-time" },
+              },
+              {
+                "in": "query",
+                "name": "status",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum":
+                      [
+                        "succeeded",
+                        "confirmed",
+                        "accepted",
+                        "failed",
+                        "unknown",
+                        "processing",
+                      ],
+                  },
+                "description": "unknown包含processing",
+              },
+              {
+                "in": "query",
+                "name": "sort",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["created", "updated"],
+                    "default": "created",
+                  },
+                "description": "服务器排序",
+              },
+              {
+                "in": "query",
+                "name": "order",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["asc", "desc"],
+                    "default": "desc",
+                  },
+                "description": "服务器排序",
+              },
+            ],
+          "responses":
+            {
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "500": { "$ref": "#/components/responses/Error" },
+              "200":
+                {
+                  "description": "只读持久证据，不访问Slurm或改变审计记录",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/AuditPage",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
+  /api/v1/operation-audits/{operationId}:
+    {
+      "get":
+        {
+          "operationId": "getOperationAudit",
+          "summary": "读取单条持久审计",
+          "description": "要求活动用户及平台范围platform.audit.read，每次重新解析授权。可以检索停用或删除集群的历史；不授予当前资源权限。拒绝未知、重复和非法查询参数。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "operationId",
+                "required": true,
+                "schema": { "type": "string", "minLength": 1, "maxLength": 64 },
+              },
+            ],
+          "responses":
+            {
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "500": { "$ref": "#/components/responses/Error" },
+              "200":
+                {
+                  "description": "只读持久证据，不访问Slurm或改变审计记录",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/AuditDetail",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
 components:
   securitySchemes:
     platformToken:
@@ -3239,5 +3429,99 @@ components:
             "revision": { "type": "integer" },
             "resources":
               { "$ref": "#/components/schemas/PartitionResourceSource" },
+          },
+      }
+    AuditChange:
+      {
+        "type": "object",
+        "required": ["field", "before", "after"],
+        "properties":
+          {
+            "field": { "type": "string" },
+            "before": { "type": "string" },
+            "after": { "type": "string" },
+          },
+      }
+    AuditItem:
+      {
+        "type": "object",
+        "required":
+          [
+            "operationId",
+            "actorId",
+            "actorLabel",
+            "actorSource",
+            "clusterId",
+            "clusterName",
+            "clusterSlug",
+            "action",
+            "targetType",
+            "targetId",
+            "requestId",
+            "status",
+            "recordedStatus",
+            "message",
+            "reason",
+            "createdAt",
+            "updatedAt",
+            "clusterRevision",
+            "states",
+            "changes",
+          ],
+        "properties":
+          {
+            "operationId": { "type": "string" },
+            "actorId": { "type": "string" },
+            "actorLabel": { "type": "string" },
+            "actorSource": { "type": "string" },
+            "clusterId": { "type": "string" },
+            "clusterName": { "type": "string" },
+            "clusterSlug": { "type": "string" },
+            "action": { "type": "string" },
+            "targetType": { "type": "string" },
+            "targetId": { "type": "string" },
+            "requestId": { "type": "string" },
+            "status": { "type": "string" },
+            "recordedStatus": { "type": "string" },
+            "message": { "type": "string" },
+            "reason": { "type": "string" },
+            "createdAt": { "type": "string" },
+            "updatedAt": { "type": "string" },
+            "clusterRevision": { "type": "integer" },
+            "states": { "type": "array", "items": { "type": "string" } },
+            "changes":
+              {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/AuditChange" },
+              },
+          },
+        "description": "持久历史快照；内部hash/proof/fingerprint不公开；processing保守显示unknown，recordedStatus保留原值。",
+      }
+    AuditPage:
+      {
+        "type": "object",
+        "required": ["items", "page", "perPage", "totalItems", "fetchedAt"],
+        "properties":
+          {
+            "items":
+              {
+                "type": "array",
+                "maxItems": 100,
+                "items": { "$ref": "#/components/schemas/AuditItem" },
+              },
+            "page": { "type": "integer" },
+            "perPage": { "type": "integer" },
+            "totalItems": { "type": "integer" },
+            "fetchedAt": { "type": "string" },
+          },
+      }
+    AuditDetail:
+      {
+        "type": "object",
+        "required": ["item", "fetchedAt"],
+        "properties":
+          {
+            "item": { "$ref": "#/components/schemas/AuditItem" },
+            "fetchedAt": { "type": "string" },
           },
       }

@@ -1,7 +1,8 @@
 package rbac
 
 import (
-	"crypto/rand"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/spf13/cobra"
+	"slurm-console/backend/internal/audit"
 )
 
 func Commands(app core.App) *cobra.Command {
@@ -39,36 +41,61 @@ func Commands(app core.App) *cobra.Command {
 				}
 				clusterID = cluster.Id
 			}
-			if action == "grant" {
-				if _, err := Grant(app, user.Id, roleCode, clusterID); err != nil {
-					return err
-				}
-			} else {
-				role, err := app.FindFirstRecordByFilter("roles", "code = {:code}", dbx.Params{"code": roleCode})
+			auditActor := audit.LocalActor()
+			err = audit.Mutate(app, auditActor, func(tx core.App) (audit.Event, error) {
+				beforeRole := ""
+				role, err := tx.FindFirstRecordByData("roles", "code", roleCode)
 				if err != nil {
-					return err
+					return audit.Event{}, err
 				}
-				name, filter := "user_platform_roles", "user = {:user} && role = {:role}"
+				name, filter := "user_platform_roles", "user={:user} && role={:role}"
 				params := dbx.Params{"user": user.Id, "role": role.Id}
 				if role.GetString("scope") == "cluster" {
-					if clusterID == "" {
-						return fmt.Errorf("cluster role requires --cluster")
-					}
 					name = "user_cluster_roles"
-					filter += " && cluster = {:cluster}"
+					filter += " && cluster={:cluster}"
 					params["cluster"] = clusterID
-				} else if clusterID != "" {
-					return fmt.Errorf("platform role cannot be scoped to a cluster")
 				}
-				record, err := app.FindFirstRecordByFilter(name, filter, params)
-				if err != nil {
-					return err
+				_, findErr := tx.FindFirstRecordByFilter(name, filter, params)
+				if findErr == nil {
+					beforeRole = roleCode
+				} else if !errors.Is(findErr, sql.ErrNoRows) {
+					return audit.Event{}, findErr
 				}
-				if err := app.Delete(record); err != nil {
-					return err
+				if action == "grant" {
+					if _, err := Grant(tx, user.Id, roleCode, clusterID); err != nil {
+						return audit.Event{}, err
+					}
+				} else {
+					role, err := tx.FindFirstRecordByFilter("roles", "code = {:code}", dbx.Params{"code": roleCode})
+					if err != nil {
+						return audit.Event{}, err
+					}
+					name, filter := "user_platform_roles", "user = {:user} && role = {:role}"
+					params := dbx.Params{"user": user.Id, "role": role.Id}
+					if role.GetString("scope") == "cluster" {
+						if clusterID == "" {
+							return audit.Event{}, fmt.Errorf("cluster role requires --cluster")
+						}
+						name = "user_cluster_roles"
+						filter += " && cluster = {:cluster}"
+						params["cluster"] = clusterID
+					} else if clusterID != "" {
+						return audit.Event{}, fmt.Errorf("platform role cannot be scoped to a cluster")
+					}
+					record, err := tx.FindFirstRecordByFilter(name, filter, params)
+					if err != nil {
+						return audit.Event{}, err
+					}
+					if err := tx.Delete(record); err != nil {
+						return audit.Event{}, err
+					}
 				}
+				return audit.Event{Action: "access." + action, ClusterID: clusterID, TargetType: "user", TargetID: user.Id, Message: "本地角色授权命令完成。", Changes: []audit.Change{{Field: "role", Before: beforeRole, After: map[bool]string{true: roleCode}[action == "grant"]}}}, nil
+			})
+			if err != nil {
+				return err
 			}
-			slog.Info("local access change", "operationId", rand.Text(), "actorUid", os.Geteuid(), "result", "success", "action", action, "userId", user.Id, "role", roleCode, "clusterId", clusterID)
+			slog.Info("local access change", "requestId", auditActor.RequestID, "actorUid", os.Geteuid(), "result", "success", "action", action, "userId", user.Id, "role", roleCode, "clusterId", clusterID)
 			fmt.Fprintf(cmd.OutOrStdout(), "Access %s completed.\n", action)
 			return nil
 		}}
@@ -92,7 +119,7 @@ func Commands(app core.App) *cobra.Command {
 		record := core.NewRecord(collection)
 		record.Set("name", strings.TrimSpace(name))
 		record.Set("slug", strings.TrimSpace(slug))
-		if err := app.Save(record); err != nil {
+		if err := audit.SaveLocal(app, record, audit.Event{Action: "clusters.register", TargetType: "cluster", Message: "本地命令登记集群。"}); err != nil {
 			return err
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), "Cluster inventory registered:", record.Id)

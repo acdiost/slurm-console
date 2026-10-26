@@ -8,6 +8,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/spf13/cobra"
+	"slurm-console/backend/internal/audit"
 )
 
 func externalUserCommand(app core.App, source string, link bool) *cobra.Command {
@@ -60,6 +61,8 @@ func externalUserCommand(app core.App, source string, link bool) *cobra.Command 
 				record.Set("name", strings.TrimSpace(name))
 				record.Set("active", true)
 			}
+			previousSource := record.GetString("auth_source")
+			previousUsername := record.GetString("username")
 			record.Set("auth_source", source)
 			record.Set("username", username)
 			record.Set("ldap_entry_id", entryID)
@@ -68,7 +71,11 @@ func externalUserCommand(app core.App, source string, link bool) *cobra.Command 
 			// random secret is retained.
 			record.SetPassword(rand.Text() + rand.Text())
 			record.RefreshTokenKey()
-			if err := app.Save(record); err != nil {
+			action := "users.create"
+			if link {
+				action = "users.link"
+			}
+			if err := audit.SaveLocal(app, record, audit.Event{Action: action, TargetType: "user", Message: "本地命令配置账户认证来源。", Changes: []audit.Change{{Field: "authSource", Before: previousSource, After: source}, {Field: "username", Before: previousUsername, After: username}}}); err != nil {
 				return fmt.Errorf("save %s mapping: %w", label, err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "%s identity linked; permissions and account activation are unchanged. External account validity is checked at login.\n", label)

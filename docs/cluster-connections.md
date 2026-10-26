@@ -33,3 +33,5 @@
 当前已实现连接检测和 [Slurm Adapter](slurm-adapter.md) 的健康、作业、节点、分区只读 API。连接检测允许已配置的 `v0.0.41`–`v0.0.44`；业务 Adapter 明确限定已验证的 `v0.0.43`。设计系统作业仍为示例，业务查询不落地 PocketBase。[作业管理](jobs.md) 已增加受身份、确认和审计保护的单作业取消；操作证据保存在平台数据库。
 
 依据：[Slurm REST 服务文档](https://slurm.schedmd.com/slurmrestd.html)、[REST 客户端指南](https://slurm.schedmd.com/rest_clients.html)。
+
+连接创建、更新及停用与操作审计在同一数据库事务提交，写审计失败则回滚配置；查询审计不调用上游连接。见 [操作审计](audits.md)。

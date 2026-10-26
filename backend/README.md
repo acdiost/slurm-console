@@ -20,7 +20,8 @@ LDAP 通过 `SLURM_CONSOLE_LDAP_CONFIG` 指向服务端 JSON 配置，支持 LDA
 - `internal/services`：应用服务、版本隔离缓存与取消后失效。
 - `internal/nodecontrol`：节点状态确认、Drain/Resume 及持久审计。
 - `internal/jobcontrol`：显式 Slurm 身份 CLI、最新确认及持久审计取消。
-- `internal/monitoring`、`internal/audit`、`internal/cache`：监控、审计、缓存。
+- `internal/audit`：管理变更的事务审计及意图快照。
+- `internal/monitoring`、`internal/cache`：后续监控与缓存扩展。
 - `migrations`：PocketBase 数据迁移。
 
 不在浏览器保存集群凭据；不将作业、节点持久化为平台业务主表。平台用户、Slurm 身份和集群权限分别建模。
@@ -32,3 +33,5 @@ Slurm Adapter 的版本、查询及缓存约束见 `../docs/slurm-adapter.md`；
 节点管理见 `../docs/nodes.md`，应用不修改 Slurm 角色或节点配置文件。
 
 分区列表、详情及关联节点资源见 `../docs/partitions.md`；节点数据单独授权，分区接口全部只读。
+
+平台审计查询及管理命令留痕见 `../docs/audits.md`，只有 `platform.audit.read` 可检索，不回读或重试 Slurm 操作。

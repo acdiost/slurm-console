@@ -7,12 +7,15 @@ import (
 	"log/slog"
 	"net/http"
 
+	"database/sql"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
+	"slurm-console/backend/internal/audit"
 	"slurm-console/backend/internal/auth"
 	"slurm-console/backend/internal/clusterconfig"
 	"slurm-console/backend/internal/rbac"
+	"strconv"
 )
 
 func registerConfigurationRoutes(group *router.RouterGroup[*core.RequestEvent]) {
@@ -45,7 +48,7 @@ func registerConfigurationRoutes(group *router.RouterGroup[*core.RequestEvent]) 
 		if err := readConfigurationBody(e, &input); err != nil {
 			return err
 		}
-		view, err := clusterconfig.For(e.App).Save("", input)
+		view, err := mutateConfiguration(e, "create", "", input)
 		if err != nil {
 			return configurationError(e, err)
 		}
@@ -57,7 +60,7 @@ func registerConfigurationRoutes(group *router.RouterGroup[*core.RequestEvent]) 
 		if err := readConfigurationBody(e, &input); err != nil {
 			return err
 		}
-		view, err := clusterconfig.For(e.App).Save(e.Request.PathValue("clusterId"), input)
+		view, err := mutateConfiguration(e, "update", e.Request.PathValue("clusterId"), input)
 		if err != nil {
 			return configurationError(e, err)
 		}
@@ -85,7 +88,7 @@ func registerConfigurationRoutes(group *router.RouterGroup[*core.RequestEvent]) 
 		if err := readConfigurationBody(e, &input); err != nil {
 			return err
 		}
-		view, err := clusterconfig.For(e.App).Disable(e.Request.PathValue("clusterId"), input.Revision)
+		view, err := mutateConfiguration(e, "disable", e.Request.PathValue("clusterId"), clusterconfig.Input{Revision: input.Revision})
 		if err != nil {
 			return configurationError(e, err)
 		}
@@ -122,4 +125,49 @@ func configurationError(e *core.RequestEvent, err error) error {
 }
 func configurationLog(e *core.RequestEvent, action string, view clusterconfig.Configuration) {
 	slog.InfoContext(e.Request.Context(), "cluster configuration operation", "requestId", e.Get("requestId"), "actorId", e.Auth.Id, "action", action, "clusterId", view.ID, "revision", view.Revision, "status", view.LastProbe.Status)
+}
+
+// Both the reviewed configuration change and its evidence commit together.
+func mutateConfiguration(e *core.RequestEvent, action, id string, input clusterconfig.Input) (clusterconfig.Configuration, error) {
+	var view clusterconfig.Configuration
+	requestID, _ := e.Get("requestId").(string)
+	err := audit.Mutate(e.App, audit.PlatformActor(e.Auth, requestID), func(tx core.App) (audit.Event, error) {
+		before := map[string]string{}
+		if id != "" {
+			record, err := tx.FindRecordById("clusters", id)
+			if errors.Is(err, sql.ErrNoRows) {
+				return audit.Event{}, clusterconfig.ErrNotFound
+			}
+			if err != nil {
+				return audit.Event{}, err
+			}
+			before = configurationSnapshot(record)
+		}
+		manager := &clusterconfig.Manager{App: tx, Registry: clusterconfig.For(e.App).Registry}
+		var err error
+		if action == "disable" {
+			view, err = manager.Disable(id, input.Revision)
+		} else {
+			view, err = manager.Save(id, input)
+		}
+		if err != nil {
+			return audit.Event{}, err
+		}
+		record, err := tx.FindRecordById("clusters", view.ID)
+		if err != nil {
+			return audit.Event{}, err
+		}
+		after := configurationSnapshot(record)
+		changes := []audit.Change{}
+		for _, key := range []string{"name", "slug", "enabled", "apiVersion", "connectionRef", "timeoutSeconds", "revision"} {
+			if before[key] != after[key] {
+				changes = append(changes, audit.Change{Field: key, Before: before[key], After: after[key]})
+			}
+		}
+		return audit.Event{Action: "clusters." + action, ClusterID: view.ID, TargetType: "cluster", TargetID: view.ID, Message: "集群连接配置已保存。", Changes: changes}, nil
+	})
+	return view, err
+}
+func configurationSnapshot(r *core.Record) map[string]string {
+	return map[string]string{"name": r.GetString("name"), "slug": r.GetString("slug"), "enabled": strconv.FormatBool(r.GetBool("enabled")), "apiVersion": r.GetString("api_version"), "connectionRef": r.GetString("connection_ref"), "timeoutSeconds": strconv.Itoa(r.GetInt("timeout_seconds")), "revision": strconv.Itoa(r.GetInt("revision"))}
 }

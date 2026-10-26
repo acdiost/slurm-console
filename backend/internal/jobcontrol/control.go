@@ -20,6 +20,7 @@ import (
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
+	"slurm-console/backend/internal/audit"
 	"slurm-console/backend/internal/rbac"
 	"slurm-console/backend/internal/services"
 	"slurm-console/backend/internal/slurm/client"
@@ -363,6 +364,13 @@ func (s *Service) Cancel(actor, cluster, jobID, requestID string, input Input) (
 	record := core.NewRecord(collection)
 	for field, value := range map[string]any{"operation_key": token.Operation, "actor_id": actor, "cluster_id": cluster, "cluster_revision": token.Revision, "job_id": jobID, "action": "jobs.cancel", "request_id": requestID, "status": "processing", "message": "取消请求正在处理。", "reason": input.Reason, "input_hash": inputHash, "fingerprint": token.Fingerprint, "observed_states": job.States} {
 		record.Set(field, value)
+	}
+	actorRecord, err := s.app.FindRecordById("users", actor)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := audit.Stamp(s.app, record, audit.PlatformActor(actorRecord, requestID), cluster, "job", jobID); err != nil {
+		return Result{}, err
 	}
 	if err := s.app.Save(record); err != nil {
 		return Result{}, client.Failure("audit_unavailable", "无法写入操作审计，未发送取消请求。")

@@ -49,6 +49,6 @@
 | `POST /nodes/{nodeName}/drain`、`/resume` | `nodes.read` + 对应动作；body={proof,confirmation,reason} |
 | `GET /node-operations/{operationId}` | `nodes.read`，且本人操作或 `platform.audit.read`；只读核实 |
 
-节点与作业操作复用锁定原生读写的审计 Collection，各自接口按动作类型隔离，不能借另一资源的读取权限查询审计。审计包含平台操作人、目标节点、动作、原因、请求编号、配置版本、已观察状态和时间。完整平台审计检索与保留策略仍在后续阶段实现。
+节点与作业操作复用锁定原生读写的审计 Collection，各自接口按动作类型隔离，不能借另一资源的读取权限查询审计。审计包含平台操作人、目标节点、动作、原因、请求编号、配置版本、已观察状态和时间。平台审计检索和历史快照见 [操作审计](audits.md)，独立备份与留存由管理员配置。
 
 上游语义及权限依据 [SchedMD scontrol](https://slurm.schedmd.com/scontrol.html)，字段以部署环境提供的 `v0.0.43` OpenAPI 为准，见 [REST 客户端指南](https://slurm.schedmd.com/rest_clients.html)。

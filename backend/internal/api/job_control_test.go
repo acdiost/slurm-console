@@ -85,6 +85,10 @@ func TestJobCancellationAuditsBeforeWriteIsIdempotentAndInvalidatesCachedReads(t
 			t.Fatalf("cancel: %d %s", res.Code, res.Body.String())
 		}
 	}
+	row, findErr := app.FindFirstRecordByData("operation_audits", "operation_key", context.OperationID)
+	if findErr != nil || row.GetString("actor_source") != "platform" || row.GetString("actor_label") != "测试用户" || row.GetString("target_type") != "job" || row.GetString("target_id") != "42" || row.GetString("cluster_name") == "" {
+		t.Fatal("missing intent identity snapshots")
+	}
 	if calls.Load() != 1 || !audited.Load() {
 		t.Fatal("duplicate DELETE or missing durable intent")
 	}

@@ -23,7 +23,7 @@
 
 真实状态变更必须验证身份、集群、资源和操作范围，记录操作人、目标、时间、请求标识及结果；高风险操作使用二次确认。普通用户不得修改审计数据。
 
-集群配置页面及 `/api/v1/cluster-configurations`、`/cluster-connection-profiles` 全部要求平台范围 `platform.clusters.manage`，不会通过集群范围角色获得。停用连接保留现有权限绑定；配置引用只能选取可信部署管理员预设的连接方式。创建、编辑、检测和停用的操作上下文记录至 journald，完整操作审计仍待实现。
+集群配置页面及 `/api/v1/cluster-configurations`、`/cluster-connection-profiles` 全部要求平台范围 `platform.clusters.manage`，不会通过集群范围角色获得。停用连接保留现有权限绑定；配置引用只能选取可信部署管理员预设的连接方式。创建、编辑和停用与持久审计同事务；检测和请求上下文继续记录至 journald。
 
 Adapter 的健康、作业、节点、分区端点分别要求对应集群的 `clusters.read/jobs.read/nodes.read/partitions.read`，命中缓存也先检查实时授权。所有上游查询使用同一预配置受限身份，不按浏览器提供的用户名代理。单作业取消另需显式身份关联、最新确认和持久审计，见 [作业管理](jobs.md)。
 
@@ -32,3 +32,5 @@ Adapter 的健康、作业、节点、分区端点分别要求对应集群的 `c
 节点 Drain/Resume 要求 `nodes.read` 和目标动作，使用明确节点名称、最新状态确认及持久审计。Slurm 仍校验固定服务身份的上游管理员权限，平台不自动扩权；节点与作业审计接口按资源类型隔离。详见 [节点管理](nodes.md)。
 
 分区列表/详情只要求 `partitions.read`；关联节点统计及节点分页独立要求 `nodes.read`，缺权不请求节点。分区读取权限不隐含作业或节点权限，见 [分区查询](partitions.md)。
+
+`GET /operation-audits` 及详情要求平台范围 `platform.audit.read`，可检索已停用/删除集群的历史；不依赖实时资源权限，也不授予资源操作权限。原生审计 Collection CRUD 仍锁定。详见 [操作审计](audits.md)。

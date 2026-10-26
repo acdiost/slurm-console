@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { NavLink, Outlet, useLocation } from "react-router"
 import {
   Activity,
+  ScrollText,
   ArrowUpRight,
   Boxes,
   ChevronRight,
@@ -84,6 +85,8 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const canManage =
     user?.access.platformPermissions.includes("platform.clusters.manage") ??
     false
+  const canReadAudit =
+    user?.access.platformPermissions.includes("platform.audit.read") ?? false
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <div className="flex h-17 items-center gap-2.5 px-5">
@@ -193,6 +196,18 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                 <span>分区查询</span>
               </NavLink>
             )}
+            {section.label === "平台管理" && canReadAudit && (
+              <NavLink
+                to="/audits"
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
+                }
+              >
+                <ScrollText />
+                <span>操作审计</span>
+              </NavLink>
+            )}
             {section.items.map(({ label, icon: Icon }) => (
               <button key={label} disabled className="nav-item">
                 <Icon />
@@ -217,16 +232,16 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
           <FlaskConical className="size-3.5 text-primary" />
           工程初始化
           <span className="ml-auto font-mono text-2xs text-muted-foreground">
-            09 / 11
+            10 / 11
           </span>
         </div>
         <div className="h-1 overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-[81.82%] bg-primary" />
+          <div className="h-full w-[90.91%] bg-primary" />
         </div>
         <p className="mt-2 text-2xs leading-relaxed text-muted-foreground">
-          阶段一 · 分区查询已就绪
+          阶段一 · 操作审计已就绪
           <br />
-          下一步：操作审计
+          下一步：基础部署与备份
         </p>
       </div>
       <div className="flex items-center gap-2.5 border-t p-4">
@@ -308,19 +323,21 @@ export function ConsoleLayout() {
             </span>
             <ChevronRight className="hidden size-3 text-muted-foreground sm:inline" />
             <span>
-              {pathname === "/partitions"
-                ? "分区查询"
-                : pathname === "/nodes"
-                  ? "节点管理"
-                  : pathname === "/jobs"
-                    ? "作业管理"
-                    : pathname === "/overview"
-                      ? "集群总览"
-                      : pathname === "/clusters"
-                        ? "集群配置"
-                        : pathname === "/access"
-                          ? "我的权限"
-                          : "设计系统"}
+              {pathname === "/audits"
+                ? "操作审计"
+                : pathname === "/partitions"
+                  ? "分区查询"
+                  : pathname === "/nodes"
+                    ? "节点管理"
+                    : pathname === "/jobs"
+                      ? "作业管理"
+                      : pathname === "/overview"
+                        ? "集群总览"
+                        : pathname === "/clusters"
+                          ? "集群配置"
+                          : pathname === "/access"
+                            ? "我的权限"
+                            : "设计系统"}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">

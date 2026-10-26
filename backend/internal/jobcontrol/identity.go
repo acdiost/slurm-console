@@ -1,7 +1,6 @@
 package jobcontrol
 
 import (
-	"crypto/rand"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/spf13/cobra"
+	"slurm-console/backend/internal/audit"
 )
 
 type Identity struct {
@@ -81,19 +81,45 @@ func Command(app core.App) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("cluster not found")
 			}
-			if action == "link" {
-				err = LinkIdentity(app, user.Id, cluster.Id, username, uid, scope)
-			} else {
-				var record *core.Record
-				record, err = app.FindFirstRecordByFilter("slurm_identities", "user={:user} && cluster={:cluster}", dbx.Params{"user": user.Id, "cluster": cluster.Id})
-				if err == nil {
-					err = app.Delete(record)
+			auditActor := audit.LocalActor()
+			err = audit.Mutate(app, auditActor, func(tx core.App) (audit.Event, error) {
+				previous, previousErr := identity(tx, user.Id, cluster.Id)
+				if previousErr != nil && !errors.Is(previousErr, sql.ErrNoRows) {
+					return audit.Event{}, previousErr
 				}
-			}
+				if action == "link" {
+					err = LinkIdentity(tx, user.Id, cluster.Id, username, uid, scope)
+				} else {
+					var record *core.Record
+					record, err = tx.FindFirstRecordByFilter("slurm_identities", "user={:user} && cluster={:cluster}", dbx.Params{"user": user.Id, "cluster": cluster.Id})
+					if err == nil {
+						err = tx.Delete(record)
+					}
+				}
+				if err != nil {
+					return audit.Event{}, err
+				}
+				changes := []audit.Change{}
+				before := map[string]string{}
+				if previousErr == nil {
+					before = map[string]string{"username": previous.Username, "uid": fmt.Sprint(previous.UID), "scope": previous.Scope}
+				}
+				after := map[string]string{}
+				if action == "link" {
+					after = map[string]string{"username": username, "uid": fmt.Sprint(uid), "scope": scope}
+				}
+				for _, field := range []string{"username", "uid", "scope"} {
+					if before[field] != after[field] {
+						changes = append(changes, audit.Change{Field: field, Before: before[field], After: after[field]})
+					}
+				}
+
+				return audit.Event{Action: "identities." + action, ClusterID: cluster.Id, TargetType: "user", TargetID: user.Id, Message: "本地 Slurm 身份关联命令完成。", Changes: changes}, nil
+			})
 			if err != nil {
 				return err
 			}
-			slog.Info("local Slurm identity change", "operationId", rand.Text(), "actorUid", os.Geteuid(), "action", action, "userId", user.Id, "clusterId", cluster.Id, "scope", scope)
+			slog.Info("local Slurm identity change", "requestId", auditActor.RequestID, "actorUid", os.Geteuid(), "action", action, "userId", user.Id, "clusterId", cluster.Id, "scope", scope)
 			fmt.Fprintln(cmd.OutOrStdout(), "Slurm identity", action, "completed; platform permissions and upstream Slurm privileges are unchanged.")
 			return nil
 		}}

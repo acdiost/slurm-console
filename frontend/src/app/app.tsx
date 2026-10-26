@@ -27,6 +27,11 @@ const DesignSystemPage = lazy(() =>
     default: module.DesignSystemPage,
   }))
 )
+const AuditsPage = lazy(() =>
+  import("@/pages/audits-page").then((module) => ({
+    default: module.AuditsPage,
+  }))
+)
 const PartitionsPage = lazy(() =>
   import("@/pages/partitions-page").then((module) => ({
     default: module.PartitionsPage,
@@ -78,6 +83,7 @@ export function App() {
                   <Route path="jobs" element={<JobsPage />} />
                   <Route path="nodes" element={<NodesPage />} />
                   <Route path="partitions" element={<PartitionsPage />} />
+                  <Route path="audits" element={<AuditsPage />} />
                   <Route path="design-system" element={<DesignSystemPage />} />
                   <Route path="access" element={<AccessPage />} />
                   <Route
@@ -113,21 +119,23 @@ function RouteTitle() {
   const { pathname } = useLocation()
   useEffect(() => {
     const title =
-      pathname === "/login"
-        ? "登录"
-        : pathname === "/partitions"
-          ? "分区查询"
-          : pathname === "/nodes"
-            ? "节点管理"
-            : pathname === "/jobs"
-              ? "作业管理"
-              : pathname === "/overview"
-                ? "集群总览"
-                : pathname === "/clusters"
-                  ? "集群配置"
-                  : pathname === "/access"
-                    ? "我的权限"
-                    : "设计系统"
+      pathname === "/audits"
+        ? "操作审计"
+        : pathname === "/login"
+          ? "登录"
+          : pathname === "/partitions"
+            ? "分区查询"
+            : pathname === "/nodes"
+              ? "节点管理"
+              : pathname === "/jobs"
+                ? "作业管理"
+                : pathname === "/overview"
+                  ? "集群总览"
+                  : pathname === "/clusters"
+                    ? "集群配置"
+                    : pathname === "/access"
+                      ? "我的权限"
+                      : "设计系统"
     document.title = `${title} · Slurm Console`
   }, [pathname])
   return null

@@ -51,3 +51,5 @@ sudo -u slurm-console /opt/slurm-console/slurm-console slurm-identity unlink \
 `operation_audits` 在 SQLite 中记录 operationId、请求编号、平台用户、集群及配置版本、Job ID、提交身份指纹、动作、原因、已观察状态、结果和时间；浏览器只获得安全 DTO，不获得内部指纹、确认令牌或上游凭据。Collection 的原生读写规则关闭。未通过权限/参数检查的请求记入结构化请求日志；实际取消必须有持久审计。备份应同时保留数据库及应用版本，迁移不支持丢弃审计证据的向下回滚。
 
 审计确认的是“当前作业已为 CANCELLED”，不能证明该状态仅由本次操作造成。作业退出控制器保留范围、配置改指其他集群或读取失败时不会凭空推断成功。完整平台审计检索、保留策略和历史 SlurmDB 记账在后续阶段扩展。
+
+平台审计查询可通过 `platform.audit.read` 检索跨集群历史，不改变原有本人操作查询边界，详见 [操作审计](audits.md)。

@@ -9,6 +9,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	"slurm-console/backend/internal/audit"
 )
 
 // UsersCommand provisions platform accounts without putting passwords in argv.
@@ -52,7 +53,7 @@ func UsersCommand(app core.App) *cobra.Command {
 			record.Set("active", true)
 			record.Set("auth_source", "local")
 			record.SetPassword(password)
-			if err := app.Save(record); err != nil {
+			if err := audit.SaveLocal(app, record, audit.Event{Action: "users.create", TargetType: "user", Message: "本地命令创建平台账户。", Changes: []audit.Change{{Field: "authSource", After: "local"}}}); err != nil {
 				return fmt.Errorf("create user: %w", err)
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "Platform user created; cluster permissions are not assigned.")

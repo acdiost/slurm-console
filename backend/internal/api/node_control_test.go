@@ -110,6 +110,10 @@ func TestNodeDrainResumeDurableIdempotentAndInvalidatesQueries(t *testing.T) {
 			t.Fatal(res.Body.String())
 		}
 	}
+	row, findErr := app.FindFirstRecordByData("operation_audits", "operation_key", prepared.OperationID)
+	if findErr != nil || row.GetString("actor_source") != "platform" || row.GetString("target_type") != "node" || row.GetString("target_id") != "node1" || row.GetString("cluster_name") == "" {
+		t.Fatal("missing intent identity snapshots")
+	}
 	if posts.Load() != 1 {
 		t.Fatal("idempotency failed")
 	}
