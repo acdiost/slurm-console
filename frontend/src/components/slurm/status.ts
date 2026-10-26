@@ -34,11 +34,23 @@ const nodes: Record<string, { label: string; tone: StatusTone }> = {
   REBOOT_ISSUED: { label: "重启中", tone: "warning" },
   UNKNOWN: { label: "未知", tone: "neutral" },
 }
-export function resolveStatus(state: string, kind: "job" | "node" = "job") {
+const partitions: Record<string, { label: string; tone: StatusTone }> = {
+  UP: { label: "允许提交与调度", tone: "success" },
+  DOWN: { label: "暂停调度", tone: "danger" },
+  DRAIN: { label: "停止新提交", tone: "warning" },
+  INACTIVE: { label: "停止提交与调度", tone: "neutral" },
+  UNKNOWN: { label: "未知", tone: "neutral" },
+}
+export function resolveStatus(
+  state: string,
+  kind: "job" | "node" | "partition" = "job"
+) {
   const code = state.trim().toUpperCase()
   return {
     code: code || "UNKNOWN",
-    ...((kind === "job" ? jobs : nodes)[code] ?? {
+    ...((kind === "job" ? jobs : kind === "node" ? nodes : partitions)[
+      code
+    ] ?? {
       label: "未知状态",
       tone: "neutral" as const,
     }),

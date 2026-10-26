@@ -13,7 +13,8 @@
 | `/jobs/{jobId}` | `jobs.read` | 数字形式的实际 Job ID 详情 |
 | `/nodes` | `nodes.read` | 节点列表 |
 | `/nodes/{nodeName}` | `nodes.read` | 节点详情 |
-| `/partitions` | `partitions.read` | 分区列表 |
+| `/partitions` | `partitions.read` | 分区列表、筛选分页及排序 |
+| `/partitions/{partitionName}` | `partitions.read` | 精确详情；节点资源另需 nodes.read |
 
 列表在 Go 服务端执行过滤、确定性排序与分页，参数 `page>=1`、`1<=perPage<=100`。所有列表支持 `q` 和 `state`，作业额外支持精确 `user/account/partition/qos`，节点支持精确 `partition` 及 `sort=name|cpus|memory`、`order=asc|desc`。状态匹配状态数组中的任一标记（例如 `MIXED,DRAIN` 的节点可用 `state=DRAIN` 选择）；查询仅接受单个状态。作业支持 `sort=id|submitTime|cpus` 和 `order=asc|desc`（默认数字 ID 降序，未知数值最后），节点默认按名称升序，分区按名称升序。重复或未知参数、非法资源标识在访问上游前拒绝。数组作业按实际任务 Job ID 查询，暂不接受 `123_4` 等组合选择器。
 
@@ -44,3 +45,5 @@ slurmrestd、LDAP、FreeIPA 等外部服务由管理员负责；本项目只连�
 集群总览复用以上来源与权限边界；节点 DTO 补充 `effectiveCpus` 和 `gresUsed`，用于区分预留 CPU 以及 GPU 已分配数量。聚合口径见 [集群总览](overview.md)。
 
 节点查询补充系统/Slurmd 启动、状态原因设置时间与用户、备注、特征、预留等信息。平台节点 API 同时返回 CPU/内存/GPU 的调度资源口径，复用总览统计函数；控制确认使用最新原始标准 DTO。
+
+分区约束、状态语义、资源覆盖及权限边界见 [分区查询](partitions.md)。分区内存使用 v0.0.43 的显式 per CPU/per node 字段；未设置、无限和零分别保留。

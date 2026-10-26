@@ -20,7 +20,7 @@ import (
 	"slurm-console/backend/internal/slurm/models"
 )
 
-type overviewSection[T any] struct {
+type slurmSection[T any] struct {
 	Status    string `json:"status"`
 	Code      string `json:"code"`
 	Message   string `json:"message"`
@@ -29,13 +29,13 @@ type overviewSection[T any] struct {
 	Item      *T     `json:"item"`
 }
 type clusterOverview struct {
-	Cluster     rbac.Cluster                         `json:"cluster"`
-	Revision    int                                  `json:"revision"`
-	GeneratedAt string                               `json:"generatedAt"`
-	Health      overviewSection[models.Health]       `json:"health"`
-	Nodes       overviewSection[overview.Nodes]      `json:"nodes"`
-	Jobs        overviewSection[overview.Jobs]       `json:"jobs"`
-	Partitions  overviewSection[overview.Partitions] `json:"partitions"`
+	Cluster     rbac.Cluster                      `json:"cluster"`
+	Revision    int                               `json:"revision"`
+	GeneratedAt string                            `json:"generatedAt"`
+	Health      slurmSection[models.Health]       `json:"health"`
+	Nodes       slurmSection[overview.Nodes]      `json:"nodes"`
+	Jobs        slurmSection[overview.Jobs]       `json:"jobs"`
+	Partitions  slurmSection[overview.Partitions] `json:"partitions"`
 }
 
 func registerOverviewRoutes(group *router.RouterGroup[*core.RequestEvent]) {
@@ -63,16 +63,16 @@ func getOverview(e *core.RequestEvent) error {
 	result := clusterOverview{Cluster: rbac.ClusterDTO(record), Revision: record.GetInt("revision")}
 	var group sync.WaitGroup
 	group.Go(func() {
-		result.Health = loadOverviewSection(e, id, "health", true, func(value models.Health) (models.Health, error) { return value, nil })
+		result.Health = loadSlurmSection(e, id, "health", true, func(value models.Health) (models.Health, error) { return value, nil })
 	})
 	group.Go(func() {
-		result.Jobs = loadOverviewSection(e, id, "jobs", access.Allows("jobs.read", id), func(values []models.Job) (overview.Jobs, error) { return overview.JobSummary(values), nil })
+		result.Jobs = loadSlurmSection(e, id, "jobs", access.Allows("jobs.read", id), func(values []models.Job) (overview.Jobs, error) { return overview.JobSummary(values), nil })
 	})
 	group.Go(func() {
-		result.Nodes = loadOverviewSection(e, id, "nodes", access.Allows("nodes.read", id), overview.NodeSummary)
+		result.Nodes = loadSlurmSection(e, id, "nodes", access.Allows("nodes.read", id), overview.NodeSummary)
 	})
 	group.Go(func() {
-		result.Partitions = loadOverviewSection(e, id, "partitions", access.Allows("partitions.read", id), func(values []models.Partition) (overview.Partitions, error) {
+		result.Partitions = loadSlurmSection(e, id, "partitions", access.Allows("partitions.read", id), func(values []models.Partition) (overview.Partitions, error) {
 			return overview.PartitionSummary(values), nil
 		})
 	})
@@ -90,8 +90,8 @@ func getOverview(e *core.RequestEvent) error {
 	result.GeneratedAt = time.Now().UTC().Format(time.RFC3339Nano)
 	return response(e, result)
 }
-func loadOverviewSection[T, U any](e *core.RequestEvent, id, kind string, allowed bool, summarize func(T) (U, error)) overviewSection[U] {
-	result := overviewSection[U]{Status: "forbidden", Code: "FORBIDDEN", Message: "未授予该项读取权限。"}
+func loadSlurmSection[T, U any](e *core.RequestEvent, id, kind string, allowed bool, summarize func(T) (U, error)) slurmSection[U] {
+	result := slurmSection[U]{Status: "forbidden", Code: "FORBIDDEN", Message: "未授予该项读取权限。"}
 	if !allowed {
 		return result
 	}
@@ -113,8 +113,8 @@ func loadOverviewSection[T, U any](e *core.RequestEvent, id, kind string, allowe
 			result.Code = "SLURM_" + strings.ToUpper(failure.Code)
 			result.Message = failure.Message
 		}
-		slog.WarnContext(e.Request.Context(), "overview source unavailable", "clusterId", id, "source", kind, "code", result.Code)
+		slog.WarnContext(e.Request.Context(), "Slurm source unavailable", "clusterId", id, "source", kind, "code", result.Code)
 		return result
 	}
-	return overviewSection[U]{Status: "ok", Item: &summary, FetchedAt: source.FetchedAt, Cached: source.Cached}
+	return slurmSection[U]{Status: "ok", Item: &summary, FetchedAt: source.FetchedAt, Cached: source.Cached}
 }

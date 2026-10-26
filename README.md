@@ -7,7 +7,7 @@
 
 ## 当前进度与本地启动
 
-已完成阶段一前八项：项目初始化及 UI 设计系统、PocketBase Go 框架与认证、基础 RBAC 及集群权限、集群连接配置、Slurm Adapter、集群总览、作业列表/详情/取消、节点查询与控制，并按实施顺序提前接入 Linux PAM 和 LDAP。当前支持用户名或邮箱登录、会话刷新、退出、按动作及集群授权的查询，以及 `/overview`、`/jobs`、`/nodes`、`/design-system`、`/access` 和 `/clusters` 页面。
+已完成阶段一前九项：项目初始化及 UI 设计系统、PocketBase Go 框架与认证、基础 RBAC 及集群权限、集群连接配置、Slurm Adapter、集群总览、作业列表/详情/取消、节点查询与控制、分区查询，并按实施顺序提前接入 Linux PAM 和 LDAP。当前支持用户名或邮箱登录、会话刷新、退出、按动作及集群授权的查询，以及 `/overview`、`/jobs`、`/nodes`、`/partitions`、`/design-system`、`/access` 和 `/clusters` 页面。
 
 要求 Node.js 22.16+（22.x）或 24 LTS、npm 10+、Go 1.27.3+（Go 的自动工具链可按 `go.mod` 下载）。PocketBase 固定为 v0.40.6：
 
@@ -21,7 +21,7 @@ make dev          # 终端二，打开 Vite 输出的地址
 
 首次登录前，在 `backend/` 中运行 `go run . users create --email <你的邮箱> --name <显示名称>`，在隐藏输入提示中设置密码。账户默认没有集群权限；本机管理员可用 `access grant` 授权，详见 [认证与授权](docs/authentication.md)。没有内置账户或默认密码，公开注册已关闭。
 
-设计系统的作业记录仍为固定样例；[集群连接配置](docs/cluster-connections.md) 支持受保护的服务端连接方式、增改启停、REST API 兼容性与控制器连通检测。[Slurm Adapter](docs/slurm-adapter.md) 已提供健康、作业、节点、分区只读 API，明确支持 `v0.0.43`。[集群总览](docs/overview.md) 已接入真实资源、调度与控制器状态，作为登录后默认首页。[作业管理](docs/jobs.md) 支持真实筛选分页、详情和经显式身份关联的审计取消。[节点管理](docs/nodes.md) 支持状态矩阵、资源详情及逐节点审计的 Drain / Resume。下一项为“分区查询”。Web 服务以普通用户运行；认证支持平台密码、使用受限 helper 的 [PAM](docs/pam.md)，以及校验证书的 [LDAP / StartTLS](docs/ldap.md)。LDAP 关联目录唯一标识，保留现有 RBAC；FreeIPA/AD 的专属生命周期及目录组同步尚未实现。
+设计系统的作业记录仍为固定样例；[集群连接配置](docs/cluster-connections.md) 支持受保护的服务端连接方式、增改启停、REST API 兼容性与控制器连通检测。[Slurm Adapter](docs/slurm-adapter.md) 已提供健康、作业、节点、分区只读 API，明确支持 `v0.0.43`。[集群总览](docs/overview.md) 已接入真实资源、调度与控制器状态，作为登录后默认首页。[作业管理](docs/jobs.md) 支持真实筛选分页、详情和经显式身份关联的审计取消。[节点管理](docs/nodes.md) 支持状态矩阵、资源详情及逐节点审计的 Drain / Resume。[分区查询](docs/partitions.md) 支持筛选排序、约束详情及独立授权的关联节点资源。下一项为“操作审计”。Web 服务以普通用户运行；认证支持平台密码、使用受限 helper 的 [PAM](docs/pam.md)，以及校验证书的 [LDAP / StartTLS](docs/ldap.md)。LDAP 关联目录唯一标识，保留现有 RBAC；FreeIPA/AD 的专属生命周期及目录组同步尚未实现。
 
 部署只安装本应用；LDAP、FreeIPA、slurmrestd 等第三方服务由系统管理员自行安装。PAM 可通过 `sudo bash deploy/install.sh --pam` 一键配置，重复执行保持幂等。
 
@@ -605,7 +605,7 @@ PocketBase + Go
 - [x] 集群总览
 - [x] 作业列表、详情及取消
 - [x] 节点查询、Drain / Resume
-- [ ] 分区查询
+- [x] 分区查询
 - [ ] 操作审计
 - [ ] 基础部署与备份
 

@@ -83,3 +83,15 @@ func TestAdapterRejectsIncompleteAndDuplicateResources(t *testing.T) {
 		t.Fatal("missing capacity represented as zero")
 	}
 }
+
+func TestPartitionConstraintsUseExplicitMemoryFieldsAndPreserveLimits(t *testing.T) {
+	a, _ := New(fixtureReader{client.Envelope{Partitions: json.RawMessage(`[{"name":"normal","partition":{"state":["DRAIN"]},"nodes":{"configured":"n[1-2]","total":2,"allowed_allocation":"submit1"},"cpus":{"total":16},"defaults":{"memory_per_cpu":9223372036854775809,"partition_memory_per_cpu":{"set":false,"infinite":false,"number":0},"partition_memory_per_node":{"set":true,"infinite":false,"number":0},"time":{"set":false,"infinite":false}},"maximums":{"time":{"infinite":true,"set":false},"nodes":{"set":true,"number":4},"partition_memory_per_cpu":{"set":true,"number":1024},"oversubscribe":{"jobs":2,"flags":["FORCE"]}},"accounts":{"allowed":"research","deny":"blocked"},"qos":{"assigned":"normal"},"minimums":{"nodes":0},"priority":{"tier":3,"job_factor":1},"grace_time":0,"tres":{"configured":"cpu=16"}}]`)}}, Version)
+	values, err := a.GetPartitions(context.Background())
+	if err != nil || len(values) != 1 {
+		t.Fatalf("partition normalization: %v", err)
+	}
+	p := values[0]
+	if p.DefaultMemoryPerCPUMiB.Value != nil || p.DefaultMemoryPerNodeMiB.Value == nil || *p.DefaultMemoryPerNodeMiB.Value != 0 || p.DefaultTimeMinutes.Value != nil || !p.MaxTimeMinutes.Infinite || *p.MaxMemoryPerCPUMiB.Value != 1024 || *p.MinNodes.Value != 0 || *p.OversubscribeJobs.Value != 2 || p.OversubscribeFlags[0] != "FORCE" || p.AllowedAccounts != "research" || p.DeniedAccounts != "blocked" || p.AllowedAllocationNodes != "submit1" || p.SelectType == nil {
+		t.Fatalf("lost constraints: %+v", p)
+	}
+}

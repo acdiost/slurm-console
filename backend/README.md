@@ -30,3 +30,5 @@ Slurm Adapter 的版本、查询及缓存约束见 `../docs/slurm-adapter.md`；
 作业管理与 `slurm-identity link/unlink` 见 `../docs/jobs.md`。没有显式关联时，即使平台 Super Admin 也不能取消作业；默认仅本人范围。
 
 节点管理见 `../docs/nodes.md`，应用不修改 Slurm 角色或节点配置文件。
+
+分区列表、详情及关联节点资源见 `../docs/partitions.md`；节点数据单独授权，分区接口全部只读。

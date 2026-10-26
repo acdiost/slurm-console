@@ -77,6 +77,35 @@ type Node struct {
 	GRESUsed           string   `json:"gresUsed"`
 }
 type Partition struct {
+	AllowedAccounts         string   `json:"allowedAccounts"`
+	DeniedAccounts          string   `json:"deniedAccounts"`
+	AllowedGroups           string   `json:"allowedGroups"`
+	AllowedQOS              string   `json:"allowedQos"`
+	DeniedQOS               string   `json:"deniedQos"`
+	AssignedQOS             string   `json:"assignedQos"`
+	AllowedAllocationNodes  string   `json:"allowedAllocationNodes"`
+	Alternate               string   `json:"alternate"`
+	ConfiguredTRES          string   `json:"configuredTres"`
+	BillingWeights          string   `json:"billingWeights"`
+	NodeSets                string   `json:"nodeSets"`
+	Topology                string   `json:"topology"`
+	SelectType              []string `json:"selectType"`
+	DefaultJob              string   `json:"defaultJob"`
+	DefaultMemoryPerCPUMiB  Number   `json:"defaultMemoryPerCpuMiB"`
+	DefaultMemoryPerNodeMiB Number   `json:"defaultMemoryPerNodeMiB"`
+	MaxMemoryPerCPUMiB      Number   `json:"maxMemoryPerCpuMiB"`
+	MaxMemoryPerNodeMiB     Number   `json:"maxMemoryPerNodeMiB"`
+	MinNodes                Number   `json:"minNodes"`
+	MaxNodes                Number   `json:"maxNodes"`
+	MaxCPUsPerNode          Number   `json:"maxCpusPerNode"`
+	MaxCPUsPerSocket        Number   `json:"maxCpusPerSocket"`
+	PriorityTier            Number   `json:"priorityTier"`
+	PriorityJobFactor       Number   `json:"priorityJobFactor"`
+	GraceTimeSeconds        Number   `json:"graceTimeSeconds"`
+	OverTimeLimitMinutes    Number   `json:"overTimeLimitMinutes"`
+	OversubscribeJobs       Number   `json:"oversubscribeJobs"`
+	OversubscribeFlags      []string `json:"oversubscribeFlags"`
+
 	Name               string   `json:"name"`
 	States             []string `json:"states"`
 	Nodes              string   `json:"nodes"`

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.9.0
+  version: 0.10.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -691,7 +691,7 @@ paths:
               {
                 "in": "query",
                 "name": "partition",
-                "schema": { "type": "string", "maxLength": 128 },
+                "schema": { "type": "string", "maxLength": 255 },
               },
               {
                 "in": "query",
@@ -915,7 +915,7 @@ paths:
               {
                 "in": "query",
                 "name": "partition",
-                "schema": { "type": "string", "maxLength": 128 },
+                "schema": { "type": "string", "maxLength": 255 },
               },
               {
                 "in": "query",
@@ -1086,7 +1086,7 @@ paths:
       "get":
         {
           "operationId": "slurmPartitions",
-          "summary": "查询 Slurm partitions",
+          "summary": "查询分区列表",
           "description": "要求活动用户及对应集群的 partitions.read。固定受限身份访问 v0.0.43，只读，不自动重试。列表在 Go 中有界读取后分页；cached/fetchedAt 表达缓存来源及时间。",
           "security": [{ "platformToken": [] }],
           "parameters":
@@ -1128,6 +1128,26 @@ paths:
                 "in": "query",
                 "name": "state",
                 "schema": { "type": "string", "maxLength": 128 },
+              },
+              {
+                "in": "query",
+                "name": "sort",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["name", "nodes", "cpus", "maxTime"],
+                    "default": "name",
+                  },
+              },
+              {
+                "in": "query",
+                "name": "order",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["asc", "desc"],
+                    "default": "asc",
+                  },
               },
             ],
           "responses":
@@ -1685,6 +1705,66 @@ paths:
                                   "data":
                                     {
                                       "$ref": "#/components/schemas/NodeOperation",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/partitions/{partitionName}:
+    {
+      "get":
+        {
+          "operationId": "getPartition",
+          "summary": "查询分区约束及关联节点资源",
+          "description": "要求活动用户及 partitions.read。通过分区列表精确查找名称，节点资源另需 nodes.read；缺权不请求节点，节点失败保留分区信息。节点按 partitions 精确归属，不展开主机表达式。配置变更返回409。无查询参数，接口只读。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "partitionName",
+                "required": true,
+                "schema":
+                  { "type": "string", "minLength": 1, "maxLength": 255 },
+              },
+            ],
+          "responses":
+            {
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+              "200":
+                {
+                  "description": "分区详情及逐项授权的节点统计；非原子采样，分别携带来源时间。",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/PartitionDetail",
                                     },
                                   "requestId": { "type": "string" },
                                 },
@@ -2328,6 +2408,34 @@ components:
             "nodeCount",
             "defaultTimeMinutes",
             "maxTimeMinutes",
+            "allowedAccounts",
+            "deniedAccounts",
+            "allowedGroups",
+            "allowedQos",
+            "deniedQos",
+            "assignedQos",
+            "allowedAllocationNodes",
+            "alternate",
+            "configuredTres",
+            "billingWeights",
+            "nodeSets",
+            "topology",
+            "defaultJob",
+            "defaultMemoryPerCpuMiB",
+            "defaultMemoryPerNodeMiB",
+            "maxMemoryPerCpuMiB",
+            "maxMemoryPerNodeMiB",
+            "minNodes",
+            "maxNodes",
+            "maxCpusPerNode",
+            "maxCpusPerSocket",
+            "priorityTier",
+            "priorityJobFactor",
+            "graceTimeSeconds",
+            "overTimeLimitMinutes",
+            "oversubscribeJobs",
+            "selectType",
+            "oversubscribeFlags",
           ],
         "properties":
           {
@@ -2340,6 +2448,40 @@ components:
             "defaultTimeMinutes":
               { "$ref": "#/components/schemas/SlurmNumber" },
             "maxTimeMinutes": { "$ref": "#/components/schemas/SlurmNumber" },
+            "allowedAccounts": { "type": "string" },
+            "deniedAccounts": { "type": "string" },
+            "allowedGroups": { "type": "string" },
+            "allowedQos": { "type": "string" },
+            "deniedQos": { "type": "string" },
+            "assignedQos": { "type": "string" },
+            "allowedAllocationNodes": { "type": "string" },
+            "alternate": { "type": "string" },
+            "configuredTres": { "type": "string" },
+            "billingWeights": { "type": "string" },
+            "nodeSets": { "type": "string" },
+            "topology": { "type": "string" },
+            "defaultJob": { "type": "string" },
+            "defaultMemoryPerCpuMiB":
+              { "$ref": "#/components/schemas/SlurmNumber" },
+            "defaultMemoryPerNodeMiB":
+              { "$ref": "#/components/schemas/SlurmNumber" },
+            "maxMemoryPerCpuMiB":
+              { "$ref": "#/components/schemas/SlurmNumber" },
+            "maxMemoryPerNodeMiB":
+              { "$ref": "#/components/schemas/SlurmNumber" },
+            "minNodes": { "$ref": "#/components/schemas/SlurmNumber" },
+            "maxNodes": { "$ref": "#/components/schemas/SlurmNumber" },
+            "maxCpusPerNode": { "$ref": "#/components/schemas/SlurmNumber" },
+            "maxCpusPerSocket": { "$ref": "#/components/schemas/SlurmNumber" },
+            "priorityTier": { "$ref": "#/components/schemas/SlurmNumber" },
+            "priorityJobFactor": { "$ref": "#/components/schemas/SlurmNumber" },
+            "graceTimeSeconds": { "$ref": "#/components/schemas/SlurmNumber" },
+            "overTimeLimitMinutes":
+              { "$ref": "#/components/schemas/SlurmNumber" },
+            "oversubscribeJobs": { "$ref": "#/components/schemas/SlurmNumber" },
+            "selectType": { "type": "array", "items": { "type": "string" } },
+            "oversubscribeFlags":
+              { "type": "array", "items": { "type": "string" } },
           },
       }
     SlurmHealth:
@@ -3049,5 +3191,53 @@ components:
                   ["processing", "confirmed", "accepted", "failed", "unknown"],
               },
             "states": { "type": "array", "items": { "type": "string" } },
+          },
+      }
+    PartitionResources:
+      {
+        "type": "object",
+        "required": ["summary", "configuredNodes", "complete"],
+        "properties":
+          {
+            "summary": { "$ref": "#/components/schemas/OverviewNodes" },
+            "configuredNodes":
+              { "type": "integer", "format": "int64", "minimum": 0 },
+            "complete": { "type": "boolean" },
+          },
+      }
+    PartitionResourceSource:
+      {
+        "type": "object",
+        "required":
+          ["status", "code", "message", "fetchedAt", "cached", "item"],
+        "properties":
+          {
+            "status":
+              { "type": "string", "enum": ["ok", "forbidden", "error"] },
+            "code": { "type": "string" },
+            "message": { "type": "string" },
+            "fetchedAt": { "type": "string" },
+            "cached": { "type": "boolean" },
+            "item":
+              {
+                "allOf":
+                  [{ "$ref": "#/components/schemas/PartitionResources" }],
+                "nullable": true,
+                "description": "ok 时返回统计，缺权或失败时 null；按节点精确分区归属汇总。",
+              },
+          },
+      }
+    PartitionDetail:
+      {
+        "type": "object",
+        "required": ["item", "fetchedAt", "cached", "revision", "resources"],
+        "properties":
+          {
+            "item": { "$ref": "#/components/schemas/SlurmPartition" },
+            "fetchedAt": { "type": "string" },
+            "cached": { "type": "boolean" },
+            "revision": { "type": "integer" },
+            "resources":
+              { "$ref": "#/components/schemas/PartitionResourceSource" },
           },
       }

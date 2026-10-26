@@ -6,7 +6,7 @@ export function SlurmStatusBadge({
   kind = "job",
 }: {
   state: string
-  kind?: "job" | "node"
+  kind?: "job" | "node" | "partition"
 }) {
   const status = resolveStatus(state, kind)
   return (

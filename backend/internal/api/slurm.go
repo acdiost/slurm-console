@@ -40,7 +40,6 @@ func registerSlurmRoutes(group *router.RouterGroup[*core.RequestEvent]) {
 		}
 		return getNode(e, name)
 	}).BindFunc(rbac.Require("nodes.read", true))
-	routes.GET("/partitions", listPartitions).BindFunc(rbac.Require("partitions.read", true))
 }
 func slurmFailure(e *core.RequestEvent, err error) error {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -83,7 +82,7 @@ func slurmDetail[T any](e *core.RequestEvent, kind, id string) error {
 }
 func slurmQuery(e *core.RequestEvent, allowed ...string) error {
 	for key, values := range e.Request.URL.Query() {
-		if !slices.Contains(allowed, key) || len(values) != 1 || len(values[0]) > 128 {
+		if !slices.Contains(allowed, key) || len(values) != 1 || len(values[0]) > queryLimit(key) {
 			return e.BadRequestError("查询参数不合法或不受支持。", nil)
 		}
 	}
@@ -234,28 +233,6 @@ func listNodes(e *core.RequestEvent) error {
 	}
 	return pageResult(e, views, result, page, size)
 }
-func listPartitions(e *core.RequestEvent) error {
-	if err := slurmQuery(e, "page", "perPage", "q", "state"); err != nil {
-		return err
-	}
-	page, size, err := pagination(e)
-	if err != nil {
-		return err
-	}
-	values, result, err := fetchList[models.Partition](e, "partitions")
-	if err != nil {
-		return err
-	}
-	query := e.Request.URL.Query()
-	filtered := make([]models.Partition, 0, len(values))
-	for _, partition := range values {
-		if contains(query.Get("q"), partition.Name) && matchesState(query, partition.States) {
-			filtered = append(filtered, partition)
-		}
-	}
-	sort.Slice(filtered, func(i, j int) bool { return filtered[i].Name < filtered[j].Name })
-	return pageResult(e, filtered, result, page, size)
-}
 
 type nodeResources struct {
 	CPUs      overview.Resource `json:"cpus"`
@@ -288,4 +265,11 @@ func getNode(e *core.RequestEvent, name string) error {
 		return slurmFailure(e, client.Failure("invalid_response", "节点资源数据不一致。"))
 	}
 	return response(e, map[string]any{"item": view, "fetchedAt": result.FetchedAt, "cached": result.Cached})
+}
+
+func queryLimit(key string) int {
+	if key == "partition" {
+		return 255
+	}
+	return 128
 }

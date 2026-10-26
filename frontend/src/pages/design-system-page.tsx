@@ -384,12 +384,12 @@ export function DesignSystemPage() {
           </div>
           <div className="flex w-46 items-center gap-3">
             <Progress
-              value={800 / 11}
-              aria-label="阶段一完成进度，11 项中已完成 8 项"
+              value={900 / 11}
+              aria-label="阶段一完成进度，11 项中已完成 9 项"
               className="h-1.5"
             />
             <span className="shrink-0 font-mono text-2xs text-muted-foreground">
-              8 / 11
+              9 / 11
             </span>
           </div>
         </div>

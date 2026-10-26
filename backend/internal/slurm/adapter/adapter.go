@@ -268,30 +268,75 @@ func (a *Adapter) GetNode(ctx context.Context, name string) (models.Node, error)
 	}
 	return models.Node{}, client.Failure("not_found", "节点不存在或对连接身份不可见。")
 }
+
+type wirePartition struct {
+	Name      string `json:"name"`
+	Partition struct {
+		States []string `json:"state"`
+	} `json:"partition"`
+	Nodes struct {
+		Configured string `json:"configured"`
+		Total      *int64 `json:"total"`
+		Allowed    string `json:"allowed_allocation"`
+	} `json:"nodes"`
+	CPUs struct {
+		Total *int64 `json:"total"`
+	} `json:"cpus"`
+	Defaults struct {
+		Time       noVal  `json:"time"`
+		MemoryCPU  noVal  `json:"partition_memory_per_cpu"`
+		MemoryNode noVal  `json:"partition_memory_per_node"`
+		Job        string `json:"job"`
+	} `json:"defaults"`
+	Maximums struct {
+		Time          noVal `json:"time"`
+		MemoryCPU     noVal `json:"partition_memory_per_cpu"`
+		MemoryNode    noVal `json:"partition_memory_per_node"`
+		Nodes         noVal `json:"nodes"`
+		CPUsNode      noVal `json:"cpus_per_node"`
+		CPUsSocket    noVal `json:"cpus_per_socket"`
+		OverTime      noVal `json:"over_time_limit"`
+		Oversubscribe struct {
+			Jobs  noVal    `json:"jobs"`
+			Flags []string `json:"flags"`
+		} `json:"oversubscribe"`
+	} `json:"maximums"`
+	Minimums struct {
+		Nodes noVal `json:"nodes"`
+	} `json:"minimums"`
+	Accounts struct {
+		Allowed string `json:"allowed"`
+		Deny    string `json:"deny"`
+	} `json:"accounts"`
+	Groups struct {
+		Allowed string `json:"allowed"`
+	} `json:"groups"`
+	QOS struct {
+		Allowed  string `json:"allowed"`
+		Deny     string `json:"deny"`
+		Assigned string `json:"assigned"`
+	} `json:"qos"`
+	TRES struct {
+		Configured string `json:"configured"`
+		Billing    string `json:"billing_weights"`
+	} `json:"tres"`
+	Priority struct {
+		Tier      noVal `json:"tier"`
+		JobFactor noVal `json:"job_factor"`
+	} `json:"priority"`
+	Grace      noVal    `json:"grace_time"`
+	Alternate  string   `json:"alternate"`
+	NodeSets   string   `json:"node_sets"`
+	Topology   string   `json:"topology"`
+	SelectType []string `json:"select_type"`
+}
+
 func (a *Adapter) GetPartitions(ctx context.Context) ([]models.Partition, error) {
 	envelope, err := a.reader.Read(ctx, client.Partitions, "")
 	if err != nil {
 		return nil, err
 	}
-	values, err := decode[struct {
-		Name      string `json:"name"`
-		Partition struct {
-			States []string `json:"state"`
-		} `json:"partition"`
-		Nodes struct {
-			Configured string `json:"configured"`
-			Total      *int64 `json:"total"`
-		} `json:"nodes"`
-		CPUs struct {
-			Total *int64 `json:"total"`
-		} `json:"cpus"`
-		Defaults struct {
-			Time noVal `json:"time"`
-		} `json:"defaults"`
-		Maximums struct {
-			Time noVal `json:"time"`
-		} `json:"maximums"`
-	}](envelope.Partitions)
+	values, err := decode[wirePartition](envelope.Partitions)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +347,21 @@ func (a *Adapter) GetPartitions(ctx context.Context) ([]models.Partition, error)
 			return nil, invalid()
 		}
 		seen[p.Name] = true
-		result = append(result, models.Partition{Name: p.Name, States: p.Partition.States, Nodes: p.Nodes.Configured, NodeCount: *p.Nodes.Total, CPUs: *p.CPUs.Total, DefaultTimeMinutes: p.Defaults.Time.Number, MaxTimeMinutes: p.Maximums.Time.Number})
+		if p.SelectType == nil {
+			p.SelectType = []string{}
+		}
+		if p.Maximums.Oversubscribe.Flags == nil {
+			p.Maximums.Oversubscribe.Flags = []string{}
+		}
+		result = append(result, models.Partition{
+			Name: p.Name, States: p.Partition.States, Nodes: p.Nodes.Configured, NodeCount: *p.Nodes.Total, CPUs: *p.CPUs.Total, DefaultTimeMinutes: p.Defaults.Time.Number, MaxTimeMinutes: p.Maximums.Time.Number,
+			AllowedAccounts: p.Accounts.Allowed, DeniedAccounts: p.Accounts.Deny, AllowedGroups: p.Groups.Allowed, AllowedQOS: p.QOS.Allowed, DeniedQOS: p.QOS.Deny, AssignedQOS: p.QOS.Assigned,
+			AllowedAllocationNodes: p.Nodes.Allowed, Alternate: p.Alternate, ConfiguredTRES: p.TRES.Configured, BillingWeights: p.TRES.Billing, NodeSets: p.NodeSets, Topology: p.Topology, SelectType: p.SelectType, DefaultJob: p.Defaults.Job,
+			DefaultMemoryPerCPUMiB: p.Defaults.MemoryCPU.Number, DefaultMemoryPerNodeMiB: p.Defaults.MemoryNode.Number, MaxMemoryPerCPUMiB: p.Maximums.MemoryCPU.Number, MaxMemoryPerNodeMiB: p.Maximums.MemoryNode.Number,
+			MinNodes: p.Minimums.Nodes.Number, MaxNodes: p.Maximums.Nodes.Number, MaxCPUsPerNode: p.Maximums.CPUsNode.Number, MaxCPUsPerSocket: p.Maximums.CPUsSocket.Number,
+			PriorityTier: p.Priority.Tier.Number, PriorityJobFactor: p.Priority.JobFactor.Number, GraceTimeSeconds: p.Grace.Number, OverTimeLimitMinutes: p.Maximums.OverTime.Number,
+			OversubscribeJobs: p.Maximums.Oversubscribe.Jobs.Number, OversubscribeFlags: p.Maximums.Oversubscribe.Flags,
+		})
 	}
 	return result, nil
 }

@@ -13,7 +13,11 @@ import {
   SelectItem,
 } from "@/components/ui/select"
 const text = z.string().trim().max(128, "最多 128 个字符")
-const schema = z.object({ q: text, partition: text, state: text })
+const schema = z.object({
+  q: text,
+  partition: z.string().trim().max(255, "最多 255 个字符"),
+  state: text,
+})
 export type Filters = z.infer<typeof schema>
 const states = [
   "IDLE",

@@ -85,6 +85,7 @@ func Register(routes *router.Router[*core.RequestEvent], publicDir string) {
 	registerClusterRoutes(group)
 	registerConfigurationRoutes(group)
 	registerSlurmRoutes(group)
+	registerPartitionRoutes(group)
 	registerOverviewRoutes(group)
 	registerJobControlRoutes(group)
 	registerNodeControlRoutes(group)

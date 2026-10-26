@@ -17,7 +17,7 @@ const schema = z.object({
   q: text,
   user: text,
   account: text,
-  partition: text,
+  partition: z.string().trim().max(255, "最多 255 个字符"),
   qos: text,
   state: text,
 })
