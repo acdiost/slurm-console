@@ -15,13 +15,13 @@
 | `/nodes/{nodeName}` | `nodes.read` | 节点详情 |
 | `/partitions` | `partitions.read` | 分区列表 |
 
-列表在 Go 服务端执行过滤、确定性排序与分页，参数 `page>=1`、`1<=perPage<=100`。所有列表支持 `q` 和 `state`，作业额外支持精确 `user/account/partition/qos`，节点支持精确 `partition`。状态匹配状态数组中的任一标记（例如 `MIXED,DRAIN` 的节点可用 `state=DRAIN` 选择）；查询仅接受单个状态。作业支持 `sort=id|submitTime|cpus` 和 `order=asc|desc`（默认数字 ID 降序，未知数值最后），节点和分区按名称升序。重复或未知参数、非法资源标识在访问上游前拒绝。数组作业按实际任务 Job ID 查询，暂不接受 `123_4` 等组合选择器。
+列表在 Go 服务端执行过滤、确定性排序与分页，参数 `page>=1`、`1<=perPage<=100`。所有列表支持 `q` 和 `state`，作业额外支持精确 `user/account/partition/qos`，节点支持精确 `partition` 及 `sort=name|cpus|memory`、`order=asc|desc`。状态匹配状态数组中的任一标记（例如 `MIXED,DRAIN` 的节点可用 `state=DRAIN` 选择）；查询仅接受单个状态。作业支持 `sort=id|submitTime|cpus` 和 `order=asc|desc`（默认数字 ID 降序，未知数值最后），节点默认按名称升序，分区按名称升序。重复或未知参数、非法资源标识在访问上游前拒绝。数组作业按实际任务 Job ID 查询，暂不接受 `123_4` 等组合选择器。
 
 成功响应仍为 `{data,requestId}`。列表 `data={items,page,perPage,totalItems,fetchedAt,cached}`，详情与健康为 `data={item,fetchedAt,cached}`。时间为 UTC RFC3339。`cached` 表示本次使用了已完成的缓存，`fetchedAt` 表示数据获取完成时间。
 
 ## 模型与错误
 
-`internal/slurm/client` 管理固定资源 GET 路径和单作业取消 DELETE 路径、Unix socket/HTTPS、JWT 文件读取、证书验证与响应上限；`internal/slurm/adapter` 解析已支持的 wire schema；`internal/slurm/models` 定义平台 DTO。连接检测复用同一 Client。不会返回原始脚本、环境变量、凭据、客户端身份元数据或原始上游错误正文。
+`internal/slurm/client` 管理固定资源 GET 路径和单作业取消 DELETE 及节点 Drain/Resume POST 路径、Unix socket/HTTPS、JWT 文件读取、证书验证与响应上限；`internal/slurm/adapter` 解析已支持的 wire schema；`internal/slurm/models` 定义平台 DTO。连接检测复用同一 Client。不会返回原始脚本、环境变量、凭据、客户端身份元数据或原始上游错误正文。
 
 - Job ID 使用十进制字符串，避免浏览器数值精度问题；保留完整状态数组及未来未知标记。
 - `Number={value: integer|null,infinite:boolean}` 区分合法零、未设置和无限制，不经过 float64 中转。
@@ -37,8 +37,10 @@
 
 每次读取缓存前复查集群启用状态、当前版本和已批准连接方式；请求期间编辑或停用配置会丢弃旧结果。上游每次响应上限 8 MiB、列表最多 20000 项、超时 1–30 秒；不跟随重定向、不使用环境代理、不自动重试，不接收任意 URL、请求头或 Slurm 用户代理身份。当前 slurmrestd 列表不提供本项目所需的统一分页，因此有界读取上游后在 Go 中分页；超过容量明确失败，后续按集群规模扩展。
 
-所有查询使用部署管理员配置的固定受限 Slurm 身份，平台范围权限不提升该身份的 Slurm 权限。上游 `PrivateData` 等策略决定可见范围；[作业管理](jobs.md) 已增加受保护的显式身份映射、单作业取消及持久操作审计；Drain/Resume 和完整审计检索仍待开发。没有任意代理端点。记账数据仍由后续 slurmdb Adapter 扩展。
+所有查询使用部署管理员配置的固定受限 Slurm 身份，平台范围权限不提升该身份的 Slurm 权限。上游 `PrivateData` 等策略决定可见范围；[作业管理](jobs.md) 已增加受保护的显式身份映射、单作业取消及持久操作审计；[节点管理](nodes.md) 已接入受保护的 Drain/Resume，完整审计检索仍待开发。没有任意代理端点。记账数据仍由后续 slurmdb Adapter 扩展。
 
 slurmrestd、LDAP、FreeIPA 等外部服务由管理员负责；本项目只连接现有服务。版本选择依据 [Slurm REST 客户端指南](https://slurm.schedmd.com/rest_clients.html)，具体字段以管理员端点提供的版本化 OpenAPI 为准。
 
 集群总览复用以上来源与权限边界；节点 DTO 补充 `effectiveCpus` 和 `gresUsed`，用于区分预留 CPU 以及 GPU 已分配数量。聚合口径见 [集群总览](overview.md)。
+
+节点查询补充系统/Slurmd 启动、状态原因设置时间与用户、备注、特征、预留等信息。平台节点 API 同时返回 CPU/内存/GPU 的调度资源口径，复用总览统计函数；控制确认使用最新原始标准 DTO。

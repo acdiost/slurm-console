@@ -32,7 +32,7 @@ sudo bash deploy/install.sh --pam
 
 ## 外部组件要求
 
-- **Slurm REST**：管理员提供与集群兼容、启用 `openapi/slurmctld` 和 `data_parser/v0.0.43` 的 slurmrestd，确保固定服务身份可以读取 ping、jobs、nodes、partitions。当前支持受保护 Unix socket 的本地认证，或验证证书的 HTTPS/JWT。作业取消还要求固定身份具备目标作业的 Slurm 取消权限，并完成[平台身份关联](jobs.md)。应用不要求 root/SlurmUser 权限，也不自动扩大上游权限；Slurm `PrivateData` 等设置仍决定该身份可见范围。
+- **Slurm REST**：管理员提供与集群兼容、启用 `openapi/slurmctld` 和 `data_parser/v0.0.43` 的 slurmrestd，确保固定服务身份可以读取 ping、jobs、nodes、partitions。当前支持受保护 Unix socket 的本地认证，或验证证书的 HTTPS/JWT。作业取消还要求固定身份具备目标作业的 Slurm 取消权限，并完成[平台身份关联](jobs.md)。节点控制需要具备 Slurm 节点更新权限的固定服务身份，见[节点管理](nodes.md)。应用不要求 root/SlurmUser 权限，也不自动扩大上游权限；Slurm `PrivateData` 等设置仍决定该身份可见范围。
 - **LDAP/FreeIPA/AD**：可选。管理员提供 LDAPS 或强制 StartTLS、受信任 CA、专用只读查询身份、用户子树、唯一身份属性及反映禁用/锁定/准入规则的过滤器。本项目不管理目录服务、证书签发、系统域加入或目录用户生命周期。FreeIPA/AD 专属组同步尚未实现。
 - **PAM**：本机系统身份来源和共享 PAM 策略由管理员维护。本项目只设置独立 `slurm-console` PAM service 和只允许运行专用 helper 的 sudo 规则。
 

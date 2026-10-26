@@ -13,6 +13,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
 	"slurm-console/backend/internal/auth"
+	"slurm-console/backend/internal/overview"
 	"slurm-console/backend/internal/rbac"
 	"slurm-console/backend/internal/services"
 	"slurm-console/backend/internal/slurm/client"
@@ -37,7 +38,7 @@ func registerSlurmRoutes(group *router.RouterGroup[*core.RequestEvent]) {
 		if !client.ValidNodeName(name) {
 			return e.BadRequestError("节点名称不合法。", nil)
 		}
-		return slurmDetail[models.Node](e, "node", name)
+		return getNode(e, name)
 	}).BindFunc(rbac.Require("nodes.read", true))
 	routes.GET("/partitions", listPartitions).BindFunc(rbac.Require("partitions.read", true))
 }
@@ -178,26 +179,60 @@ func listJobs(e *core.RequestEvent) error {
 	return pageResult(e, filtered, result, page, size)
 }
 func listNodes(e *core.RequestEvent) error {
-	if err := slurmQuery(e, "page", "perPage", "q", "partition", "state"); err != nil {
+	if err := slurmQuery(e, "page", "perPage", "q", "partition", "state", "sort", "order"); err != nil {
 		return err
 	}
 	page, size, err := pagination(e)
 	if err != nil {
 		return err
 	}
+	query := e.Request.URL.Query()
+	sortKey, order := query.Get("sort"), query.Get("order")
+	if sortKey == "" {
+		sortKey = "name"
+	}
+	if order == "" {
+		order = "asc"
+	}
+	if !slices.Contains([]string{"name", "cpus", "memory"}, sortKey) || !slices.Contains([]string{"asc", "desc"}, order) {
+		return e.BadRequestError("排序参数不受支持。", nil)
+	}
 	values, result, err := fetchList[models.Node](e, "nodes")
 	if err != nil {
 		return err
 	}
-	query := e.Request.URL.Query()
 	filtered := make([]models.Node, 0, len(values))
 	for _, node := range values {
 		if (contains(query.Get("q"), node.Name) || contains(query.Get("q"), node.Hostname)) && (query.Get("partition") == "" || slices.Contains(node.Partitions, query.Get("partition"))) && matchesState(query, node.States) {
 			filtered = append(filtered, node)
 		}
 	}
-	sort.Slice(filtered, func(i, j int) bool { return filtered[i].Name < filtered[j].Name })
-	return pageResult(e, filtered, result, page, size)
+	sort.Slice(filtered, func(i, j int) bool {
+		a, b := filtered[i], filtered[j]
+		av, bv := a.CPUs, b.CPUs
+		if sortKey == "memory" {
+			av, bv = a.MemoryMiB, b.MemoryMiB
+		}
+		if sortKey != "name" && av != bv {
+			if order == "asc" {
+				return av < bv
+			}
+			return av > bv
+		}
+		if sortKey == "name" && order == "desc" {
+			return a.Name > b.Name
+		}
+		return a.Name < b.Name
+	})
+	views := make([]nodeView, 0, len(filtered))
+	for _, n := range filtered {
+		view, err := viewNode(n)
+		if err != nil {
+			return slurmFailure(e, client.Failure("invalid_response", "节点资源数据不一致。"))
+		}
+		views = append(views, view)
+	}
+	return pageResult(e, views, result, page, size)
 }
 func listPartitions(e *core.RequestEvent) error {
 	if err := slurmQuery(e, "page", "perPage", "q", "state"); err != nil {
@@ -220,4 +255,37 @@ func listPartitions(e *core.RequestEvent) error {
 	}
 	sort.Slice(filtered, func(i, j int) bool { return filtered[i].Name < filtered[j].Name })
 	return pageResult(e, filtered, result, page, size)
+}
+
+type nodeResources struct {
+	CPUs      overview.Resource `json:"cpus"`
+	MemoryMiB overview.Resource `json:"memoryMiB"`
+	GPUs      overview.GPU      `json:"gpus"`
+}
+type nodeView struct {
+	models.Node
+	Resources nodeResources `json:"resources"`
+}
+
+func viewNode(n models.Node) (nodeView, error) {
+	summary, err := overview.NodeSummary([]models.Node{n})
+	return nodeView{n, nodeResources{summary.CPUs, summary.MemoryMiB, summary.GPUs}}, err
+}
+func getNode(e *core.RequestEvent, name string) error {
+	if err := slurmQuery(e); err != nil {
+		return err
+	}
+	result, err := services.SlurmFor(e.App).Read(e.Request.Context(), e.Request.PathValue("clusterId"), "node", name)
+	if err != nil {
+		return slurmFailure(e, err)
+	}
+	var n models.Node
+	if err := json.Unmarshal(result.Data, &n); err != nil {
+		return e.InternalServerError("", err)
+	}
+	view, err := viewNode(n)
+	if err != nil {
+		return slurmFailure(e, client.Failure("invalid_response", "节点资源数据不一致。"))
+	}
+	return response(e, map[string]any{"item": view, "fetchedAt": result.FetchedAt, "cached": result.Cached})
 }

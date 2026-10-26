@@ -2,6 +2,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -18,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type Error struct {
@@ -121,7 +123,7 @@ func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelo
 	default:
 		return empty, Failure("invalid_request", "不支持的 Slurm 查询。")
 	}
-	return c.request(ctx, http.MethodGet, path, nil)
+	return c.request(ctx, http.MethodGet, path, nil, nil)
 }
 
 // Cancel only targets one validated numeric job. Callers must enforce platform
@@ -131,10 +133,26 @@ func (c *Client) Cancel(ctx context.Context, id string) (bool, error) {
 		return false, Failure("invalid_request", "作业 ID 不合法。")
 	}
 	sent := false
-	_, err := c.request(ctx, http.MethodDelete, "/slurm/"+c.config.Version+"/job/"+id+"?signal=KILL", &sent)
+	_, err := c.request(ctx, http.MethodDelete, "/slurm/"+c.config.Version+"/job/"+id+"?signal=KILL", nil, &sent)
 	return sent, err
 }
-func (c *Client) request(ctx context.Context, method, path string, sent *bool) (Envelope, error) {
+
+// ControlNode exposes only the two reviewed state transitions for one literal name.
+func (c *Client) ControlNode(ctx context.Context, name, action, reason string) (bool, error) {
+	if !ValidNodeTarget(name) || !slices.Contains([]string{"drain", "resume"}, action) || utf8.RuneCountInString(reason) < 2 || utf8.RuneCountInString(reason) > 300 || strings.ContainsAny(reason, "\r\n\x00") {
+		return false, Failure("invalid_request", "节点、动作或原因不合法。")
+	}
+	body := map[string]any{"state": []string{strings.ToUpper(action)}}
+	if action == "drain" {
+		body["reason"] = reason
+	}
+	data, _ := json.Marshal(body)
+	sent := false
+	_, err := c.request(ctx, http.MethodPost, "/slurm/"+c.config.Version+"/node/"+name, data, &sent)
+	return sent, err
+}
+func ValidNodeTarget(name string) bool { return ValidNodeName(name) && !strings.EqualFold(name, "ALL") }
+func (c *Client) request(ctx context.Context, method, path string, bodyData []byte, sent *bool) (Envelope, error) {
 	var empty Envelope
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
@@ -149,11 +167,14 @@ func (c *Client) request(ctx context.Context, method, path string, sent *bool) (
 		}
 		endpoint = "http://slurm-local"
 	}
-	request, err := http.NewRequestWithContext(ctx, method, endpoint+path, nil)
+	request, err := http.NewRequestWithContext(ctx, method, endpoint+path, bytes.NewReader(bodyData))
 	if err != nil {
 		return empty, Failure("profile_unavailable", "Slurm 连接配置不合法。")
 	}
 	request.Header.Set("Accept", "application/json")
+	if len(bodyData) > 0 {
+		request.Header.Set("Content-Type", "application/json")
+	}
 	if c.config.AuthType == "jwt" {
 		token, err := readToken(c.config.TokenFile)
 		if err != nil {
@@ -188,6 +209,10 @@ func (c *Client) request(ctx context.Context, method, path string, sent *bool) (
 	defer response.Body.Close()
 	switch response.StatusCode {
 	case 200:
+	case 500:
+		if sent == nil {
+			return empty, Failure("unreachable", "Slurm REST 服务未正常响应。")
+		}
 	case 401, 403:
 		if sent != nil {
 			*sent = false
@@ -215,7 +240,27 @@ func (c *Client) request(ctx context.Context, method, path string, sent *bool) (
 		return Envelope{}, Failure("invalid_response", "Slurm 响应格式异常或超过大小限制。")
 	}
 	if len(empty.Errors) > 0 {
+		// Stable Slurm authorization errors are explicit rejections, even when
+		// REST reports them with HTTP 500. Never expose the upstream text.
+		if sent != nil && strings.TrimPrefix(empty.Meta.Plugin.Parser, "data_parser/") == c.config.Version && empty.Meta.Slurm.Release != "" && len(empty.Meta.Slurm.Release) <= 64 {
+			denied := true
+			for _, raw := range empty.Errors {
+				var item struct {
+					Number int `json:"error_number"`
+				}
+				if json.Unmarshal(raw, &item) != nil || (item.Number != 2002 && item.Number != 2010) {
+					denied = false
+				}
+			}
+			if denied {
+				*sent = false
+				return Envelope{}, Failure("auth_failed", "Slurm 拒绝固定连接身份，请管理员核实上游身份及动作授权。")
+			}
+		}
 		return Envelope{}, Failure("upstream_error", "Slurm 未完成查询，请检查上游权限与服务状态。")
+	}
+	if response.StatusCode != 200 {
+		return Envelope{}, Failure("unreachable", "Slurm REST 服务未正常响应。")
 	}
 	if strings.TrimPrefix(empty.Meta.Plugin.Parser, "data_parser/") != c.config.Version {
 		return Envelope{}, Failure("api_unsupported", "Slurm 响应 API 版本与配置不一致。")

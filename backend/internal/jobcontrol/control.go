@@ -221,7 +221,7 @@ func (s *Service) parse(raw, actor, cluster, job string) (proof, error) {
 	return value, nil
 }
 func (s *Service) find(operation string) (*core.Record, error) {
-	return s.app.FindFirstRecordByData("operation_audits", "operation_key", operation)
+	return s.app.FindFirstRecordByFilter("operation_audits", "operation_key={:key} && action='jobs.cancel'", dbx.Params{"key": operation})
 }
 func (s *Service) view(record *core.Record) Result {
 	states := []string{}

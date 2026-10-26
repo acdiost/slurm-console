@@ -55,7 +55,6 @@ const sections = [
   {
     label: "资源与调度",
     items: [
-      { label: "节点管理", icon: Server },
       { label: "分区管理", icon: Network },
       { label: "CPU / GPU 资源", icon: Cpu },
     ],
@@ -173,6 +172,18 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                 <span>作业管理</span>
               </NavLink>
             )}
+            {section.label === "资源与调度" && (
+              <NavLink
+                to="/nodes"
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
+                }
+              >
+                <Server />
+                <span>节点管理</span>
+              </NavLink>
+            )}
             {section.items.map(({ label, icon: Icon }) => (
               <button key={label} disabled className="nav-item">
                 <Icon />
@@ -197,16 +208,16 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
           <FlaskConical className="size-3.5 text-primary" />
           工程初始化
           <span className="ml-auto font-mono text-2xs text-muted-foreground">
-            07 / 11
+            08 / 11
           </span>
         </div>
         <div className="h-1 overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-[63.64%] bg-primary" />
+          <div className="h-full w-[72.73%] bg-primary" />
         </div>
         <p className="mt-2 text-2xs leading-relaxed text-muted-foreground">
-          阶段一 · 作业管理已就绪
+          阶段一 · 节点查询与控制已就绪
           <br />
-          下一步：节点查询与控制
+          下一步：分区查询
         </p>
       </div>
       <div className="flex items-center gap-2.5 border-t p-4">
@@ -288,15 +299,17 @@ export function ConsoleLayout() {
             </span>
             <ChevronRight className="hidden size-3 text-muted-foreground sm:inline" />
             <span>
-              {pathname === "/jobs"
-                ? "作业管理"
-                : pathname === "/overview"
-                  ? "集群总览"
-                  : pathname === "/clusters"
-                    ? "集群配置"
-                    : pathname === "/access"
-                      ? "我的权限"
-                      : "设计系统"}
+              {pathname === "/nodes"
+                ? "节点管理"
+                : pathname === "/jobs"
+                  ? "作业管理"
+                  : pathname === "/overview"
+                    ? "集群总览"
+                    : pathname === "/clusters"
+                      ? "集群配置"
+                      : pathname === "/access"
+                        ? "我的权限"
+                        : "设计系统"}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">

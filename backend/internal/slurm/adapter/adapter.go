@@ -195,6 +195,19 @@ func (a *Adapter) nodes(ctx context.Context, name string) ([]models.Node, error)
 		return nil, err
 	}
 	values, err := decode[struct {
+		Address         string   `json:"address"`
+		Version         string   `json:"version"`
+		Architecture    string   `json:"architecture"`
+		OperatingSystem string   `json:"operating_system"`
+		Comment         string   `json:"comment"`
+		Reservation     string   `json:"reservation"`
+		ReasonUser      string   `json:"reason_set_by_user"`
+		Features        []string `json:"features"`
+		ActiveFeatures  []string `json:"active_features"`
+		BootTime        noVal    `json:"boot_time"`
+		SlurmdStartTime noVal    `json:"slurmd_start_time"`
+		ReasonChangedAt noVal    `json:"reason_changed_at"`
+		ResumeAfter     noVal    `json:"resume_after"`
 		Name            string   `json:"name"`
 		Hostname        string   `json:"hostname"`
 		States          []string `json:"state"`
@@ -229,7 +242,13 @@ func (a *Adapter) nodes(ctx context.Context, name string) ([]models.Node, error)
 		if *effective < 0 || *effective > *n.CPUs {
 			return nil, invalid()
 		}
-		result = append(result, models.Node{EffectiveCPUs: *effective, GRESUsed: n.GRESUsed, Name: n.Name, Hostname: n.Hostname, States: n.States, CPUs: *n.CPUs, AllocatedCPUs: n.AllocatedCPUs, MemoryMiB: *n.Memory, AllocatedMemoryMiB: n.AllocatedMemory, FreeMemoryMiB: n.Free.Number, Partitions: n.Partitions, Reason: n.Reason, GRES: n.GRES})
+		if n.Features == nil {
+			n.Features = []string{}
+		}
+		if n.ActiveFeatures == nil {
+			n.ActiveFeatures = []string{}
+		}
+		result = append(result, models.Node{Address: n.Address, Version: n.Version, Architecture: n.Architecture, OperatingSystem: n.OperatingSystem, Comment: n.Comment, Reservation: n.Reservation, ReasonUser: n.ReasonUser, Features: n.Features, ActiveFeatures: n.ActiveFeatures, BootTime: n.BootTime.Number, SlurmdStartTime: n.SlurmdStartTime.Number, ReasonChangedAt: n.ReasonChangedAt.Number, ResumeAfter: n.ResumeAfter.Number, EffectiveCPUs: *effective, GRESUsed: n.GRESUsed, Name: n.Name, Hostname: n.Hostname, States: n.States, CPUs: *n.CPUs, AllocatedCPUs: n.AllocatedCPUs, MemoryMiB: *n.Memory, AllocatedMemoryMiB: n.AllocatedMemory, FreeMemoryMiB: n.Free.Number, Partitions: n.Partitions, Reason: n.Reason, GRES: n.GRES})
 	}
 	return result, nil
 }

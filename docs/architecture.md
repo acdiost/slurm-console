@@ -1,6 +1,6 @@
 # 工程架构
 
-采用 README 定义的模块化单体：React Web Console → PocketBase/Go → Slurm Adapter → slurmrestd。当前完成阶段一前七项；`internal/clusterconfig` 实现受保护连接方式、配置持久化及有界的只读 Slurm ping，`internal/slurm/{client,adapter,models}` 提供明确版本的查询适配，`internal/services/slurm.go` 管理缓存、并发及配置失效。`internal/overview` 从标准 DTO 派生资源/状态汇总，`/overview` 展示真实集群概况；`internal/jobcontrol` 提供显式 Slurm 身份关联、短期确认及持久审计取消，`/jobs` 提供真实作业管理；下一项为节点查询及 Drain/Resume。
+采用 README 定义的模块化单体：React Web Console → PocketBase/Go → Slurm Adapter → slurmrestd。当前完成阶段一前八项；`internal/clusterconfig` 实现受保护连接方式、配置持久化及有界的只读 Slurm ping，`internal/slurm/{client,adapter,models}` 提供明确版本的查询适配，`internal/services/slurm.go` 管理缓存、并发及配置失效。`internal/overview` 从标准 DTO 派生资源/状态汇总，`/overview` 展示真实集群概况；`internal/jobcontrol` 提供显式 Slurm 身份关联、短期确认及持久审计取消，`/jobs` 提供真实作业管理；`internal/nodecontrol` 及 `/nodes` 提供节点查询和 Drain/Resume；下一项为分区查询。
 
 前端入口为 `frontend/src/main.tsx`，`app/` 管理 Router 和 QueryClient；`pages/` 组织页面；`features/` 保存功能；`components/ui/` 保存官方 shadcn/ui Mira 生成的组件；`components/slurm/` 封装状态等领域展示；`stores/` 保存主题和密度偏好；`services/` 预留业务请求边界；`styles/` 保存语义 Token。
 
@@ -19,3 +19,5 @@
 总览采用逐项授权、部分失败返回及来源级缓存时间，见 [总览契约](overview.md)。登录后默认进入 `/overview`，设计系统仍仅为组件验收页。
 
 作业列表、详情、取消及身份 CLI 见 [作业管理](jobs.md)。操作审计先于外部写入，未知结果只读核实，不自动重试写入。
+
+节点查询、状态矩阵及逐节点审计控制见 [节点管理](nodes.md)。节点控制沿用固定 REST 身份，不自动授予上游管理员权限。

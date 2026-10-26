@@ -48,6 +48,20 @@ type Job struct {
 	ArrayTaskID      Number   `json:"arrayTaskId"`
 }
 type Node struct {
+	Address         string   `json:"address"`
+	Version         string   `json:"version"`
+	Architecture    string   `json:"architecture"`
+	OperatingSystem string   `json:"operatingSystem"`
+	Comment         string   `json:"comment"`
+	Reservation     string   `json:"reservation"`
+	ReasonUser      string   `json:"reasonUser"`
+	Features        []string `json:"features"`
+	ActiveFeatures  []string `json:"activeFeatures"`
+	BootTime        Number   `json:"bootTime"`
+	SlurmdStartTime Number   `json:"slurmdStartTime"`
+	ReasonChangedAt Number   `json:"reasonChangedAt"`
+	ResumeAfter     Number   `json:"resumeAfter"`
+
 	Name               string   `json:"name"`
 	Hostname           string   `json:"hostname"`
 	States             []string `json:"states"`

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.8.0
+  version: 0.9.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -917,6 +917,26 @@ paths:
                 "name": "partition",
                 "schema": { "type": "string", "maxLength": 128 },
               },
+              {
+                "in": "query",
+                "name": "sort",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["name", "cpus", "memory"],
+                    "default": "name",
+                  },
+              },
+              {
+                "in": "query",
+                "name": "order",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["asc", "desc"],
+                    "default": "asc",
+                  },
+              },
             ],
           "responses":
             {
@@ -1413,6 +1433,268 @@ paths:
             },
         },
     }
+  /api/v1/clusters/{clusterId}/nodes/{nodeName}/control-context:
+    {
+      "get":
+        {
+          "operationId": "prepareNodeControl",
+          "summary": "要求nodes.read，直接读取最新节点并核对目标动作；allowed=false不授予执行能力",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "nodeName",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "query",
+                "name": "action",
+                "required": true,
+                "schema": { "type": "string", "enum": ["drain", "resume"] },
+              },
+            ],
+          "responses":
+            {
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+              "200":
+                {
+                  "description": "安全平台DTO；写请求不自动重试",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/NodeControlContext",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/nodes/{nodeName}/drain:
+    {
+      "post":
+        {
+          "operationId": "drainNode",
+          "summary": "要求nodes.read及nodes.drain；实际单节点名称、最新确认、持久审计；上游固定身份须具备节点更新权限",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "nodeName",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "responses":
+            {
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+              "200":
+                {
+                  "description": "安全平台DTO；写请求不自动重试",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/NodeOperation",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        { "$ref": "#/components/schemas/NodeControlInput" },
+                    },
+                },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/nodes/{nodeName}/resume:
+    {
+      "post":
+        {
+          "operationId": "resumeNode",
+          "summary": "要求nodes.read及nodes.resume；实际单节点名称、最新确认、持久审计；上游固定身份须具备节点更新权限",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "nodeName",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "responses":
+            {
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+              "200":
+                {
+                  "description": "安全平台DTO；写请求不自动重试",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/NodeOperation",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        { "$ref": "#/components/schemas/NodeControlInput" },
+                    },
+                },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/node-operations/{operationId}:
+    {
+      "get":
+        {
+          "operationId": "getNodeOperation",
+          "summary": "要求nodes.read，且本人操作或platform.audit.read；只读核实，Resume未注册不确认就绪",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "operationId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "responses":
+            {
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+              "200":
+                {
+                  "description": "安全平台DTO；写请求不自动重试",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/NodeOperation",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
 components:
   securitySchemes:
     platformToken:
@@ -1866,6 +2148,20 @@ components:
             "partitions",
             "effectiveCpus",
             "gresUsed",
+            "address",
+            "version",
+            "architecture",
+            "operatingSystem",
+            "comment",
+            "reservation",
+            "reasonUser",
+            "features",
+            "activeFeatures",
+            "bootTime",
+            "slurmdStartTime",
+            "reasonChangedAt",
+            "resumeAfter",
+            "resources",
           ],
         "properties":
           {
@@ -1886,6 +2182,138 @@ components:
             "effectiveCpus":
               { "type": "integer", "format": "int64", "minimum": 0 },
             "gresUsed": { "type": "string" },
+            "address": { "type": "string" },
+            "version": { "type": "string" },
+            "architecture": { "type": "string" },
+            "operatingSystem": { "type": "string" },
+            "comment": { "type": "string" },
+            "reservation": { "type": "string" },
+            "reasonUser": { "type": "string" },
+            "features": { "type": "array", "items": { "type": "string" } },
+            "activeFeatures":
+              { "type": "array", "items": { "type": "string" } },
+            "bootTime": { "$ref": "#/components/schemas/SlurmNumber" },
+            "slurmdStartTime": { "$ref": "#/components/schemas/SlurmNumber" },
+            "reasonChangedAt": { "$ref": "#/components/schemas/SlurmNumber" },
+            "resumeAfter": { "$ref": "#/components/schemas/SlurmNumber" },
+            "resources":
+              {
+                "type": "object",
+                "required": ["cpus", "memoryMiB", "gpus"],
+                "properties":
+                  {
+                    "cpus":
+                      {
+                        "type": "object",
+                        "required":
+                          ["total", "allocated", "idle", "unavailable"],
+                        "properties":
+                          {
+                            "total":
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                              },
+                            "allocated":
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                              },
+                            "idle":
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                              },
+                            "unavailable":
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                              },
+                          },
+                      },
+                    "memoryMiB":
+                      {
+                        "type": "object",
+                        "required":
+                          ["total", "allocated", "idle", "unavailable"],
+                        "properties":
+                          {
+                            "total":
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                              },
+                            "allocated":
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                              },
+                            "idle":
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                              },
+                            "unavailable":
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                              },
+                          },
+                      },
+                    "gpus":
+                      {
+                        "type": "object",
+                        "required":
+                          [
+                            "total",
+                            "allocated",
+                            "idle",
+                            "unavailable",
+                            "unknownNodes",
+                          ],
+                        "properties":
+                          {
+                            "total":
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                                "nullable": true,
+                              },
+                            "allocated":
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                                "nullable": true,
+                              },
+                            "idle":
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                                "nullable": true,
+                              },
+                            "unavailable":
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                                "nullable": true,
+                              },
+                            "unknownNodes": { "type": "integer", "minimum": 0 },
+                          },
+                      },
+                  },
+              },
           },
       }
     SlurmPartition:
@@ -2472,6 +2900,153 @@ components:
               {
                 "type": "string",
                 "enum": ["confirmed", "accepted", "failed", "unknown"],
+              },
+            "states": { "type": "array", "items": { "type": "string" } },
+          },
+      }
+    SlurmNodeSnapshot:
+      {
+        "type": "object",
+        "required":
+          [
+            "name",
+            "hostname",
+            "reason",
+            "gres",
+            "states",
+            "cpus",
+            "allocatedCpus",
+            "memoryMiB",
+            "allocatedMemoryMiB",
+            "freeMemoryMiB",
+            "partitions",
+            "effectiveCpus",
+            "gresUsed",
+            "address",
+            "version",
+            "architecture",
+            "operatingSystem",
+            "comment",
+            "reservation",
+            "reasonUser",
+            "features",
+            "activeFeatures",
+            "bootTime",
+            "slurmdStartTime",
+            "reasonChangedAt",
+            "resumeAfter",
+          ],
+        "properties":
+          {
+            "name": { "type": "string" },
+            "hostname": { "type": "string" },
+            "reason": { "type": "string" },
+            "gres": { "type": "string" },
+            "states":
+              { "type": "array", "minItems": 1, "items": { "type": "string" } },
+            "cpus": { "type": "integer", "format": "int64", "minimum": 0 },
+            "allocatedCpus":
+              { "type": "integer", "format": "int64", "minimum": 0 },
+            "memoryMiB": { "type": "integer", "format": "int64", "minimum": 0 },
+            "allocatedMemoryMiB":
+              { "type": "integer", "format": "int64", "minimum": 0 },
+            "freeMemoryMiB": { "$ref": "#/components/schemas/SlurmNumber" },
+            "partitions": { "type": "array", "items": { "type": "string" } },
+            "effectiveCpus":
+              { "type": "integer", "format": "int64", "minimum": 0 },
+            "gresUsed": { "type": "string" },
+            "address": { "type": "string" },
+            "version": { "type": "string" },
+            "architecture": { "type": "string" },
+            "operatingSystem": { "type": "string" },
+            "comment": { "type": "string" },
+            "reservation": { "type": "string" },
+            "reasonUser": { "type": "string" },
+            "features": { "type": "array", "items": { "type": "string" } },
+            "activeFeatures":
+              { "type": "array", "items": { "type": "string" } },
+            "bootTime": { "$ref": "#/components/schemas/SlurmNumber" },
+            "slurmdStartTime": { "$ref": "#/components/schemas/SlurmNumber" },
+            "reasonChangedAt": { "$ref": "#/components/schemas/SlurmNumber" },
+            "resumeAfter": { "$ref": "#/components/schemas/SlurmNumber" },
+          },
+      }
+    NodeControlContext:
+      {
+        "type": "object",
+        "required":
+          [
+            "allowed",
+            "message",
+            "node",
+            "action",
+            "proof",
+            "operationId",
+            "expiresAt",
+          ],
+        "properties":
+          {
+            "allowed": { "type": "boolean" },
+            "message": { "type": "string" },
+            "node": { "$ref": "#/components/schemas/SlurmNodeSnapshot" },
+            "action": { "type": "string", "enum": ["drain", "resume"] },
+            "proof": { "type": "string" },
+            "operationId": { "type": "string" },
+            "expiresAt": { "type": "string" },
+          },
+      }
+    NodeControlInput:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["proof", "confirmation", "reason"],
+        "properties":
+          {
+            "proof": { "type": "string", "maxLength": 4096 },
+            "confirmation":
+              {
+                "type": "string",
+                "maxLength": 255,
+                "description": "与路径实际节点名称完全一致",
+              },
+            "reason":
+              {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 300,
+                "description": "单行原因，不允许CR、LF或NUL",
+              },
+          },
+      }
+    NodeOperation:
+      {
+        "type": "object",
+        "required":
+          [
+            "operationId",
+            "nodeName",
+            "action",
+            "status",
+            "message",
+            "reason",
+            "states",
+            "createdAt",
+            "updatedAt",
+          ],
+        "properties":
+          {
+            "operationId": { "type": "string" },
+            "nodeName": { "type": "string" },
+            "message": { "type": "string" },
+            "reason": { "type": "string" },
+            "createdAt": { "type": "string" },
+            "updatedAt": { "type": "string" },
+            "action": { "type": "string", "enum": ["drain", "resume"] },
+            "status":
+              {
+                "type": "string",
+                "enum":
+                  ["processing", "confirmed", "accepted", "failed", "unknown"],
               },
             "states": { "type": "array", "items": { "type": "string" } },
           },

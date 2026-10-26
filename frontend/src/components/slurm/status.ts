@@ -20,6 +20,18 @@ const nodes: Record<string, { label: string; tone: StatusTone }> = {
   DRAINING: { label: "排空中", tone: "warning" },
   DRAINED: { label: "已排空", tone: "warning" },
   DOWN: { label: "离线", tone: "danger" },
+  NOT_RESPONDING: { label: "等待响应", tone: "warning" },
+  COMPLETING: { label: "作业收尾中", tone: "info" },
+  MAINTENANCE: { label: "维护中", tone: "warning" },
+  RESERVED: { label: "已预留", tone: "info" },
+  FAIL: { label: "故障", tone: "danger" },
+  INVALID_REG: { label: "注册异常", tone: "danger" },
+  FUTURE: { label: "待配置", tone: "neutral" },
+  POWERED_DOWN: { label: "已下电", tone: "neutral" },
+  POWERING_UP: { label: "上电中", tone: "warning" },
+  POWERING_DOWN: { label: "下电中", tone: "warning" },
+  REBOOT_REQUESTED: { label: "待重启", tone: "warning" },
+  REBOOT_ISSUED: { label: "重启中", tone: "warning" },
   UNKNOWN: { label: "未知", tone: "neutral" },
 }
 export function resolveStatus(state: string, kind: "job" | "node" = "job") {
