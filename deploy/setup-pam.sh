@@ -2,10 +2,20 @@
 # Configure only this application's PAM integration. Safe to run repeatedly.
 set -euo pipefail
 [[ $EUID -eq 0 && $# -eq 0 && $(uname -s) == Linux ]] || { echo 'Run as root on Linux, without arguments.' >&2; exit 1; }
-for cmd in getent id install cmp visudo runuser sudo systemctl awk; do
+for cmd in getent id install cmp visudo runuser sudo systemctl awk flock; do
   command -v "$cmd" >/dev/null || { echo "Required command: $cmd" >&2; exit 1; }
 done
 [[ -f /etc/pam.d/password-auth ]] || { echo 'Rocky/RHEL password-auth policy is required.' >&2; exit 1; }
+lock=/run/lock/slurm-console.lock
+if [[ ${SLURM_CONSOLE_LOCK_FD:-} != 9 || $(readlink /proc/$$/fd/9 2>/dev/null || true) != "$lock" ]]; then
+  [[ ! -L "$lock" && (! -e "$lock" || -f "$lock") ]] || exit 1
+  (umask 022; : >> "$lock")
+  chown root:root "$lock"
+  chmod 0644 "$lock"
+  exec 9<>"$lock"
+fi
+flock -n 9 || { echo 'Maintenance in progress; retry later.' >&2; exit 1; }
+export SLURM_CONSOLE_LOCK_FD=9
 id slurm-console >/dev/null 2>&1 || { echo 'Run deploy/install.sh first.' >&2; exit 1; }
 [[ $(id -u slurm-console) != 0 ]] || exit 1
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"

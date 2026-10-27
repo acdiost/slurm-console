@@ -230,18 +230,18 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
       <div className="m-3 mt-8 rounded-lg border bg-background/60 p-3">
         <div className="mb-2 flex items-center gap-2 text-xs font-medium">
           <FlaskConical className="size-3.5 text-primary" />
-          工程初始化
+          MVP 进度
           <span className="ml-auto font-mono text-2xs text-muted-foreground">
-            10 / 11
+            11 / 11
           </span>
         </div>
         <div className="h-1 overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-[90.91%] bg-primary" />
+          <div className="h-full w-full bg-primary" />
         </div>
         <p className="mt-2 text-2xs leading-relaxed text-muted-foreground">
-          阶段一 · 操作审计已就绪
+          阶段一 · MVP 已完成
           <br />
-          下一步：基础部署与备份
+          下一步：V1 多集群管理
         </p>
       </div>
       <div className="flex items-center gap-2.5 border-t p-4">

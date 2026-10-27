@@ -1,0 +1,14 @@
+[Unit]
+Description=Encrypted Slurm Console application backup
+After=slurm-console.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+EnvironmentFile=-/etc/slurm-console/backup.env
+ExecStart=/opt/slurm-console/slurm-console backup create --kind daily --keep 14
+TimeoutStartSec=30min
+PrivateTmp=true
+ProtectSystem=full

@@ -12,3 +12,6 @@ backend/slurm-console
 backend/slurm-console-pam-helper
 *.log
 
+
+*.tar.gz.age
+deploy/backup.env

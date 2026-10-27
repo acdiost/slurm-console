@@ -35,3 +35,5 @@ Slurm Adapter 的版本、查询及缓存约束见 `../docs/slurm-adapter.md`；
 分区列表、详情及关联节点资源见 `../docs/partitions.md`；节点数据单独授权，分区接口全部只读。
 
 平台审计查询及管理命令留痕见 `../docs/audits.md`，只有 `platform.audit.read` 可检索，不回读或重试 Slurm 操作。
+
+`backup init-key/create/verify/restore` 和 `healthcheck` 独立于 PocketBase 启动运行；`internal/backup` 负责 age 加密、清单及 SQLite 验证、范围受限恢复，`internal/maintenance` 提供部署/管理命令互斥。详见 `../docs/backups.md`。

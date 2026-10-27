@@ -13,7 +13,7 @@ make pam-helper                 # 仅 PAM；须在目标 Linux 架构构建
 sudo bash deploy/install.sh --pam
 ```
 
-不用 PAM 则省略 `make pam-helper` 和 `--pam`。安装器创建普通服务账户，安装应用程序、静态文件和单个 systemd unit，启动于 `127.0.0.1:18090`。可重复执行升级；程序变化且已有数据库时，先停服并在 `/var/backups/slurm-console/` 生成 root 独占的一致性备份。失败时保留备份及数据库供排查；自动备份不替代异机留存与恢复演练。
+不用 PAM 则省略 `make pam-helper` 和 `--pam`。安装器创建普通服务账户，安装应用程序、静态文件和单个 systemd unit，启动于 `127.0.0.1:18090`。可重复执行升级；程序、前端或单元变化且已有数据库时，先停服并在 `/var/backups/slurm-console/` 生成加密一致快照。前端资源整套替换，应用必须通过数据库就绪检查；升级失败会尝试恢复升级前快照。没有变化且服务已运行时不重启应用。备份与恢复详见 [加密备份](backups.md)。
 
 本应用仅使用以下部署文件：
 
@@ -22,6 +22,8 @@ sudo bash deploy/install.sh --pam
 | `deploy/install.sh` | 安装/更新应用并启动服务 |
 | `deploy/setup-pam.sh` | 幂等配置并验证本应用 PAM/sudo 权限 |
 | `deploy/slurm-console.service` | 普通用户运行的应用单元 |
+| `deploy/slurm-console-backup.service`、`.timer` | root 执行的每日加密备份，默认保留 14 份 daily |
+| `deploy/backup.env.example` | 可选独立存储复制目标（不包含密钥内容） |
 | `deploy/slurm-console.env.example` | 所有可选集成的统一环境文件 |
 | `deploy/ldap.example.json` | 应用的 LDAP 客户端配置 |
 | `deploy/cluster-profiles.example.json` | 应用的已批准集群连接方式 |
@@ -49,4 +51,6 @@ make build
 
 端口冲突时，使用 `make dev-backend BACKEND_HTTP=127.0.0.1:18090`，前端使用 `SLURM_CONSOLE_API_TARGET=http://127.0.0.1:18090 make dev`。`SLURM_CONSOLE_PUBLIC_DIR` 可覆盖静态文件目录，`--dir` 指定数据库目录；CLI 与服务必须使用同一数据库。未知 `/api` 不回退到 SPA。
 
-在其他 Linux 发行版上，不使用 `--pam` 即可安装应用；PAM 接入需要管理员提供与该系统匹配的应用专属策略。完整备份调度、异机复制和恢复验证仍属于后续部署运维阶段。
+在其他 Linux 发行版上，不使用 `--pam` 即可安装应用；PAM 接入需要管理员提供与该系统匹配的应用专属策略。每日备份与完整恢复工具已提供；独立存储挂载、复制目标与密钥离线保管由管理员配置，见 [备份与恢复](backups.md)。
+
+部署使用系统自带的 `flock` 串行化维护操作。加密密钥首次生成在 `/var/lib/slurm-console-backup/identity.txt`，保留已有密钥；后续安装保留已有备份 timer 的启停选择。安装后用 `systemctl status slurm-console`、`systemctl list-timers slurm-console-backup.timer` 及 `journalctl -u slurm-console-backup.service` 验收。

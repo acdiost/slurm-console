@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 	"slurm-console/backend/internal/audit"
+	"slurm-console/backend/internal/maintenance"
 )
 
 // UsersCommand provisions platform accounts without putting passwords in argv.
@@ -19,6 +20,11 @@ func UsersCommand(app core.App) *cobra.Command {
 	create := &cobra.Command{
 		Use: "create", Short: "Create a platform user (password from hidden terminal input or stdin)", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			unlock, lockErr := maintenance.Shared()
+			if lockErr != nil {
+				return lockErr
+			}
+			defer unlock()
 			if err := app.Bootstrap(); err != nil {
 				return err
 			}

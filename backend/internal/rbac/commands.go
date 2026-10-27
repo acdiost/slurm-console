@@ -12,6 +12,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/spf13/cobra"
 	"slurm-console/backend/internal/audit"
+	"slurm-console/backend/internal/maintenance"
 )
 
 func Commands(app core.App) *cobra.Command {
@@ -25,6 +26,11 @@ func Commands(app core.App) *cobra.Command {
 	for _, action := range []string{"grant", "revoke"} {
 		var email, roleCode, clusterKey string
 		cmd := &cobra.Command{Use: action, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+			unlock, lockErr := maintenance.Shared()
+			if lockErr != nil {
+				return lockErr
+			}
+			defer unlock()
 			defer app.ResetBootstrapState()
 			if err := bootstrap(); err != nil {
 				return err
@@ -108,6 +114,11 @@ func Commands(app core.App) *cobra.Command {
 	}
 	var name, slug string
 	inventory := &cobra.Command{Use: "register-cluster", Short: "Register non-sensitive cluster metadata for authorization (no connection)", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		unlock, lockErr := maintenance.Shared()
+		if lockErr != nil {
+			return lockErr
+		}
+		defer unlock()
 		defer app.ResetBootstrapState()
 		if err := bootstrap(); err != nil {
 			return err

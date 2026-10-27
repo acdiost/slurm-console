@@ -9,6 +9,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/spf13/cobra"
 	"slurm-console/backend/internal/audit"
+	"slurm-console/backend/internal/maintenance"
 )
 
 func externalUserCommand(app core.App, source string, link bool) *cobra.Command {
@@ -21,6 +22,11 @@ func externalUserCommand(app core.App, source string, link bool) *cobra.Command 
 	cmd := &cobra.Command{
 		Use: use, Short: short, Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			unlock, lockErr := maintenance.Shared()
+			if lockErr != nil {
+				return lockErr
+			}
+			defer unlock()
 			email, username = strings.TrimSpace(email), strings.TrimSpace(username)
 			if source == "pam" && username == "root" || !regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.-]{0,62}[$]?$`).MatchString(username) {
 				return fmt.Errorf("username must be an eligible account name (1–64 characters; PAM excludes root)")

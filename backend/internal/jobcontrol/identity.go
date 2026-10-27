@@ -13,6 +13,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/spf13/cobra"
 	"slurm-console/backend/internal/audit"
+	"slurm-console/backend/internal/maintenance"
 )
 
 type Identity struct {
@@ -66,6 +67,11 @@ func Command(app core.App) *cobra.Command {
 		var email, clusterKey, username, scope string
 		var uid uint32
 		cmd := &cobra.Command{Use: action, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+			unlock, lockErr := maintenance.Shared()
+			if lockErr != nil {
+				return lockErr
+			}
+			defer unlock()
 			if err := app.Bootstrap(); err != nil {
 				return err
 			}
