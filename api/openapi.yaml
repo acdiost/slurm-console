@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.12.0
+  version: 0.13.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -2073,6 +2073,183 @@ paths:
             },
         },
     }
+  /api/v1/clusters/{clusterId}/linux-users:
+    {
+      "get":
+        {
+          "operationId": "listLinuxUsers",
+          "summary": "分页查询指定集群身份主机的 NSS 可枚举用户",
+          "description": "要求独立集群权限 linux_users.read。授权在访问来源前及返回结果前复查。来源仅由部署管理员配置；无来源返回 LINUX_USERS_NOT_CONFIGURED，不回退到本机。目录可能关闭枚举，因此 totalItems 只是本次枚举筛选后的总量。无缓存，最多 4 个并发来源和 20000 记录、8 MiB 响应。未知或重复查询参数返回 400。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "query",
+                "name": "page",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000,
+                    "default": 1,
+                  },
+              },
+              {
+                "in": "query",
+                "name": "perPage",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 20,
+                  },
+              },
+              {
+                "in": "query",
+                "name": "q",
+                "schema": { "type": "string", "maxLength": 128 },
+                "description": "用户名、描述、主目录的字面搜索，最多 128 个 Unicode 字符且 512 字节。",
+              },
+              {
+                "in": "query",
+                "name": "source",
+                "schema":
+                  { "type": "string", "enum": ["local", "nss", "unknown"] },
+              },
+              {
+                "in": "query",
+                "name": "kind",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["privileged", "system", "regular", "unknown"],
+                  },
+              },
+              {
+                "in": "query",
+                "name": "sort",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["name", "uid", "gid"],
+                    "default": "name",
+                  },
+              },
+              {
+                "in": "query",
+                "name": "order",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["asc", "desc"],
+                    "default": "asc",
+                  },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "公开 NSS 身份元数据，不含密码字段或 SSH 连接信息。",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/LinuxUserPage",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/linux-users/{username}:
+    {
+      "get":
+        {
+          "operationId": "getLinuxUser",
+          "summary": "按完整用户名精确查询 Linux NSS 身份",
+          "description": "要求 linux_users.read。可查询未出现在枚举中的目录账户；不存在或来源不可见为 404。不读取 shadow，不判断密码状态或登录资格。不接受查询参数。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "username",
+                "required": true,
+                "description": "最大 255 字节，支持 Unicode 字母、数字及 _ . @ + \\ $ -，不接受纯数字 UID。",
+                "schema":
+                  { "type": "string", "minLength": 1, "maxLength": 255 },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "公开 NSS 身份元数据，不含密码字段或 SSH 连接信息。",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/LinuxUserDetail",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
 components:
   securitySchemes:
     platformToken:
@@ -3903,5 +4080,103 @@ components:
             "pageSummary":
               { "$ref": "#/components/schemas/ClusterFleetSummary" },
             "canManage": { "type": "boolean" },
+          },
+      }
+    LinuxUser:
+      {
+        "type": "object",
+        "required":
+          ["name", "uid", "gid", "comment", "home", "shell", "source", "kind"],
+        "properties":
+          {
+            "name": { "type": "string", "maxLength": 255 },
+            "uid": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+            "gid": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+            "comment": { "type": "string" },
+            "home": { "type": "string" },
+            "shell": { "type": "string" },
+            "source":
+              {
+                "type": "string",
+                "enum": ["local", "nss", "unknown"],
+                "description": "local 表示与本地 passwd 元数据一致；nss 表示未匹配本地；unknown 无法确认。不推断具体目录类型。",
+              },
+            "kind":
+              {
+                "type": "string",
+                "enum": ["privileged", "system", "regular", "unknown"],
+                "description": "UID 0 或来源 UID_MIN 数值范围，不表示登录/管理员资格。",
+              },
+          },
+      }
+    LinuxUserPage:
+      {
+        "type": "object",
+        "required":
+          [
+            "items",
+            "page",
+            "perPage",
+            "totalItems",
+            "fetchedAt",
+            "cached",
+            "sourceLabel",
+            "enumeration",
+            "uidMin",
+            "revision",
+          ],
+        "properties":
+          {
+            "items":
+              {
+                "type": "array",
+                "maxItems": 100,
+                "items": { "$ref": "#/components/schemas/LinuxUser" },
+              },
+            "page": { "type": "integer", "minimum": 1 },
+            "perPage": { "type": "integer", "minimum": 1, "maximum": 100 },
+            "totalItems": { "type": "integer", "minimum": 0 },
+            "fetchedAt": { "type": "string", "format": "date-time" },
+            "cached": { "type": "boolean", "enum": [false] },
+            "sourceLabel": { "type": "string" },
+            "enumeration": { "type": "string", "enum": ["nss", "lookup"] },
+            "uidMin":
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4294967295,
+                "nullable": true,
+              },
+            "revision": { "type": "integer", "minimum": 0 },
+          },
+      }
+    LinuxUserDetail:
+      {
+        "type": "object",
+        "required":
+          [
+            "item",
+            "fetchedAt",
+            "cached",
+            "sourceLabel",
+            "enumeration",
+            "uidMin",
+            "revision",
+          ],
+        "properties":
+          {
+            "item": { "$ref": "#/components/schemas/LinuxUser" },
+            "fetchedAt": { "type": "string", "format": "date-time" },
+            "cached": { "type": "boolean", "enum": [false] },
+            "sourceLabel": { "type": "string" },
+            "enumeration": { "type": "string", "enum": ["nss", "lookup"] },
+            "uidMin":
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4294967295,
+                "nullable": true,
+              },
+            "revision": { "type": "integer", "minimum": 0 },
           },
       }

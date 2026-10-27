@@ -25,3 +25,16 @@ it("实际导航链接带上当前集群", () => {
     "/jobs?cluster=beta"
   )
 })
+
+it("Linux 身份查询与其他业务页共享集群但不共享用户名详情", () => {
+  expect(
+    scopedNavigation("/linux-users", "/nodes", "?cluster=beta&node=node1")
+  ).toBe("/linux-users?cluster=beta")
+  expect(
+    scopedNavigation(
+      "/jobs",
+      "/linux-users",
+      "?cluster=beta&username=worker&source=local"
+    )
+  ).toBe("/jobs?cluster=beta")
+})

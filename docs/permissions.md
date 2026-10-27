@@ -11,7 +11,7 @@
 | `operator` | 指定集群 | 读取，以及 `jobs.cancel`、`nodes.drain`、`nodes.resume` |
 | `viewer` | 指定集群 | 只读 |
 
-平台动作包括 `platform.users.manage`、`platform.roles.manage`、`platform.clusters.manage`、`platform.audit.read`。集群动作包括 `clusters.read`、`jobs.read/cancel/requeue`、`nodes.read/drain/resume`、`partitions.read`、`accounts.read/update`、`qos.read/update`、`associations.read/update` 和 `metrics.read`。这里只定义权限，尚未实现的业务动作不会因为有权限而自动开放。
+平台动作包括 `platform.users.manage`、`platform.roles.manage`、`platform.clusters.manage`、`platform.audit.read`。集群动作包括 `clusters.read`、`jobs.read/cancel/requeue`、`nodes.read/drain/resume`、`partitions.read`、`accounts.read/update`、`qos.read/update`、`associations.read/update`、`linux_users.read` 和 `metrics.read`。这里只定义权限，尚未实现的业务动作不会因为有权限而自动开放。
 
 `rbac.Resolve` 每次从数据库解析角色绑定和动作，按角色的 platform/cluster 范围过滤，不判断角色名字来放行。未知动作默认拒绝，集群角色不能授予平台权限。新增动作需要显式绑定到角色，Super Admin 也不使用通配符隐式获得未来动作。
 
@@ -34,3 +34,5 @@ Adapter 的健康、作业、节点、分区端点分别要求对应集群的 `c
 分区列表/详情只要求 `partitions.read`；关联节点统计及节点分页独立要求 `nodes.read`，缺权不请求节点。分区读取权限不隐含作业或节点权限，见 [分区查询](partitions.md)。
 
 `GET /operation-audits` 及详情要求平台范围 `platform.audit.read`，可检索已停用/删除集群的历史；不依赖实时资源权限，也不授予资源操作权限。原生审计 Collection CRUD 仍锁定。详见 [操作审计](audits.md)。
+
+Linux 身份列表及精确详情要求对应集群的 `linux_users.read`，来源访问前和返回数据前分别复查权限。该权限不包含账户创建、密码锁定/解锁、平台账户或 Slurm Association 管理；内置四类角色显式加入读取动作，自定义角色不会隐式获得。见 [Linux 系统用户查询](linux-users.md)。

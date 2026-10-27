@@ -13,6 +13,7 @@ import (
 	"slurm-console/backend/internal/backup"
 	"slurm-console/backend/internal/clusterconfig"
 	"slurm-console/backend/internal/jobcontrol"
+	"slurm-console/backend/internal/linuxusers"
 	"slurm-console/backend/internal/rbac"
 	_ "slurm-console/backend/migrations"
 )
@@ -29,6 +30,11 @@ func New() (*pocketbase.PocketBase, error) {
 	if err != nil {
 		return nil, err
 	}
+	linuxRegistry, err := linuxusers.LoadRegistry(os.Getenv("SLURM_CONSOLE_LINUX_USERS_PROFILES"))
+	if err != nil {
+		return nil, err
+	}
+	linuxusers.Register(app, linuxRegistry, nil)
 	connections := clusterconfig.Register(app, registry)
 	connectionContext, cancelConnections := context.WithCancel(context.Background())
 	app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error { cancelConnections(); return e.Next() })

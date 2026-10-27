@@ -27,3 +27,5 @@
 操作审计独立使用平台权限，查询不回读 Slurm；平台数据变更与审计同事务，凭据和内部确认字段不进入查询 DTO，见 [操作审计](audits.md)。
 
 备份/恢复命令在 PocketBase 自动初始化之前独立分流，避免在故障数据库上启动框架。服务短暂停止后生成加密文件快照，恢复校验和路径限制见 [备份与恢复](backups.md)。
+
+`internal/linuxusers` 查询受保护配置中按集群 ID 映射的本机或固定 SSH 身份主机，reader 只输出公开 NSS 元数据；独立 `linux_users.read` 授权和来源后的权限/版本复查不依赖 Slurm REST 身份。系统账户不保存为 PocketBase 业务表；`/linux-users` 与其他业务页共享集群上下文。见 [Linux 系统用户查询](linux-users.md)。

@@ -1,6 +1,12 @@
 import type { ComponentProps } from "react"
 import { NavLink, useLocation } from "react-router"
-const operational = new Set(["/overview", "/jobs", "/nodes", "/partitions"])
+const operational = new Set([
+  "/overview",
+  "/jobs",
+  "/nodes",
+  "/partitions",
+  "/linux-users",
+])
 export function scopedNavigation(to: string, pathname: string, search: string) {
   if (!operational.has(to) || !operational.has(pathname)) return to
   const source = new URLSearchParams(search),

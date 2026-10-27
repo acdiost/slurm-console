@@ -54,3 +54,5 @@ make build
 在其他 Linux 发行版上，不使用 `--pam` 即可安装应用；PAM 接入需要管理员提供与该系统匹配的应用专属策略。每日备份与完整恢复工具已提供；独立存储挂载、复制目标与密钥离线保管由管理员配置，见 [备份与恢复](backups.md)。
 
 部署使用系统自带的 `flock` 串行化维护操作。加密密钥首次生成在 `/var/lib/slurm-console-backup/identity.txt`，保留已有密钥；后续安装保留已有备份 timer 的启停选择。安装后用 `systemctl status slurm-console`、`systemctl list-timers slurm-console-backup.timer` 及 `journalctl -u slurm-console-backup.service` 验收。
+
+Linux 系统用户查询的构建、来源映射及受限 SSH 配置见 [Linux 系统用户查询](linux-users.md)。查询器复用应用二进制的独立子命令，以普通用户运行，无需新增 sudo 权限。只有确实位于集群身份主机的应用才配置本机来源，远端集群必须指定其身份来源。

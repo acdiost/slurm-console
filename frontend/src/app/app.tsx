@@ -18,6 +18,11 @@ import {
   SessionLifecycle,
   RequireSession,
 } from "@/features/auth/session-boundary"
+const LinuxUsersPage = lazy(() =>
+  import("@/pages/linux-users-page").then((module) => ({
+    default: module.LinuxUsersPage,
+  }))
+)
 const FleetPage = lazy(() =>
   import("@/pages/fleet-page").then((module) => ({ default: module.FleetPage }))
 )
@@ -83,6 +88,7 @@ export function App() {
                 <Route element={<ConsoleLayout />}>
                   <Route index element={<Navigate to="/fleet" replace />} />
                   <Route path="fleet" element={<FleetPage />} />
+                  <Route path="linux-users" element={<LinuxUsersPage />} />
                   <Route path="overview" element={<OverviewPage />} />
                   <Route path="jobs" element={<JobsPage />} />
                   <Route path="nodes" element={<NodesPage />} />
@@ -123,25 +129,27 @@ function RouteTitle() {
   const { pathname } = useLocation()
   useEffect(() => {
     const title =
-      pathname === "/fleet"
-        ? "集群工作台"
-        : pathname === "/audits"
-          ? "操作审计"
-          : pathname === "/login"
-            ? "登录"
-            : pathname === "/partitions"
-              ? "分区查询"
-              : pathname === "/nodes"
-                ? "节点管理"
-                : pathname === "/jobs"
-                  ? "作业管理"
-                  : pathname === "/overview"
-                    ? "集群总览"
-                    : pathname === "/clusters"
-                      ? "集群配置"
-                      : pathname === "/access"
-                        ? "我的权限"
-                        : "设计系统"
+      pathname === "/linux-users"
+        ? "Linux 系统用户"
+        : pathname === "/fleet"
+          ? "集群工作台"
+          : pathname === "/audits"
+            ? "操作审计"
+            : pathname === "/login"
+              ? "登录"
+              : pathname === "/partitions"
+                ? "分区查询"
+                : pathname === "/nodes"
+                  ? "节点管理"
+                  : pathname === "/jobs"
+                    ? "作业管理"
+                    : pathname === "/overview"
+                      ? "集群总览"
+                      : pathname === "/clusters"
+                        ? "集群配置"
+                        : pathname === "/access"
+                          ? "我的权限"
+                          : "设计系统"
     document.title = `${title} · Slurm Console`
   }, [pathname])
   return null

@@ -19,3 +19,5 @@
 集群只读业务查询已通过 Slurm Adapter 实现：`GET /clusters/{clusterId}/health`、`/jobs`、`/jobs/{jobId}`、`/nodes`、`/nodes/{nodeName}`、`/partitions`。它们按对应集群动作鉴权，返回统一 DTO 与缓存时间，不暴露原始 Slurm 响应；接口、分页、筛选和错误码详见 [Adapter 契约](slurm-adapter.md)。
 
 `GET /clusters/{clusterId}/overview` 返回来源级的健康、作业、节点、分区汇总；各项有 `status/item/code/message/fetchedAt/cached`，失败或缺权为 null，其他数据仍可用。接口不接受列表筛选参数，避免将过滤后的子集误当集群总量；详细口径见 [集群总览](overview.md)。
+
+Linux 系统用户查询为 `GET /clusters/{clusterId}/linux-users` 及 `/linux-users/{username}`，独立使用 `linux_users.read`。身份来源只能来自部署管理员的配置，浏览器不能指定 SSH 目标或命令；枚举与精确查找范围不同，见 [Linux 用户契约](linux-users.md)。
