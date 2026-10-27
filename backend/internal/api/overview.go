@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -91,11 +92,14 @@ func getOverview(e *core.RequestEvent) error {
 	return response(e, result)
 }
 func loadSlurmSection[T, U any](e *core.RequestEvent, id, kind string, allowed bool, summarize func(T) (U, error)) slurmSection[U] {
+	return loadSlurmSectionContext(e.Request.Context(), e.App, id, kind, allowed, summarize)
+}
+func loadSlurmSectionContext[T, U any](ctx context.Context, app core.App, id, kind string, allowed bool, summarize func(T) (U, error)) slurmSection[U] {
 	result := slurmSection[U]{Status: "forbidden", Code: "FORBIDDEN", Message: "未授予该项读取权限。"}
 	if !allowed {
 		return result
 	}
-	source, err := services.SlurmFor(e.App).Read(e.Request.Context(), id, kind, "")
+	source, err := services.SlurmFor(app).Read(ctx, id, kind, "")
 	var value T
 	var summary U
 	if err == nil {
@@ -113,7 +117,7 @@ func loadSlurmSection[T, U any](e *core.RequestEvent, id, kind string, allowed b
 			result.Code = "SLURM_" + strings.ToUpper(failure.Code)
 			result.Message = failure.Message
 		}
-		slog.WarnContext(e.Request.Context(), "Slurm source unavailable", "clusterId", id, "source", kind, "code", result.Code)
+		slog.WarnContext(ctx, "Slurm source unavailable", "clusterId", id, "source", kind, "code", result.Code)
 		return result
 	}
 	return slurmSection[U]{Status: "ok", Item: &summary, FetchedAt: source.FetchedAt, Cached: source.Cached}

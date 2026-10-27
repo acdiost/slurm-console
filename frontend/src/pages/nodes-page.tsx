@@ -13,7 +13,6 @@ import {
   ArrowUp,
   ChevronLeft,
   ChevronRight,
-  Database,
   Grid2X2,
   List,
   PauseCircle,
@@ -43,11 +42,7 @@ import {
 import { SlurmStatusBadge } from "@/components/slurm/status-badge"
 import { api } from "@/services/api"
 import { useAuth } from "@/stores/auth"
-import {
-  clusterPageSchema,
-  clusterSchema,
-  timestamp,
-} from "@/features/overview/schema"
+import { timestamp } from "@/features/overview/schema"
 import {
   errorMessage,
   nodeNameValid,
@@ -59,6 +54,10 @@ import { NodeFilters, type Filters } from "@/features/nodes/node-filters"
 import { NodeDetail } from "@/features/nodes/node-detail"
 import { NodeControlDialog } from "@/features/nodes/control-dialog"
 import { NodeOperations } from "@/features/nodes/operations-panel"
+import {
+  ClusterPicker,
+  useAccessibleClusters,
+} from "@/features/clusters/cluster-picker"
 const EMPTY: Node[] = []
 function integer(value: string | null, fallback: number, max = 1000000) {
   const n = Number(value ?? fallback)
@@ -81,32 +80,14 @@ export function NodesPage() {
   const [target, setTarget] = useState<Target>()
   const client = useQueryClient(),
     access = useAuth((state) => state.user?.access)
-  const clusterPage = integer(params.get("clusterPage"), 1),
-    page = integer(params.get("page"), 1),
+  const page = integer(params.get("page"), 1),
     perPage = [20, 50, 100].includes(Number(params.get("perPage")))
       ? Number(params.get("perPage"))
       : 20
-  const inventory = useQuery({
-    queryKey: ["accessible-clusters", clusterPage],
-    queryFn: async ({ signal }) =>
-      clusterPageSchema.parse(
-        await api(`/clusters?page=${clusterPage}&perPage=20`, { signal })
-      ),
-    retry: false,
-  })
-  const clusterId = params.get("cluster") || inventory.data?.items[0]?.id || "",
+  const clusterSelection = useAccessibleClusters(),
+    inventory = clusterSelection.inventory
+  const clusterId = clusterSelection.id,
     nodeName = params.get("node") || ""
-  const selected = useQuery({
-    queryKey: ["cluster-metadata", clusterId],
-    enabled:
-      !!clusterId &&
-      !inventory.data?.items.some((item) => item.id === clusterId),
-    queryFn: async ({ signal }) =>
-      clusterSchema.parse(
-        await api(`/clusters/${encodeURIComponent(clusterId)}`, { signal })
-      ),
-    retry: false,
-  })
   const allows = (action: Action) =>
     !!access &&
     (access.platformPermissions.includes(`nodes.${action}`) ||
@@ -336,16 +317,7 @@ export function NodesPage() {
     manualPagination: true,
     getRowId: (row) => row.name,
   })
-  const currentCluster =
-    inventory.data?.items.find((item) => item.id === clusterId) ||
-    (!selected.isError ? selected.data : undefined)
-  const options = [
-    ...(clusterId &&
-    !inventory.data?.items.some((item) => item.id === clusterId)
-      ? [{ id: clusterId, name: currentCluster?.name || "所选集群" }]
-      : []),
-    ...(inventory.data?.items ?? []),
-  ]
+  const currentCluster = clusterSelection.current
   const toggle = (name: string, checked: boolean) =>
     setSelection({
       scope,
@@ -444,63 +416,11 @@ export function NodesPage() {
           </Button>
         </div>
       </header>
-      <section
-        className="panel flex flex-wrap items-center gap-3 px-4 py-3"
-        aria-label="节点集群选择"
-      >
-        <Database className="size-4 text-muted-foreground" />
-        <Select
-          value={clusterId}
-          disabled={!options.length}
-          onValueChange={(value) => {
-            setTarget(undefined)
-            setParams({ cluster: value, clusterPage: String(clusterPage) })
-          }}
-        >
-          <SelectTrigger aria-label="选择节点集群" className="w-full sm:w-64">
-            <SelectValue placeholder="选择集群" />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="text-2xs text-muted-foreground">
-          第 {clusterPage} 页 · {inventory.data?.totalItems ?? "—"} 个可见集群
-        </span>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label="上一组节点集群"
-          disabled={clusterPage <= 1 || inventory.isFetching}
-          onClick={() => setParams({ clusterPage: String(clusterPage - 1) })}
-        >
-          <ChevronLeft />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label="下一组节点集群"
-          disabled={
-            !inventory.data ||
-            clusterPage * 20 >= inventory.data.totalItems ||
-            inventory.isFetching
-          }
-          onClick={() => setParams({ clusterPage: String(clusterPage + 1) })}
-        >
-          <ChevronRight />
-        </Button>
-        <Button asChild size="sm" variant="ghost" className="sm:ml-auto">
-          <Link
-            to={`/overview${clusterId ? `?cluster=${encodeURIComponent(clusterId)}` : ""}`}
-          >
-            集群总览
-          </Link>
-        </Button>
-      </section>
+      <ClusterPicker
+        selection={clusterSelection}
+        label="节点"
+        onSwitch={() => setTarget(undefined)}
+      />
       {inventory.isError && (
         <p role="alert" className="panel p-5 text-xs text-destructive">
           集群列表暂不可用，请刷新重试。

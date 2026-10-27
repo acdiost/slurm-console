@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -18,6 +17,9 @@ func registerClusterRoutes(group *router.RouterGroup[*core.RequestEvent]) {
 	clusters := group.Group("/clusters")
 	clusters.Bind(apis.RequireAuth("users")).BindFunc(auth.RequireActiveUser)
 	clusters.GET("", func(e *core.RequestEvent) error {
+		if err := clusterQuery(e, "page", "perPage", "q"); err != nil {
+			return err
+		}
 		page, size, err := pagination(e)
 		if err != nil {
 			return err
@@ -26,19 +28,7 @@ func registerClusterRoutes(group *router.RouterGroup[*core.RequestEvent]) {
 		if err != nil {
 			return e.InternalServerError("", err)
 		}
-		var filter dbx.Expression
-		if !access.Allows("clusters.read", "") {
-			ids := []any{}
-			for _, entry := range access.Clusters {
-				if access.Allows("clusters.read", entry.Cluster.ID) {
-					ids = append(ids, entry.Cluster.ID)
-				}
-			}
-			if len(ids) == 0 {
-				return response(e, map[string]any{"items": []rbac.Cluster{}, "page": page, "perPage": size, "totalItems": 0})
-			}
-			filter = dbx.In("id", ids...)
-		}
+		filter := clusterFilter(access, e.Request.URL.Query().Get("q"), "")
 		total, err := e.App.CountRecords("clusters", filter)
 		if err != nil {
 			return e.InternalServerError("", err)

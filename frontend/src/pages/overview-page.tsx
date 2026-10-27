@@ -2,15 +2,7 @@ import { useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { ClientResponseError } from "pocketbase"
-import {
-  ChevronLeft,
-  ChevronRight,
-  Database,
-  RefreshCw,
-  Server,
-  Settings2,
-  ShieldOff,
-} from "lucide-react"
+import { RefreshCw, Server, ShieldOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -23,11 +15,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/services/api"
 import { useAuth } from "@/stores/auth"
-import {
-  clusterPageSchema,
-  overviewSchema,
-  timestamp,
-} from "@/features/overview/schema"
+import { overviewSchema, timestamp } from "@/features/overview/schema"
 import {
   AttentionPanel,
   ControllerPanel,
@@ -37,6 +25,10 @@ import {
   ResourceCards,
 } from "@/features/overview/panels"
 
+import {
+  ClusterPicker,
+  useAccessibleClusters,
+} from "@/features/clusters/cluster-picker"
 export function overviewError(error: unknown) {
   if (error instanceof ClientResponseError) {
     if (error.status === 403) return "当前账户没有访问此集群总览的权限。"
@@ -46,13 +38,8 @@ export function overviewError(error: unknown) {
   return "暂时无法读取总览，请检查网络后重试。"
 }
 export function OverviewPage() {
-  const [params, setParams] = useSearchParams()
+  const [, setParams] = useSearchParams()
   const [automatic, setAutomatic] = useState(true)
-  const pageValue = Number(params.get("page") ?? 1)
-  const page =
-    Number.isInteger(pageValue) && pageValue >= 1 && pageValue <= 1000000
-      ? pageValue
-      : 1
   const canManage = useAuth(
     (state) =>
       state.user?.access.platformPermissions.includes(
@@ -60,15 +47,9 @@ export function OverviewPage() {
       ) ?? false
   )
   const client = useQueryClient()
-  const inventory = useQuery({
-    queryKey: ["accessible-clusters", page],
-    queryFn: async ({ signal }) =>
-      clusterPageSchema.parse(
-        await api(`/clusters?page=${page}&perPage=20`, { signal })
-      ),
-    retry: false,
-  })
-  const clusterId = params.get("cluster") || inventory.data?.items[0]?.id || ""
+  const clusterSelection = useAccessibleClusters(true),
+    inventory = clusterSelection.inventory,
+    clusterId = clusterSelection.id
   const overview = useQuery({
     queryKey: ["cluster-overview", clusterId],
     enabled: !!clusterId,
@@ -92,17 +73,13 @@ export function OverviewPage() {
   })
   // A failed permission check must immediately hide previously cached metrics.
   const data = overview.isError ? undefined : overview.data
-  const clusters = inventory.data?.items ?? []
-  const extraCluster =
-    data && !clusters.some((cluster) => cluster.id === data.cluster.id)
-      ? [data.cluster]
-      : []
+  const clusters = inventory.isError ? [] : (inventory.data?.items ?? [])
   const refresh = () => {
     void inventory.refetch()
     if (clusterId) void overview.refetch()
     void client.invalidateQueries({ queryKey: ["cluster-inventory"] })
   }
-  const movePage = (next: number) => setParams({ page: String(next) })
+  const movePage = (next: number) => setParams({ clusterPage: String(next) })
   const loading =
     (inventory.isPending && !clusterId) || (!!clusterId && overview.isPending)
   const emptyPage = !!inventory.data?.totalItems && !clusters.length
@@ -147,69 +124,7 @@ export function OverviewPage() {
           </Button>
         </div>
       </header>
-      <section
-        aria-label="集群选择"
-        className="panel flex flex-wrap items-center gap-3 px-4 py-3"
-      >
-        <Database className="size-4 text-muted-foreground" />
-        <Select
-          value={clusterId}
-          disabled={!clusters.length && !extraCluster.length}
-          onValueChange={(value) =>
-            setParams({ page: String(page), cluster: value })
-          }
-        >
-          <SelectTrigger aria-label="选择集群" className="w-full sm:w-64">
-            <SelectValue placeholder="选择集群" />
-          </SelectTrigger>
-          <SelectContent>
-            {[...extraCluster, ...clusters].map((cluster) => (
-              <SelectItem key={cluster.id} value={cluster.id}>
-                {cluster.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="text-2xs text-muted-foreground">
-          {inventory.isError
-            ? "集群列表暂不可用"
-            : inventory.data
-              ? `${inventory.data.totalItems} 个可见集群 · 第 ${page} 页`
-              : "正在读取集群列表…"}
-        </span>
-        <div className="flex items-center gap-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="上一组集群"
-            disabled={page <= 1 || inventory.isFetching}
-            onClick={() => movePage(page - 1)}
-          >
-            <ChevronLeft />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="下一组集群"
-            disabled={
-              !inventory.data ||
-              page * inventory.data.perPage >= inventory.data.totalItems ||
-              inventory.isFetching
-            }
-            onClick={() => movePage(page + 1)}
-          >
-            <ChevronRight />
-          </Button>
-        </div>
-        {canManage && (
-          <Button asChild size="sm" variant="ghost" className="sm:ml-auto">
-            <Link to="/clusters">
-              <Settings2 />
-              集群配置
-            </Link>
-          </Button>
-        )}
-      </section>
+      <ClusterPicker selection={clusterSelection} label="总览" />
       {inventory.isError && (
         <div role="alert" className="panel p-5 text-xs text-destructive">
           无法读取集群列表，请刷新重试。

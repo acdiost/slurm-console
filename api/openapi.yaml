@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.11.0
+  version: 0.12.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -82,6 +82,12 @@ paths:
             minimum: 1
             maximum: 100
             default: 20
+        - {
+            "name": "q",
+            "in": "query",
+            "schema": { "type": "string", "maxLength": 128 },
+            "description": "名称、标识、描述的字面匹配，最多 128 个 Unicode 字符且 512 字节。",
+          }
       responses:
         "200":
           description: 只包含已授权集群；未授权用户得到空列表
@@ -113,6 +119,108 @@ paths:
           $ref: "#/components/responses/Error"
         "503":
           $ref: "#/components/responses/Error"
+  /api/v1/cluster-fleet:
+    {
+      "get":
+        {
+          "operationId": "listClusterFleet",
+          "summary": "按实时授权分页展示多集群连接、资源和作业",
+          "description": "先授权过滤、计数和分页，再查询当前页。最多 4 个 worker，整页等待预算 15 秒；保留已完成结果，其他卡片 pending。节点和作业分别授权；未知或失败不填零。响应前授权变化返回 409，单集群配置变化丢弃对应卡片来源。所有查询参数不可重复。",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "name": "page",
+                "in": "query",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000,
+                    "default": 1,
+                  },
+              },
+              {
+                "name": "perPage",
+                "in": "query",
+                "schema":
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 24,
+                    "default": 12,
+                  },
+              },
+              {
+                "name": "q",
+                "in": "query",
+                "schema": { "type": "string", "maxLength": 128 },
+                "description": "名称、标识、描述的字面匹配，最多 128 个 Unicode 字符且 512 字节。",
+              },
+              {
+                "name": "configuration",
+                "in": "query",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["enabled", "disabled", "unconfigured"],
+                  },
+              },
+              {
+                "name": "sort",
+                "in": "query",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["name", "slug"],
+                    "default": "name",
+                  },
+              },
+              {
+                "name": "order",
+                "in": "query",
+                "schema":
+                  {
+                    "type": "string",
+                    "enum": ["asc", "desc"],
+                    "default": "asc",
+                  },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "当前页的逻辑连接，不对跨集群资源求和；未授权用户得到空列表。",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/ClusterFleetPage",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "408": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
   /api/v1/clusters/{clusterId}:
     get:
       operationId: getCluster
@@ -3523,5 +3631,277 @@ components:
           {
             "item": { "$ref": "#/components/schemas/AuditItem" },
             "fetchedAt": { "type": "string" },
+          },
+      }
+    ClusterFleetItem:
+      {
+        "type": "object",
+        "required":
+          [
+            "cluster",
+            "revision",
+            "configuration",
+            "state",
+            "permissions",
+            "health",
+            "nodes",
+            "jobs",
+          ],
+        "properties":
+          {
+            "cluster": { "$ref": "#/components/schemas/Cluster" },
+            "revision": { "type": "integer", "minimum": 0 },
+            "configuration":
+              {
+                "type": "string",
+                "enum": ["enabled", "disabled", "unconfigured"],
+              },
+            "state":
+              {
+                "type": "string",
+                "enum":
+                  [
+                    "connected",
+                    "controller_down",
+                    "unavailable",
+                    "disabled",
+                    "unconfigured",
+                    "busy",
+                    "changed",
+                    "pending",
+                  ],
+              },
+            "permissions": { "type": "array", "items": { "type": "string" } },
+            "health":
+              {
+                "oneOf":
+                  [
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status": { "type": "string", "enum": ["ok"] },
+                          "item":
+                            { "$ref": "#/components/schemas/SlurmHealth" },
+                        },
+                    },
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status":
+                            {
+                              "type": "string",
+                              "enum": ["error", "forbidden"],
+                            },
+                          "item":
+                            {
+                              "type": "object",
+                              "nullable": true,
+                              "enum": [null],
+                            },
+                        },
+                    },
+                  ],
+              },
+            "nodes":
+              {
+                "oneOf":
+                  [
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status": { "type": "string", "enum": ["ok"] },
+                          "item":
+                            { "$ref": "#/components/schemas/OverviewNodes" },
+                        },
+                    },
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status":
+                            {
+                              "type": "string",
+                              "enum": ["error", "forbidden"],
+                            },
+                          "item":
+                            {
+                              "type": "object",
+                              "nullable": true,
+                              "enum": [null],
+                            },
+                        },
+                    },
+                  ],
+              },
+            "jobs":
+              {
+                "oneOf":
+                  [
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status": { "type": "string", "enum": ["ok"] },
+                          "item":
+                            { "$ref": "#/components/schemas/OverviewJobs" },
+                        },
+                    },
+                    {
+                      "type": "object",
+                      "required":
+                        [
+                          "code",
+                          "message",
+                          "fetchedAt",
+                          "cached",
+                          "status",
+                          "item",
+                        ],
+                      "properties":
+                        {
+                          "code": { "type": "string" },
+                          "message": { "type": "string" },
+                          "fetchedAt": { "type": "string" },
+                          "cached": { "type": "boolean" },
+                          "status":
+                            {
+                              "type": "string",
+                              "enum": ["error", "forbidden"],
+                            },
+                          "item":
+                            {
+                              "type": "object",
+                              "nullable": true,
+                              "enum": [null],
+                            },
+                        },
+                    },
+                  ],
+              },
+          },
+      }
+    ClusterFleetSummary:
+      {
+        "type": "object",
+        "description": "仅统计当前页逻辑配置。unavailable 包括失败、繁忙和配置已变化；partial 为健康成功但资源来源失败；needsAttention 对连接/数据问题去重，不含已停用、未配置或仅缺权限，也不是节点告警数量。",
+        "required":
+          [
+            "connected",
+            "controllerDown",
+            "unavailable",
+            "disabled",
+            "unconfigured",
+            "pending",
+            "partial",
+            "needsAttention",
+          ],
+        "properties":
+          {
+            "connected": { "type": "integer", "minimum": 0 },
+            "controllerDown": { "type": "integer", "minimum": 0 },
+            "unavailable": { "type": "integer", "minimum": 0 },
+            "disabled": { "type": "integer", "minimum": 0 },
+            "unconfigured": { "type": "integer", "minimum": 0 },
+            "pending": { "type": "integer", "minimum": 0 },
+            "partial": { "type": "integer", "minimum": 0 },
+            "needsAttention": { "type": "integer", "minimum": 0 },
+          },
+      }
+    ClusterFleetPage:
+      {
+        "type": "object",
+        "required":
+          [
+            "items",
+            "page",
+            "perPage",
+            "totalItems",
+            "generatedAt",
+            "pageSummary",
+            "canManage",
+          ],
+        "properties":
+          {
+            "items":
+              {
+                "type": "array",
+                "maxItems": 24,
+                "items": { "$ref": "#/components/schemas/ClusterFleetItem" },
+              },
+            "page": { "type": "integer", "minimum": 1 },
+            "perPage": { "type": "integer", "minimum": 1, "maximum": 24 },
+            "totalItems": { "type": "integer", "minimum": 0 },
+            "generatedAt": { "type": "string", "format": "date-time" },
+            "pageSummary":
+              { "$ref": "#/components/schemas/ClusterFleetSummary" },
+            "canManage": { "type": "boolean" },
           },
       }

@@ -83,6 +83,7 @@ func Register(routes *router.Router[*core.RequestEvent], publicDir string) {
 		return response(e, User{ID: e.Auth.Id, Email: e.Auth.Email(), Name: e.Auth.GetString("name"), Username: e.Auth.GetString("username"), AuthSource: e.Auth.GetString("auth_source"), Access: access})
 	}).Bind(apis.RequireAuth("users")).BindFunc(auth.RequireActiveUser)
 	registerClusterRoutes(group)
+	registerFleetRoutes(group)
 	registerConfigurationRoutes(group)
 	registerSlurmRoutes(group)
 	registerPartitionRoutes(group)

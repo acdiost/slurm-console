@@ -13,7 +13,6 @@ import {
   ArrowUp,
   ChevronLeft,
   ChevronRight,
-  Database,
   RefreshCw,
   SearchX,
   ShieldAlert,
@@ -39,11 +38,7 @@ import {
 import { SlurmStatusBadge } from "@/components/slurm/status-badge"
 import { api } from "@/services/api"
 import { useAuth } from "@/stores/auth"
-import {
-  clusterPageSchema,
-  clusterSchema,
-  timestamp,
-} from "@/features/overview/schema"
+import { timestamp } from "@/features/overview/schema"
 import {
   active,
   errorMessage,
@@ -60,6 +55,10 @@ import {
 } from "@/features/jobs/job-filters"
 import { JobDetail } from "@/features/jobs/job-detail"
 import { CancelJobDialog } from "@/features/jobs/cancel-dialog"
+import {
+  ClusterPicker,
+  useAccessibleClusters,
+} from "@/features/clusters/cluster-picker"
 const EMPTY: Job[] = []
 function integer(value: string | null, fallback: number, max: number) {
   const n = Number(value ?? fallback)
@@ -74,35 +73,17 @@ export function JobsPage() {
   }>()
   const client = useQueryClient()
   const access = useAuth((state) => state.user?.access)
-  const clusterPage = integer(params.get("clusterPage"), 1, 1000000),
-    page = integer(params.get("page"), 1, 1000000),
+  const page = integer(params.get("page"), 1, 1000000),
     perPage = [20, 50, 100].includes(Number(params.get("perPage")))
       ? Number(params.get("perPage"))
       : 20
-  const inventory = useQuery({
-    queryKey: ["accessible-clusters", clusterPage],
-    queryFn: async ({ signal }) =>
-      clusterPageSchema.parse(
-        await api(`/clusters?page=${clusterPage}&perPage=20`, { signal })
-      ),
-    retry: false,
-  })
-  const clusterId = params.get("cluster") || inventory.data?.items[0]?.id || "",
+  const clusterSelection = useAccessibleClusters(),
+    inventory = clusterSelection.inventory
+  const clusterId = clusterSelection.id,
     jobId = params.get("job") || "",
     operationId = params.get("operation") || ""
   const cancelOpen =
     cancelTarget?.clusterId === clusterId && cancelTarget?.jobId === jobId
-  const selected = useQuery({
-    queryKey: ["cluster-metadata", clusterId],
-    enabled:
-      !!clusterId &&
-      !inventory.data?.items.some((value) => value.id === clusterId),
-    queryFn: async ({ signal }) =>
-      clusterSchema.parse(
-        await api(`/clusters/${encodeURIComponent(clusterId)}`, { signal })
-      ),
-    retry: false,
-  })
   const canCancel =
     !!access &&
     (access.platformPermissions.includes("jobs.cancel") ||
@@ -333,16 +314,7 @@ export function JobsPage() {
     ])
       void client.invalidateQueries({ queryKey: key })
   }
-  const currentCluster =
-    inventory.data?.items.find((value) => value.id === clusterId) ||
-    (!selected.isError ? selected.data : undefined)
-  const options = [
-    ...(clusterId &&
-    !inventory.data?.items.some((value) => value.id === clusterId)
-      ? [{ id: clusterId, name: currentCluster?.name || "所选集群" }]
-      : []),
-    ...(inventory.data?.items ?? []),
-  ]
+  const currentCluster = clusterSelection.current
   const hidden = (column: string) =>
     ["owner", "partition", "cpus", "submitTime"].includes(column)
       ? "hidden lg:table-cell"
@@ -387,63 +359,11 @@ export function JobsPage() {
           </Button>
         </div>
       </header>
-      <section
-        className="panel flex flex-wrap items-center gap-3 px-4 py-3"
-        aria-label="作业集群选择"
-      >
-        <Database className="size-4 text-muted-foreground" />
-        <Select
-          value={clusterId}
-          disabled={!options.length}
-          onValueChange={(value) => {
-            setCancelTarget(undefined)
-            setParams({ cluster: value, clusterPage: String(clusterPage) })
-          }}
-        >
-          <SelectTrigger aria-label="选择作业集群" className="w-full sm:w-64">
-            <SelectValue placeholder="选择集群" />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((value) => (
-              <SelectItem key={value.id} value={value.id}>
-                {value.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="text-2xs text-muted-foreground">
-          第 {clusterPage} 页 · {inventory.data?.totalItems ?? "—"} 个可见集群
-        </span>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label="上一组作业集群"
-          disabled={clusterPage <= 1 || inventory.isFetching}
-          onClick={() => setParams({ clusterPage: String(clusterPage - 1) })}
-        >
-          <ChevronLeft />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label="下一组作业集群"
-          disabled={
-            !inventory.data ||
-            clusterPage * 20 >= inventory.data.totalItems ||
-            inventory.isFetching
-          }
-          onClick={() => setParams({ clusterPage: String(clusterPage + 1) })}
-        >
-          <ChevronRight />
-        </Button>
-        <Button asChild size="sm" variant="ghost" className="sm:ml-auto">
-          <Link
-            to={`/overview${clusterId ? `?cluster=${encodeURIComponent(clusterId)}` : ""}`}
-          >
-            集群总览
-          </Link>
-        </Button>
-      </section>
+      <ClusterPicker
+        selection={clusterSelection}
+        label="作业"
+        onSwitch={() => setCancelTarget(undefined)}
+      />
       {inventory.isError && (
         <div role="alert" className="panel p-5 text-xs text-destructive">
           集群列表暂不可用，请刷新重试。

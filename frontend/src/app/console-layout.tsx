@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { NavLink, Outlet, useLocation } from "react-router"
+import { Outlet, useLocation } from "react-router"
 import {
   Activity,
   ScrollText,
@@ -13,6 +13,7 @@ import {
   FlaskConical,
   Layers3,
   LayoutDashboard,
+  Globe2,
   LogOut,
   Menu,
   Monitor,
@@ -51,6 +52,7 @@ import {
 import { usePreferences, type Theme } from "@/stores/preferences"
 import { logout, useAuth } from "@/stores/auth"
 import { api } from "@/services/api"
+import { ClusterNavLink as NavLink } from "@/features/clusters/cluster-navigation"
 
 const sections = [
   {
@@ -118,6 +120,16 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
       <nav aria-label="主导航" className="flex-1 space-y-5 px-3">
         <div>
           <p className="nav-label">工作空间</p>
+          <NavLink
+            to="/fleet"
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
+            }
+          >
+            <Globe2 />
+            <span>集群工作台</span>
+          </NavLink>
           <NavLink
             to="/overview"
             onClick={onNavigate}
@@ -241,7 +253,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
         <p className="mt-2 text-2xs leading-relaxed text-muted-foreground">
           阶段一 · MVP 已完成
           <br />
-          下一步：V1 多集群管理
+          V1 · 多集群管理已就绪
         </p>
       </div>
       <div className="flex items-center gap-2.5 border-t p-4">
@@ -323,21 +335,23 @@ export function ConsoleLayout() {
             </span>
             <ChevronRight className="hidden size-3 text-muted-foreground sm:inline" />
             <span>
-              {pathname === "/audits"
-                ? "操作审计"
-                : pathname === "/partitions"
-                  ? "分区查询"
-                  : pathname === "/nodes"
-                    ? "节点管理"
-                    : pathname === "/jobs"
-                      ? "作业管理"
-                      : pathname === "/overview"
-                        ? "集群总览"
-                        : pathname === "/clusters"
-                          ? "集群配置"
-                          : pathname === "/access"
-                            ? "我的权限"
-                            : "设计系统"}
+              {pathname === "/fleet"
+                ? "集群工作台"
+                : pathname === "/audits"
+                  ? "操作审计"
+                  : pathname === "/partitions"
+                    ? "分区查询"
+                    : pathname === "/nodes"
+                      ? "节点管理"
+                      : pathname === "/jobs"
+                        ? "作业管理"
+                        : pathname === "/overview"
+                          ? "集群总览"
+                          : pathname === "/clusters"
+                            ? "集群配置"
+                            : pathname === "/access"
+                              ? "我的权限"
+                              : "设计系统"}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
