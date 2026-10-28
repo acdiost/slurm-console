@@ -20,6 +20,7 @@ const ReaderPath = "/opt/slurm-console/slurm-console"
 const ReaderCommand = "linux-users-reader"
 
 type Profile struct {
+	ManageLocal    bool   `json:"manageLocal,omitempty"`
 	Label          string `json:"label"`
 	Transport      string `json:"transport"`
 	Host           string `json:"host,omitempty"`
@@ -73,6 +74,9 @@ func LoadRegistry(path string) (*Registry, error) {
 				return nil, fail("invalid_response")
 			}
 		case "ssh":
+			if p.ManageLocal {
+				return nil, fail("invalid_response")
+			}
 			if p.Username == "root" || !regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`).MatchString(p.Username) || p.Port < 1 || p.Port > 65535 || (net.ParseIP(p.Host) == nil && !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$`).MatchString(p.Host)) {
 				return nil, fail("invalid_response")
 			}

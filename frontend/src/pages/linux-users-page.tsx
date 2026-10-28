@@ -43,6 +43,7 @@ import {
   pageNumber,
   useAccessibleClusters,
 } from "@/features/clusters/cluster-picker"
+import { LinuxUserManagement } from "@/features/linux-users/management"
 import { LinuxUserDetail } from "@/features/linux-users/user-detail"
 import {
   errorMessage,
@@ -386,6 +387,12 @@ export function LinuxUsersPage() {
         )}
       {clusterId && (
         <>
+          <LinuxUserManagement
+            key={clusterId}
+            clusterId={clusterId}
+            operationId={params.get("operation") || ""}
+            onOperation={(operation) => update({ operation })}
+          />
           <ExactLookup
             key={clusterId}
             onLookup={(username) => update({ username })}
@@ -565,6 +572,8 @@ export function LinuxUsersPage() {
             key={clusterId + ":" + name}
             clusterId={clusterId}
             name={name}
+            operationId={params.get("operation") || ""}
+            onOperation={(operation) => update({ operation })}
             onClose={() => update({ username: "" })}
           />
         </>

@@ -34,7 +34,11 @@ func linuxUserFailure(e *core.RequestEvent, err error) error {
 	switch failure.Code {
 	case "not_found":
 		status = 404
-	case "changed", "disabled":
+	case "invalid_request":
+		status = 400
+	case "forbidden":
+		status = 403
+	case "changed", "disabled", "management_disabled", "confirmation_invalid", "confirmation_expired":
 		status = 409
 	case "busy":
 		status = 429

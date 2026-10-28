@@ -20,6 +20,12 @@ func main() {
 		}
 		os.Exit(linuxusers.ServeReader(os.Stdin, os.Stdout))
 	}
+	if len(os.Args) > 1 && os.Args[1] == linuxusers.AdminCommand {
+		if len(os.Args) != 2 || runtime.GOOS != "linux" {
+			os.Exit(2)
+		}
+		os.Exit(linuxusers.ServeAdmin(os.Stdin, os.Stdout))
+	}
 	if handled, err := backup.Dispatch(os.Args[1:]); handled {
 		if err != nil {
 			slog.Error("maintenance command failed", "error", err)

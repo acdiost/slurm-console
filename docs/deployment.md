@@ -56,3 +56,5 @@ make build
 部署使用系统自带的 `flock` 串行化维护操作。加密密钥首次生成在 `/var/lib/slurm-console-backup/identity.txt`，保留已有密钥；后续安装保留已有备份 timer 的启停选择。安装后用 `systemctl status slurm-console`、`systemctl list-timers slurm-console-backup.timer` 及 `journalctl -u slurm-console-backup.service` 验收。
 
 Linux 系统用户查询的构建、来源映射及受限 SSH 配置见 [Linux 系统用户查询](linux-users.md)。查询器复用应用二进制的独立子命令，以普通用户运行，无需新增 sudo 权限。只有确实位于集群身份主机的应用才配置本机来源，远端集群必须指定其身份来源。
+
+如启用本机账户写操作，升级应用后执行 `sudo bash deploy/setup-linux-users.sh <集群记录ID>`，建立限定子命令、UID 范围与保护名单的主机策略。默认部署继续只读；不安装 LDAP/FreeIPA/Slurm 等外部组件，见 [本地账户管理](linux-users.md#本地账户创建锁定与解锁)。

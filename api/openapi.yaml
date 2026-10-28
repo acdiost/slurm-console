@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.13.0
+  version: 0.14.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -2250,6 +2250,246 @@ paths:
             },
         },
     }
+  /api/v1/clusters/{clusterId}/linux-user-controls:
+    {
+      "get":
+        {
+          "operationId": "localAccountCapabilities",
+          "summary": "查询本地账户管理能力与本人最近五条操作",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "按当前集群动作授权返回本地账户控制信息。",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/LocalAccountCapabilities",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
+  /api/v1/clusters/{clusterId}/linux-user-controls/prepare:
+    {
+      "post":
+        {
+          "operationId": "prepareLocalAccount",
+          "summary": "校验创建、锁定或解锁条件，签发两分钟内有效的不透明确认",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "按当前集群动作授权返回本地账户控制信息。",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/LocalAccountPrepared",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        {
+                          "$ref": "#/components/schemas/LocalAccountPrepareInput",
+                        },
+                    },
+                },
+            },
+          "description": "需要 linux_users.read 与动作对应的 linux_users.create/lock/unlock；只有明确启用 manageLocal 的本机来源可写。root 主机策略独立限制 UID 段及保护账户。锁定使用 account expiry=1，解锁只恢复平台保存且仍有效的原到期设置。不会修改目录账户、密码、SSH key、组授权、现有会话或 Slurm 作业。",
+        },
+    }
+  /api/v1/clusters/{clusterId}/linux-user-controls/execute:
+    {
+      "post":
+        {
+          "operationId": "executeLocalAccount",
+          "summary": "在持久审计后执行一次主机请求，结果未知时不自动重试",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "按当前集群动作授权返回本地账户控制信息。",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/LocalAccountOperation",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+          "requestBody":
+            {
+              "required": true,
+              "content":
+                {
+                  "application/json":
+                    {
+                      "schema":
+                        {
+                          "$ref": "#/components/schemas/LocalAccountExecuteInput",
+                        },
+                    },
+                },
+            },
+          "description": "确认绑定操作者、集群、配置版本、完整输入、主机状态和操作编号。主机独立保存意图与幂等日志。请求发送后网络错误返回 unknown，重复提交同一内容只返回既有记录；服务重启后通过操作编号 GET 核实。原生审计 CRUD 锁定。所有接口拒绝查询参数。",
+        },
+    }
+  /api/v1/clusters/{clusterId}/linux-user-operations/{operationId}:
+    {
+      "get":
+        {
+          "operationId": "getLocalAccountOperation",
+          "summary": "读取本人或审计管理员的操作记录，仅以读取方式核实结果",
+          "security": [{ "platformToken": [] }],
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "clusterId",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "operationId",
+                "required": true,
+                "schema": { "type": "string", "maxLength": 64 },
+              },
+            ],
+          "responses":
+            {
+              "200":
+                {
+                  "description": "按当前集群动作授权返回本地账户控制信息。",
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["data", "requestId"],
+                              "properties":
+                                {
+                                  "data":
+                                    {
+                                      "$ref": "#/components/schemas/LocalAccountOperation",
+                                    },
+                                  "requestId": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "400": { "$ref": "#/components/responses/Error" },
+              "401": { "$ref": "#/components/responses/Error" },
+              "403": { "$ref": "#/components/responses/Error" },
+              "404": { "$ref": "#/components/responses/Error" },
+              "409": { "$ref": "#/components/responses/Error" },
+              "429": { "$ref": "#/components/responses/Error" },
+              "503": { "$ref": "#/components/responses/Error" },
+            },
+        },
+    }
 components:
   securitySchemes:
     platformToken:
@@ -4178,5 +4418,141 @@ components:
                 "nullable": true,
               },
             "revision": { "type": "integer", "minimum": 0 },
+          },
+      }
+    LocalAccountSpec:
+      {
+        "type": "object",
+        "required": ["name", "uid", "comment", "shell"],
+        "properties":
+          {
+            "name": { "type": "string", "pattern": "^[a-z_][a-z0-9_-]{0,31}$" },
+            "uid": { "type": "integer", "minimum": 0, "maximum": 60000 },
+            "comment": { "type": "string", "maxLength": 100 },
+            "shell":
+              { "type": "string", "enum": ["", "/bin/bash", "/sbin/nologin"] },
+          },
+      }
+    LocalAccountPrepareInput:
+      {
+        "type": "object",
+        "required": ["action", "spec"],
+        "properties":
+          {
+            "action":
+              { "type": "string", "enum": ["create", "lock", "unlock"] },
+            "spec": { "$ref": "#/components/schemas/LocalAccountSpec" },
+          },
+        "description": "创建必须填写 UID、描述与 Shell，UID 为主机预留范围内的 1000–60000；锁定和解锁仅填写 name，其他字段省略或为空/零。未允许任意路径、密码、SSH key、附加组或命令。",
+      }
+    LocalAccountExecuteInput:
+      {
+        "type": "object",
+        "required": ["proof", "confirmation", "reason"],
+        "properties":
+          {
+            "proof": { "type": "string", "maxLength": 128 },
+            "confirmation": { "type": "string", "maxLength": 32 },
+            "reason": { "type": "string", "minLength": 2, "maxLength": 300 },
+          },
+      }
+    LocalAccountOperation:
+      {
+        "type": "object",
+        "required":
+          [
+            "operationId",
+            "name",
+            "action",
+            "status",
+            "message",
+            "createdAt",
+            "updatedAt",
+          ],
+        "properties":
+          {
+            "operationId": { "type": "string" },
+            "name": { "type": "string" },
+            "action":
+              { "type": "string", "enum": ["create", "lock", "unlock"] },
+            "status":
+              { "type": "string", "enum": ["confirmed", "failed", "unknown"] },
+            "message": { "type": "string" },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "updatedAt": { "type": "string", "format": "date-time" },
+          },
+      }
+    LocalAccountCapabilities:
+      {
+        "type": "object",
+        "required":
+          [
+            "enabled",
+            "actions",
+            "minUid",
+            "maxUid",
+            "message",
+            "recentOperations",
+          ],
+        "properties":
+          {
+            "enabled": { "type": "boolean" },
+            "actions":
+              {
+                "type": "array",
+                "items":
+                  { "type": "string", "enum": ["create", "lock", "unlock"] },
+              },
+            "minUid": { "type": "integer", "minimum": 0 },
+            "maxUid": { "type": "integer", "minimum": 0 },
+            "message": { "type": "string" },
+            "recentOperations":
+              {
+                "type": "array",
+                "maxItems": 5,
+                "items":
+                  { "$ref": "#/components/schemas/LocalAccountOperation" },
+              },
+          },
+      }
+    LocalAccountPrepared:
+      {
+        "type": "object",
+        "required":
+          [
+            "allowed",
+            "message",
+            "proof",
+            "operationId",
+            "expiresAt",
+            "action",
+            "spec",
+            "account",
+            "expiry",
+            "minUid",
+            "maxUid",
+          ],
+        "properties":
+          {
+            "allowed": { "type": "boolean" },
+            "message": { "type": "string" },
+            "proof": { "type": "string" },
+            "operationId": { "type": "string" },
+            "expiresAt": { "type": "string" },
+            "action": { "type": "string" },
+            "spec": { "$ref": "#/components/schemas/LocalAccountSpec" },
+            "account":
+              {
+                "allOf": [{ "$ref": "#/components/schemas/LinuxUser" }],
+                "nullable": true,
+              },
+            "expiry":
+              {
+                "type": "integer",
+                "nullable": true,
+                "description": "来源的 UTC 到期天数，-1 为无到期日；不代表密码状态。",
+              },
+            "minUid": { "type": "integer" },
+            "maxUid": { "type": "integer" },
           },
       }

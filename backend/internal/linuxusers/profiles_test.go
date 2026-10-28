@@ -33,7 +33,8 @@ func TestProfilesRequireProtectedFilesAndPinSSH(t *testing.T) {
 		t.Fatal("public private key permitted")
 	}
 	_ = os.Chmod(key, 0600)
-	for _, bad := range []string{strings.Replace(raw, `"inventory"`, `"root"`, 1), strings.Replace(raw, `"192.0.2.8"`, `"-oProxyCommand=evil"`, 1), strings.Replace(raw, `"port":22`, `"port":0`, 1), strings.Replace(raw, `"transport":"ssh"`, `"transport":"local"`, 1), strings.Replace(raw, `"transport":"ssh"`, `"transport":"arbitrary"`, 1), strings.Replace(raw, `"label":"Identity host"`, `"label":"Identity host","command":"id"`, 1)} {
+	for _, bad := range []string{strings.Replace(raw, `"inventory"`, `"root"`, 1), strings.Replace(raw, `"192.0.2.8"`, `"-oProxyCommand=evil"`, 1), strings.Replace(raw, `"transport":"ssh"`, `"transport":"ssh","manageLocal":true`, 1),
+		strings.Replace(raw, `"port":22`, `"port":0`, 1), strings.Replace(raw, `"transport":"ssh"`, `"transport":"local"`, 1), strings.Replace(raw, `"transport":"ssh"`, `"transport":"arbitrary"`, 1), strings.Replace(raw, `"label":"Identity host"`, `"label":"Identity host","command":"id"`, 1)} {
 		_ = os.WriteFile(config, []byte(bad), 0640)
 		if _, err = LoadRegistry(config); err == nil {
 			t.Fatal("unsafe source permitted")

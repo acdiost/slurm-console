@@ -9,9 +9,14 @@ import (
 )
 
 type Service struct {
-	app      core.App
-	registry *Registry
-	provider Provider
+	app           core.App
+	registry      *Registry
+	provider      Provider
+	admin         AdminProvider
+	ctx           context.Context
+	confirmMu     sync.Mutex
+	confirmations map[string]confirmation
+	busy          sync.Map
 }
 
 func Register(app core.App, registry *Registry, provider Provider) *Service {
@@ -21,7 +26,9 @@ func Register(app core.App, registry *Registry, provider Provider) *Service {
 	if provider == nil {
 		provider = NewProcess()
 	}
-	s := &Service{app: app, registry: registry, provider: provider}
+	ctx, cancel := context.WithCancel(context.Background())
+	app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error { cancel(); return e.Next() })
+	s := &Service{app: app, registry: registry, provider: provider, admin: NewAdminProcess(), ctx: ctx, confirmations: map[string]confirmation{}}
 	app.Store().Set("linuxUsers", s)
 	return s
 }

@@ -52,6 +52,14 @@ function show(path = "/linux-users?cluster=alpha") {
 }
 function mockSources(source: (path: string) => unknown | Promise<unknown>) {
   vi.mocked(api).mockImplementation(async <T,>(path: string) => {
+    if (path.endsWith("/linux-user-controls"))
+      return {
+        enabled: false,
+        actions: [],
+        minUid: 0,
+        maxUid: 0,
+        message: "此来源未启用本地管理。",
+      } as T
     if (path.startsWith("/clusters?"))
       return { items: [cluster], page: 1, perPage: 20, totalItems: 1 } as T
     if (path === "/clusters/alpha") return cluster as T

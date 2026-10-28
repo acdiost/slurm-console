@@ -88,7 +88,7 @@ func normalize(name string, mode int64, directory bool, uid, gid int) (os.FileMo
 		if directory {
 			permissions = 0750
 		}
-	} else if name == "etc/sudoers.d/slurm-console-pam" {
+	} else if name == "etc/sudoers.d/slurm-console-pam" || name == "etc/sudoers.d/slurm-console-linux-users" {
 		permissions = 0440
 	} else if name == "opt/slurm-console/slurm-console" || name == "usr/local/libexec/slurm-console-pam-helper" {
 		permissions = 0755

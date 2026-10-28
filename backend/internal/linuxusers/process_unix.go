@@ -21,3 +21,8 @@ func configureProcess(cmd *exec.Cmd) {
 		return err
 	}
 }
+
+func configureAdminProcess(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
+}

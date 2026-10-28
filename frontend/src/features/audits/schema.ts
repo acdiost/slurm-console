@@ -40,6 +40,9 @@ export const actions: Record<string, string> = {
   "jobs.cancel": "取消作业",
   "nodes.drain": "Drain 节点",
   "nodes.resume": "Resume 节点",
+  "linux_users.create": "创建本地账户",
+  "linux_users.lock": "锁定本地账户",
+  "linux_users.unlock": "解锁本地账户",
   "clusters.create": "创建连接",
   "clusters.update": "更新连接",
   "clusters.disable": "停用连接",
@@ -59,6 +62,9 @@ export const statuses: Record<string, string> = {
   unknown: "结果待核实",
 }
 export const fields: Record<string, string> = {
+  home: "主目录",
+  shell: "登录 Shell",
+  accountExpiry: "账户到期日（UTC 天数，-1 为无到期日）",
   name: "名称",
   slug: "标识",
   enabled: "启用连接",

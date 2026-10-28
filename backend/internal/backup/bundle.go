@@ -38,7 +38,7 @@ type Group struct {
 	Dir      bool
 }
 
-var Groups = []Group{{"var/lib/slurm-console/pb_data", true, true}, {"opt/slurm-console", true, true}, {"etc/slurm-console", true, true}, {"etc/systemd/system/slurm-console.service", true, false}, {"etc/systemd/system/slurm-console-backup.service", false, false}, {"etc/systemd/system/slurm-console-backup.timer", false, false}, {"usr/local/libexec/slurm-console-pam-helper", false, false}, {"etc/pam.d/slurm-console", false, false}, {"etc/sudoers.d/slurm-console-pam", false, false}}
+var Groups = []Group{{"var/lib/slurm-console/pb_data", true, true}, {"opt/slurm-console", true, true}, {"etc/slurm-console", true, true}, {"etc/systemd/system/slurm-console.service", true, false}, {"etc/systemd/system/slurm-console-backup.service", false, false}, {"etc/systemd/system/slurm-console-backup.timer", false, false}, {"usr/local/libexec/slurm-console-pam-helper", false, false}, {"etc/pam.d/slurm-console", false, false}, {"etc/sudoers.d/slurm-console-pam", false, false}, {"etc/sudoers.d/slurm-console-linux-users", false, false}}
 
 type Entry struct {
 	Path   string `json:"path"`

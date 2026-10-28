@@ -1,3 +1,4 @@
+import { LinuxUserManagement } from "./management"
 import { useQuery } from "@tanstack/react-query"
 import {
   Sheet,
@@ -15,10 +16,14 @@ export function LinuxUserDetail({
   clusterId,
   name,
   onClose,
+  operationId,
+  onOperation,
 }: {
   clusterId: string
   name: string
   onClose: () => void
+  operationId: string
+  onOperation: (id: string) => void
 }) {
   const query = useQuery({
     queryKey: ["linux-user-detail", clusterId, name],
@@ -95,6 +100,14 @@ export function LinuxUserDetail({
                   </div>
                 ))}
               </dl>
+              {data.item.source === "local" && (
+                <LinuxUserManagement
+                  clusterId={clusterId}
+                  target={data.item.name}
+                  operationId={operationId}
+                  onOperation={onOperation}
+                />
+              )}
               <p className="text-xs leading-6 text-muted-foreground">
                 UID/GID 与目录和 Shell
                 表示系统身份元数据，不代表该账户能够登录。密码、SSH、PAM

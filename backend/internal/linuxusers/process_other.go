@@ -5,3 +5,5 @@ package linuxusers
 import "os/exec"
 
 func configureProcess(*exec.Cmd) {}
+
+func configureAdminProcess(*exec.Cmd) {}

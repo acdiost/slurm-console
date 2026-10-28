@@ -262,7 +262,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
         <p className="mt-2 text-2xs leading-relaxed text-muted-foreground">
           阶段一 · MVP 已完成
           <br />
-          V1 · 多集群与 Linux 身份查询已就绪
+          V1 · 多集群与本地账户管理已就绪
         </p>
       </div>
       <div className="flex items-center gap-2.5 border-t p-4">
