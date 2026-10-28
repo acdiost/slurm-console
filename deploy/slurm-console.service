@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=slurm-console
-Group=slurm-console
+User=root
+Group=root
 WorkingDirectory=/var/lib/slurm-console
 EnvironmentFile=-/etc/slurm-console/slurm-console.env
 Environment=SLURM_CONSOLE_PUBLIC_DIR=/opt/slurm-console/public
@@ -14,8 +14,8 @@ Restart=on-failure
 RestartSec=5
 UMask=0077
 PrivateTmp=true
-ProtectSystem=full
-# sudo must elevate only the dedicated PAM helper; NoNewPrivileges would block it.
+ProtectSystem=false
+# Local account tools must update the host /etc account databases.
 
 [Install]
 WantedBy=multi-user.target

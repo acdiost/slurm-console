@@ -20,7 +20,7 @@
 
 查询器复用应用二进制的独立子命令 `/opt/slurm-console/slurm-console linux-users-reader`，在数据库及认证初始化前分流。目标需 Linux 与 `/usr/bin/getent`，无需 cgo、root、sudo、新增二进制或常驻服务。macOS 开发端通过已部署 Linux API 验收，不在 macOS 上模拟 Linux NSS。
 
-应用程序由现有安装器以 root:root 0755 安装，与应用一同加密备份和升级回滚；reader 子命令以普通查询用户运行，只接受固定 JSON 请求，不修改任何系统账户。远端只需部署同版本应用二进制到固定路径，并不需要启动平台 Web 服务或数据库。
+应用程序由现有安装器以 root:root 0755 安装，与应用一同加密备份和升级回滚；reader 子命令本机随 root 服务运行，远端以普通查询用户运行，只接受固定 JSON 请求，不修改任何系统账户。远端只需部署同版本应用二进制到固定路径，并不需要启动平台 Web 服务或数据库。
 
 复制 `deploy/linux-users.example.json` 到 `/etc/slurm-console/linux-users.json`，将键替换为集群记录 ID（不是 slug）。文件及父目录由部署管理员管理，文件禁止组或其他用户写入，应用账户需可读。添加应用环境：
 
@@ -79,7 +79,7 @@ SLURM_CONSOLE_LINUX_USERS_PROFILES=/etc/slurm-console/linux-users.json
 
 2026-10-28 增加本机来源的账户写操作。SSH 来源仍保持只读，LDAP/FreeIPA/AD 目录账户由目录管理员维护。`linux_users.create/lock/unlock` 为独立集群动作，显式绑定内置 Super Admin 与 Cluster Admin；Operator、Viewer 和自定义角色不会自动获得写能力。平台授权、`manageLocal` 来源开关和 root 主机策略须同时满足。
 
-主机策略默认只允许 UID 10000–59999，须由管理员预留为本地身份段，避免与目录及现有账户分配重叠。名称/UID 唯一性根据当前 NSS 可见范围检查；不能据此保证不可见目录中不存在同名身份。root、应用进程身份、策略保护名单、GID 0、属于本机 root/wheel/sudo/admin 组的账户及非本地匹配账户均不可修改。普通服务进程始终以原应用账户运行；不会授予任意 useradd/usermod 或 root shell。
+主机策略默认只允许 UID 10000–59999，须由管理员预留为本地身份段，避免与目录及现有账户分配重叠。名称/UID 唯一性根据当前 NSS 可见范围检查；不能据此保证不可见目录中不存在同名身份。root、应用进程身份、策略保护名单、GID 0、属于本机 root/wheel/sudo/admin 组的账户及非本地匹配账户均不可修改。Web 服务以 root 运行，平台仍通过固定子命令和主机策略执行限定操作。
 
 - 创建：明确指定小写 Unix 用户名、UID、描述和 `/sbin/nologin` 或 `/bin/bash`。固定创建同名主组与 `/home/用户名`，主目录权限 0700，使用空的专用 skel。账户初始设置不可用口令 `!` 与到期日 1；密码/SSH 凭据由系统管理员另行配置，平台不传输或保存口令。主目录、同名用户/组或 UID 已存在时拒绝，不覆盖或复用。
 - 锁定：使用 `usermod --expiredate 1` 设置账户到期，而非仅给密码加锁。系统会先保存原到期日和账户身份摘要。后续依赖账户到期校验的 PAM/SSH 登录会受影响；已有会话、进程和 Slurm 作业不被终止。
@@ -95,9 +95,9 @@ SLURM_CONSOLE_LINUX_USERS_PROFILES=/etc/slurm-console/linux-users.json
 sudo bash deploy/setup-linux-users.sh <集群记录ID>
 ```
 
-脚本不创建系统账户。它建立 root:root 0600 的 `/etc/slurm-console/linux-users-admin.json`（已有策略保持原样），为该本机来源启用 `manageLocal`，安装只允许 `/usr/bin/nsenter --mount=/proc/1/ns/mnt -- /opt/slurm-console/slurm-console linux-users-admin` 固定参数的 sudo 规则。重复执行保持幂等；配置、探测或健康检查失败时回退配置。固定 nsenter 启动方式仅让受限子命令进入主机挂载空间，确保标准账户工具可以更新主机账户数据库；Web 服务本身继续保持原有只读 `/etc` 挂载。UID 范围和保护名单只能由系统管理员编辑该 root 策略，修改后每次主机调用立即重新读取。来源开关更改需重启应用。
+脚本不创建系统账户。它建立 root:root 0600 的 `/etc/slurm-console/linux-users-admin.json`（已有策略保持原样），为该本机来源启用 `manageLocal`，root 服务直接执行 `/opt/slurm-console/slurm-console linux-users-admin`，无需 sudo 或 nsenter。重复执行保持幂等；配置、探测或健康检查失败时回退配置。应用 unit 的 `ProtectSystem=false` 允许账户工具更新主机 `/etc`；升级只清理内容完全匹配的旧版专属 sudo 规则。UID 范围和保护名单只能由系统管理员编辑该 root 策略，修改后每次主机调用立即重新读取。来源开关更改需重启应用。
 
-主机执行日志及到期恢复状态位于 `/var/lib/slurm-console-linux-users`，root:root 0700。它与 Linux passwd/group/shadow 属于同一主机状态生命周期，须随主机备份保留；应用备份不恢复 Linux 系统账户，也不回滚这份主机执行日志。应用备份会包含应用配置、专属 sudo 规则及平台审计。主机日志丢失、身份变化或管理员另行修改到期策略时，平台拒绝猜测原状态，交由系统管理员核对。
+主机执行日志及到期恢复状态位于 `/var/lib/slurm-console-linux-users`，root:root 0700。它与 Linux passwd/group/shadow 属于同一主机状态生命周期，须随主机备份保留；应用备份不恢复 Linux 系统账户，也不回滚这份主机执行日志。应用备份会包含应用配置及平台审计，也兼容旧版备份中的专属 sudo 规则。主机日志丢失、身份变化或管理员另行修改到期策略时，平台拒绝猜测原状态，交由系统管理员核对。
 
 接口为 `GET /clusters/{id}/linux-user-controls`、`POST /linux-user-controls/prepare`、`POST /linux-user-controls/execute` 和 `GET /linux-user-operations/{operationId}`。操作结果只包含用户名、动作、状态、时间及安全信息，不返回 shadow 口令字段、主机身份摘要或可重放的 root 请求。完整字段见 OpenAPI。
 

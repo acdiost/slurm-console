@@ -39,6 +39,7 @@ func Code(err error) string {
 
 type Config struct {
 	Endpoint, AuthType, Username, TokenFile, Version string
+	LocalUsername                                    string
 	TLS                                              *tls.Config
 	Timeout                                          time.Duration
 }
@@ -154,6 +155,9 @@ func (c *Client) ControlNode(ctx context.Context, name, action, reason string) (
 func ValidNodeTarget(name string) bool { return ValidNodeName(name) && !strings.EqualFold(name, "ALL") }
 func (c *Client) request(ctx context.Context, method, path string, bodyData []byte, sent *bool) (Envelope, error) {
 	var empty Envelope
+	if strings.HasPrefix(c.config.Endpoint, "unix:") && os.Geteuid() == 0 && c.config.LocalUsername != "" {
+		return c.localRequest(ctx, method, path, bodyData, sent)
+	}
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
 	dialer := &net.Dialer{Timeout: c.config.Timeout}

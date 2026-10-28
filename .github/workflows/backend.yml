@@ -16,9 +16,14 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-      - run: bash -n ../deploy/install.sh ../deploy/setup-pam.sh ../deploy/setup-linux-users.sh
+      - run: bash -n ../deploy/install.sh ../deploy/setup-pam.sh ../deploy/setup-linux-users.sh ../deploy/cleanup-sudoers.sh
       - run: go mod verify
       - run: sudo apt-get update && sudo apt-get install -y libpam0g-dev
       - run: go vet ./...
       - run: go test -race ./...
       - run: go build ./...
+      - name: Verify root process drops Unix socket credentials
+        run: |
+          go test -c -o /tmp/slurm-client.test ./internal/slurm/client
+          sudo /tmp/slurm-client.test -test.run '^TestRootLocalSocketIdentity$' -test.v
+          rm /tmp/slurm-client.test

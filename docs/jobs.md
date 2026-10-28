@@ -9,13 +9,13 @@
 管理员先在目标集群通过 `id <用户名>` 核实用户名和 UID，再在应用主机通过受信任的本地 CLI 配置。CLI 与应用使用相同数据库；以数据库所有者运行，避免生成 root 所有的数据库文件：
 
 ```sh
-sudo -u slurm-console /opt/slurm-console/slurm-console slurm-identity link \
+sudo /opt/slurm-console/slurm-console slurm-identity link \
   --dir=/var/lib/slurm-console/pb_data \
   --email alice@example.com --cluster <集群ID或slug> \
   --username alice --uid 1001
 
 # 撤销该关联
-sudo -u slurm-console /opt/slurm-console/slurm-console slurm-identity unlink \
+sudo /opt/slurm-console/slurm-console slurm-identity unlink \
   --dir=/var/lib/slurm-console/pb_data \
   --email alice@example.com --cluster <集群ID或slug>
 ```

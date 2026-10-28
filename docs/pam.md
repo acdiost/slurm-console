@@ -4,7 +4,7 @@ PAM 验证后端所在 Linux 主机的系统身份。当前提供 Rocky Linux 9 
 
 ## 构建与安装
 
-在目标 Linux 架构构建应用及 helper，准备 gcc、PAM 开发包和 sudo：
+在目标 Linux 架构构建应用及 helper，准备 gcc 和 PAM 开发包：
 
 ```sh
 make install
@@ -13,7 +13,7 @@ make pam-helper
 sudo bash deploy/install.sh --pam
 ```
 
-安装器仅管理本应用，具体见 [部署说明](deployment.md)。已有安装可以单独运行 `sudo bash deploy/setup-pam.sh`，脚本会安装/更新已构建 helper、生成独立 PAM 策略（已有策略保留）、验证并设置 sudoers、在统一环境文件中启用 PAM，并以服务账户执行 helper probe。只有配置内容变化且应用正在运行时才重启；连续运行不会重复追加环境变量、角色或用户。
+安装器仅管理本应用，具体见 [部署说明](deployment.md)。已有安装可以单独运行 `sudo bash deploy/setup-pam.sh`，脚本会安装/更新已构建 helper、生成独立 PAM 策略（已有策略保留）、在统一环境文件中启用 PAM 并设置直接调用，以 root 执行 helper probe；只删除内容完全匹配旧版的本应用 sudo 规则，保留管理员自定义规则。只有配置内容变化且应用正在运行时才重启；连续运行不会重复追加环境变量、角色或用户。
 
 共享 `password-auth/system-auth`、authselect、SSH、Slurm 和目录服务均不修改；其他发行版的策略由管理员适配。已配置的 LDAP 与集群环境项保持不变。脚本拒绝配置目标符号链接，不执行环境文件内容，也不扩大到通用 sudo 权限。
 
@@ -21,13 +21,13 @@ sudo bash deploy/install.sh --pam
 
 | 路径 | 用途与所有者 |
 |---|---|
-| `/opt/slurm-console/slurm-console`、`public/` | root 所有，普通用户运行/读取 |
-| `/usr/local/libexec/slurm-console-pam-helper` | root 所有、0755，唯一允许提权的程序 |
+| `/opt/slurm-console/slurm-console`、`public/` | root 所有，以 root 运行/读取 |
+| `/usr/local/libexec/slurm-console-pam-helper` | root 所有、0755，由 root 服务直接调用的独立认证程序 |
 | `/etc/pam.d/slurm-console` | root 所有、0644，仅此应用的认证/account 策略 |
-| `/etc/sudoers.d/slurm-console-pam` | root 所有、0440，只允许服务账户运行无参数 helper |
-| `/var/lib/slurm-console/pb_data` | 服务账户所有、0700，平台数据库 |
+| 旧版专属 sudo 规则 | 升级时仅删除内容完全匹配的旧规则，新部署无需 sudo |
+| `/var/lib/slurm-console/pb_data` | root:root、0700，平台数据库 |
 
-helper 固定使用 `slurm-console` PAM service，拒绝 UID 0、空密码、多次密码询问、身份重写及可被非 root 写入的策略文件。密码只通过 stdin 传入，不使用参数、环境变量或临时文件。helper 不创建会话、不设置用户凭据、不运行用户命令；8 秒硬超时，Web 侧最多并发 4 个 helper，最多接纳 16 个处理中/排队请求；排队计入 9 秒总截止时间，取消会释放队列位置，溢出或超时返回 503。每次请求仍独立执行 account 检查。Web 服务保持普通用户身份；因此此 systemd 单元不能增加 `NoNewPrivileges=true`，否则 sudo 将被阻止。
+helper 固定使用 `slurm-console` PAM service，拒绝 UID 0、空密码、多次密码询问、身份重写及可被非 root 写入的策略文件。密码只通过 stdin 传入，不使用参数、环境变量或临时文件。helper 不创建会话、不设置用户凭据、不运行用户命令；8 秒硬超时，Web 侧最多并发 4 个 helper，最多接纳 16 个处理中/排队请求；排队计入 9 秒总截止时间，取消会释放队列位置，溢出或超时返回 503。每次请求仍独立执行 account 检查。Web 服务以 root 身份直接执行 helper，不再通过 sudo 提权。root 作为服务运行身份不改变 helper 对 UID 0 登录的拒绝策略。
 
 ## 关联平台账户
 
@@ -35,7 +35,7 @@ helper 固定使用 `slurm-console` PAM service，拒绝 UID 0、空密码、多
 
 ```sh
 umask 077
-runuser -u slurm-console -- /opt/slurm-console/slurm-console users create-pam \
+/opt/slurm-console/slurm-console users create-pam \
   --email alice@example.com --username alice --name Alice \
   --dir=/var/lib/slurm-console/pb_data
 ```
@@ -43,7 +43,7 @@ runuser -u slurm-console -- /opt/slurm-console/slurm-console users create-pam \
 将已有平台账户切换为 PAM：
 
 ```sh
-runuser -u slurm-console -- /opt/slurm-console/slurm-console users link-pam \
+/opt/slurm-console/slurm-console users link-pam \
   --email alice@example.com --username alice \
   --dir=/var/lib/slurm-console/pb_data
 ```
@@ -51,7 +51,7 @@ runuser -u slurm-console -- /opt/slurm-console/slurm-console users link-pam \
 `link-pam` 保留用户 ID、启用状态、显示名称与所有授权，替换原平台密码哈希并轮换 tokenKey，使旧令牌失效。系统用户名唯一，不允许多个平台用户关联同一系统账户。新建账户不分配角色；按需要继续用 `access grant` 显式授权，不自动提升为管理员。
 
 ```sh
-runuser -u slurm-console -- /opt/slurm-console/slurm-console access grant \
+/opt/slurm-console/slurm-console access grant \
   --email alice@example.com --role viewer --cluster research-a \
   --dir=/var/lib/slurm-console/pb_data
 systemctl enable --now slurm-console
@@ -76,10 +76,10 @@ ssh -N -L 18090:127.0.0.1:18090 root@your-server
 |---|---|---|
 | `SLURM_CONSOLE_PAM_ENABLED` | `false` | 启用 helper；为 true 时启动必须通过探测 |
 | `SLURM_CONSOLE_PAM_HELPER` | `/usr/local/libexec/slurm-console-pam-helper` | 绝对路径，应由 root 所有、父目录不可由服务账户写入 |
-| `SLURM_CONSOLE_PAM_SUDO` | `true` | 通过 `/usr/bin/sudo -n` 调用；false 仅用于可信的特权测试环境 |
+| `SLURM_CONSOLE_PAM_SUDO` | root 时 `false` | root 始终直接调用；旧版非 root 运行可显式选择 sudo，部署脚本写入 false |
 
 PAM 未启用或 helper 故障时，已关联 PAM 的账户会拒绝登录，不能使用数据库中的占位密码绕过。未关联的本地账户继续使用平台密码。`probe` 检查 helper、运行权限及策略文件元数据，真实模块行为由用户登录和 account 检查验证。
 
-先检查 `journalctl -u slurm-console`、`/var/log/secure`、`visudo -c`、策略文件和 helper 的所有者/权限。保持 SELinux enforcing；不要通过禁用 SELinux、扩大 sudo 权限或让 Web 服务以 root 运行来排错。系统密码锁定后的新登录由 PAM auth 策略拒绝；已有 JWT 是否被 PAM account 策略拒绝取决于系统配置。需要立即撤销平台访问时，将平台 `active` 设为 false；单独 `passwd -l` 不保证撤销已发令牌。
+先检查 `journalctl -u slurm-console`、`/var/log/secure`、策略文件和 helper 的所有者/权限。部署保持 SELinux enforcing；先核实服务实际 UID、helper 及策略权限。系统密码锁定后的新登录由 PAM auth 策略拒绝；已有 JWT 是否被 PAM account 策略拒绝取决于系统配置。需要立即撤销平台访问时，将平台 `active` 设为 false；单独 `passwd -l` 不保证撤销已发令牌。
 
 参考：[Linux-PAM 开发接口](https://www.linux-pam.org/Linux-PAM-html/adg-interface.html)、[Go PAM binding v2](https://github.com/msteinert/pam)。

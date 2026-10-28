@@ -10,7 +10,7 @@
 | `/opt/slurm-console` | 与数据库同一时间点的后端程序和前端资源 |
 | `/etc/slurm-console` | 应用环境、LDAP 客户端、批准的集群连接方式及放在此处的凭据 |
 | `/etc/systemd/system/slurm-console*.service`、备份 timer | 仅本项目的三个固定服务/定时器文件 |
-| 专用 PAM helper、`/etc/pam.d/slurm-console`、`/etc/sudoers.d/slurm-console-pam` | 存在时纳入本应用的 PAM 配置 |
+| 专用 PAM helper、`/etc/pam.d/slurm-console`、存在时的旧版专属 sudo 规则 | 存在时纳入本应用的 PAM 配置 |
 
 固定白名单不包含 Slurm/slurmrestd、Munge、LDAP/FreeIPA/AD 服务、共享 `password-auth` 策略、反向代理及系统账户数据库。JSON 引用的外部 CA/JWT/查询密码文件若放在上述目录以外，由管理员单独保管和恢复。SQLite 的 WAL 会纳入快照，SHM 是可重建缓存，不纳入。密钥默认在 `/var/lib/slurm-console-backup/identity.txt`，独立于备份范围；禁止把密钥放入应用快照目录。
 
@@ -65,11 +65,11 @@ sudo /opt/slurm-console/slurm-console backup restore \
 
 `--to` 必须是不存在的目录，且位于应用和密钥路径之外；只解密、检查及创建 root 独占的目录，不停服务、不覆盖当前环境、不安装 PAM/unit、不执行包内程序。内容保持私有且不自动授予执行权限。
 
-先确认 `databaseVerified:true`，再在隔离端口/主机用包内匹配版本验证账户、RBAC、审计及认证集成。若需以普通服务账户运行，应只授予演练目录的必要遍历权限和数据库读写权限；显式指定演练 `--dir`、回环监听地址和对应认证配置，不能让演练进程指向生产数据目录。完成后停止演练进程，再由管理员清理该私有副本。
+先确认 `databaseVerified:true`，再在隔离端口/主机用包内匹配版本验证账户、RBAC、审计及认证集成。当前版本以 root 演练，旧版快照按包内 unit 的运行账户配置演练权限；显式指定演练 `--dir`、回环监听地址和对应认证配置，不能让演练进程指向生产数据目录。完成后停止演练进程，再由管理员清理该私有副本。
 
 ## 应用完整恢复
 
-这是覆盖操作，应安排维护窗口。先确认备份来自可信管理员、密钥可用且架构相同；加密保护内容和完整性，不代替备份来源可信性。新主机先建立 `slurm-console` 服务账户和应用依赖，恢复独立密钥及范围外的凭据/系统 PAM 身份。
+这是覆盖操作，应安排维护窗口。先确认备份来自可信管理员、密钥可用且架构相同；加密保护内容和完整性，不代替备份来源可信性。新主机先建立用于 Slurm 本地 socket 的 `slurm-console` 专用身份和应用依赖，恢复独立密钥及范围外的凭据/系统 PAM 身份。
 
 ```sh
 sudo /opt/slurm-console/slurm-console backup restore \
@@ -79,7 +79,7 @@ sudo /opt/slurm-console/slurm-console backup restore \
 
 维护命令不依赖 PocketBase 启动，不提前打开目标数据库或加载已损坏的 LDAP/集群配置。它先完成解密、内容及 SQLite 校验，核对架构和专用 sudoers；然后停服务并生成 `before-restore-*.tar.gz.age` 加密保全。保全包用于保存恢复前证据，允许原数据库损坏，报告 `purpose:"preservation"/databaseVerified:false`，不能当作正常快照再次应用。
 
-所有替换树先准备完毕，再替换应用固定目录/文件，重设普通服务账户的数据权限和 SELinux 标签。原文件暂存于同一文件系统的私有路径，原来运行的服务恢复后必须通过就绪检查；失败时回退原目录并尝试恢复原服务。成功后清理暂存原文件，保留加密保全包。原本停止的服务不自动启动，应由管理员按需启动并验收。范围外的 Slurm、目录服务、共享 PAM 策略及反向代理保持管理员原有配置。
+所有替换树先准备完毕，再替换应用固定目录/文件，按备份内 unit 重设数据权限和 SELinux 标签：当前 root 版本使用 UID/GID 0，旧版 `slurm-console` 使用该系统身份的 UID/GID，保证升级回退兼容。原文件暂存于同一文件系统的私有路径，原来运行的服务恢复后必须通过就绪检查；失败时回退原目录并尝试恢复原服务。成功后清理暂存原文件，保留加密保全包。原本停止的服务不自动启动，应由管理员按需启动并验收。范围外的 Slurm、目录服务、共享 PAM 策略及反向代理保持管理员原有配置。
 
 恢复会回到备份时的用户、授权、认证映射及审计；备份之后的记录可能只保存在恢复前保全中。恢复对应版本的程序和数据库，不使用破坏性迁移 down。完成后验收 PAM/LDAP 登录、授权、审计和集群读取；外部系统中的作业/节点状态不会随平台数据库回退。
 

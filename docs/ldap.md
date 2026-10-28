@@ -4,7 +4,7 @@
 
 ## 连接与配置
 
-LDAP 直接由普通用户运行的 Go 后端访问，不经过 PAM、SSH 或特权 helper。固定使用 `go-ldap/ldap/v3`，支持验证证书和主机名的 LDAPS、StartTLS。`ldap://` 始终先执行 StartTLS，失败后立即关闭连接；没有明文绑定或跳过证书校验的选项。目录查询账户只需读取指定用户子树及身份/资格属性，不应具备目录管理或修改密码权限。
+LDAP 直接由 root 运行的 Go 后端访问，不经过 PAM、SSH 或特权 helper。固定使用 `go-ldap/ldap/v3`，支持验证证书和主机名的 LDAPS、StartTLS。`ldap://` 始终先执行 StartTLS，失败后立即关闭连接；没有明文绑定或跳过证书校验的选项。目录查询账户只需读取指定用户子树及身份/资格属性，不应具备目录管理或修改密码权限。
 
 配置模板见 [`deploy/ldap.example.json`](../deploy/ldap.example.json)。将配置安装为 `/etc/slurm-console/ldap.json`，设置环境变量 `SLURM_CONSOLE_LDAP_CONFIG` 为其绝对路径。未设置时关闭 LDAP，但已关联 LDAP 的账户仍拒绝平台密码登录。
 
@@ -19,7 +19,7 @@ LDAP 直接由普通用户运行的 Go 后端访问，不经过 PAM、SSH 或特
 | `idAttribute` | 默认 `entryUUID`，用于绑定不可变目录身份；也支持二进制属性，例如 AD 的 `objectGUID` |
 | `userFilter` | 含且仅含一个 `{username}` 的 LDAP 过滤器，后端按 RFC 4515 转义输入 |
 
-配置与 CA 文件不能被组或其他用户写入；密码文件还禁止其他用户的任何访问权限。建议配置和密码均 `root:slurm-console 0640`，CA 为 `root:root 0644`，父目录由 root 管理。不把查询密码放进 JSON、环境变量、命令参数或仓库。配置和查询密码在进程启动时读取，修改后重启服务。
+配置与 CA 文件不能被组或其他用户写入；密码文件还禁止其他用户的任何访问权限。建议配置和密码均 `root:root 0640`，CA 为 `root:root 0644`，父目录由 root 管理。不把查询密码放进 JSON、环境变量、命令参数或仓库。配置和查询密码在进程启动时读取，修改后重启服务。
 
 默认过滤器面向 OpenLDAP `inetOrgPerson`，要求 `uid` 匹配，并排除存在 `pwdAccountLockedTime` 或 `pwdReset=TRUE` 的条目。默认策略对锁定采取保守处理：锁定时间属性尚未由目录清除时仍拒绝平台访问；有自动解锁需求时应由目录管理员配置匹配其策略的过滤器。LDAP 没有跨产品统一的禁用/过期属性，生产目录必须按自身规则设置资格过滤器，不能认为一次密码绑定能够撤销所有已有平台令牌。
 
@@ -33,7 +33,7 @@ LDAP 直接由普通用户运行的 Go 后端访问，不经过 PAM、SSH 或特
 
 ```sh
 SLURM_CONSOLE_LDAP_CONFIG=/etc/slurm-console/ldap.json \
-  runuser -u slurm-console -- /opt/slurm-console/slurm-console users check-ldap
+  /opt/slurm-console/slurm-console users check-ldap
 ```
 
 管理员不需要提供用户密码。`create-ldap` 与 `link-ldap` 会实时查目录并保存其唯一标识，拒绝查询不到或有多个匹配的用户。
@@ -41,7 +41,7 @@ SLURM_CONSOLE_LDAP_CONFIG=/etc/slurm-console/ldap.json \
 ```sh
 umask 077
 SLURM_CONSOLE_LDAP_CONFIG=/etc/slurm-console/ldap.json \
-  runuser -u slurm-console -- /opt/slurm-console/slurm-console users create-ldap \
+  /opt/slurm-console/slurm-console users create-ldap \
   --username alice --email alice@example.com --name Alice \
   --dir=/var/lib/slurm-console/pb_data
 ```

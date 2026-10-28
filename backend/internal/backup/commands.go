@@ -11,10 +11,8 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"os/user"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -379,15 +377,7 @@ func Commands() *cobra.Command {
 		if err := validatePAM(stage, m); err != nil {
 			return err
 		}
-		account, err := user.Lookup("slurm-console")
-		if err != nil {
-			return err
-		}
-		uid, err := strconv.Atoi(account.Uid)
-		if err != nil || uid == 0 {
-			return fmt.Errorf("a non-root slurm-console service account is required")
-		}
-		gid, err := strconv.Atoi(account.Gid)
+		uid, gid, err := runtimeOwnership(stage)
 		if err != nil {
 			return err
 		}
@@ -466,7 +456,7 @@ func outsideInstallation(filename, key string) error {
 }
 func validatePAM(stage string, m Manifest) error {
 	for _, e := range m.Entries {
-		if e.Path == "etc/sudoers.d/slurm-console-pam" {
+		if e.Path == "etc/sudoers.d/slurm-console-pam" || e.Path == "etc/sudoers.d/slurm-console-linux-users" {
 			cmd := exec.Command("visudo", "-cf", filepath.Join(stage, e.Path))
 			if data, err := cmd.CombinedOutput(); err != nil {
 				return fmt.Errorf("backup sudoers policy rejected: %s", strings.TrimSpace(string(data)))

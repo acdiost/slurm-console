@@ -12,7 +12,7 @@ for artifact in backend/slurm-console frontend/dist/index.html; do
 done
 "$repo_dir/backend/slurm-console" backup --help >/dev/null
 if [[ ${1:-} == --pam ]]; then
-  for cmd in visudo sudo runuser awk; do
+  for cmd in awk; do
     command -v "$cmd" >/dev/null || { echo "Required command: $cmd" >&2; exit 1; }
   done
   [[ -f "$repo_dir/backend/slurm-console-pam-helper" || -x /usr/local/libexec/slurm-console-pam-helper ]] || { echo 'Build the Linux PAM helper: make pam-helper' >&2; exit 1; }
@@ -34,14 +34,18 @@ for target in /opt/slurm-console /var/lib/slurm-console /var/lib/slurm-console/p
   [[ ! -L "$target" && (! -e "$target" || -d "$target") ]] || { echo "Unsafe target: $target" >&2; exit 1; }
 done
 install -d -o root -g root -m 0755 /opt
-install -d -o root -g slurm-console -m 0750 /etc/slurm-console
-install -d -o slurm-console -g slurm-console -m 0700 /var/lib/slurm-console /var/lib/slurm-console/pb_data
+# Preserve existing ownership until the stopped-service snapshot is verified.
+[[ -d /etc/slurm-console ]] || install -d -o root -g root -m 0700 /etc/slurm-console
+for target in /var/lib/slurm-console /var/lib/slurm-console/pb_data; do
+  [[ -d "$target" ]] || install -d -o root -g root -m 0700 "$target"
+done
 "$repo_dir/backend/slurm-console" backup init-key
 was_active=false
 systemctl is-active --quiet slurm-console && was_active=true
 new_timer=true
 [[ ! -f /etc/systemd/system/slurm-console-backup.timer ]] || new_timer=false
 changed=false
+[[ -z $(find /var/lib/slurm-console /etc/slurm-console \( ! -user root -o ! -group root \) -print -quit) ]] || changed=true
 for pair in 'backend/slurm-console /opt/slurm-console/slurm-console' 'deploy/slurm-console.service /etc/systemd/system/slurm-console.service' 'deploy/slurm-console-backup.service /etc/systemd/system/slurm-console-backup.service' 'deploy/slurm-console-backup.timer /etc/systemd/system/slurm-console-backup.timer'; do
   read -r source target <<< "$pair"
   cmp -s "$repo_dir/$source" "$target" || changed=true
@@ -97,7 +101,13 @@ if "$changed"; then
   [[ ! -e /opt/slurm-console ]] || mv -- /opt/slurm-console "$previous"
   mv -- "$release" /opt/slurm-console
 fi
-[[ -e /etc/slurm-console/slurm-console.env ]] || install -o root -g slurm-console -m 0640 "$repo_dir/deploy/slurm-console.env.example" /etc/slurm-console/slurm-console.env
+# The web process and all application data now belong to root. The dedicated
+# slurm-console identity remains solely for Slurm auth/local socket requests.
+chown -hR root:root /var/lib/slurm-console /etc/slurm-console
+chmod 0711 /var/lib/slurm-console
+chmod 0700 /var/lib/slurm-console/pb_data /etc/slurm-console
+bash "$repo_dir/deploy/cleanup-sudoers.sh"
+[[ -e /etc/slurm-console/slurm-console.env ]] || install -o root -g root -m 0640 "$repo_dir/deploy/slurm-console.env.example" /etc/slurm-console/slurm-console.env
 [[ -e /etc/slurm-console/backup.env ]] || install -o root -g root -m 0600 "$repo_dir/deploy/backup.env.example" /etc/slurm-console/backup.env
 for unit in slurm-console.service slurm-console-backup.service slurm-console-backup.timer; do
   [[ ! -L /etc/systemd/system/$unit ]] || exit 1

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -25,12 +26,16 @@ func (p *AdminProcess) Run(ctx context.Context, r AdminRequest) (AdminResult, er
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	raw, _ := json.Marshal(r)
-	cmd := exec.CommandContext(ctx, "/usr/bin/sudo", "-n", "--", "/usr/bin/nsenter", "--mount=/proc/1/ns/mnt", "--", ReaderPath, AdminCommand)
+	cmd := exec.CommandContext(ctx, ReaderPath, AdminCommand)
+	if os.Geteuid() != 0 {
+		// Compatibility for existing installations until their systemd unit is upgraded.
+		cmd = exec.CommandContext(ctx, "/usr/bin/sudo", "-n", "--", "/usr/bin/nsenter", "--mount=/proc/1/ns/mnt", "--", ReaderPath, AdminCommand)
+	}
 	cmd.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}
 	cmd.Stdin = bytes.NewReader(raw)
 	cmd.Stderr = io.Discard
 	cmd.WaitDelay = time.Second
-	// sudo forwards termination to the privileged command, whose own deadline
+	// Termination reaches the account helper, whose own deadline
 	// cancels useradd/usermod; browser cancellation never triggers a retry.
 	configureAdminProcess(cmd)
 	out := new(cappedOutput)

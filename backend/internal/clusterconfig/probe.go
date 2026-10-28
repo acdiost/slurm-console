@@ -3,6 +3,7 @@ package clusterconfig
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"time"
 
 	"slurm-console/backend/internal/slurm/client"
@@ -23,7 +24,11 @@ type ProbeResult struct {
 }
 
 func (profile Profile) Client(version string, timeout time.Duration) (*client.Client, error) {
-	return client.New(client.Config{Endpoint: profile.Endpoint, AuthType: profile.AuthType, Username: profile.Username, TokenFile: profile.TokenFile, TLS: profile.tls, Version: version, Timeout: timeout})
+	localUsername := ""
+	if os.Geteuid() == 0 {
+		localUsername = "slurm-console"
+	}
+	return client.New(client.Config{LocalUsername: localUsername, Endpoint: profile.Endpoint, AuthType: profile.AuthType, Username: profile.Username, TokenFile: profile.TokenFile, TLS: profile.tls, Version: version, Timeout: timeout})
 }
 func Probe(ctx context.Context, profile Profile, version string, timeout time.Duration) ProbeResult {
 	started := time.Now()

@@ -31,20 +31,20 @@ func ConfigurePAM(app core.App) error {
 	if path == "" {
 		path = "/usr/local/libexec/slurm-console-pam-helper"
 	}
-	sudo := true
+	sudo := os.Geteuid() != 0
 	if raw := os.Getenv("SLURM_CONSOLE_PAM_SUDO"); raw != "" {
 		value, err := strconv.ParseBool(raw)
 		if err != nil {
 			return errors.New("invalid SLURM_CONSOLE_PAM_SUDO")
 		}
-		sudo = value
+		sudo = value && os.Geteuid() != 0
 	}
 	provider, err := pamauth.NewProcess(path, sudo)
 	if err != nil {
 		return err
 	}
 	if _, err := provider.Run(context.Background(), pamauth.Request{Mode: "probe"}); err != nil {
-		return errors.New("PAM helper is unavailable: check Linux CGO build, root-owned policy and sudo permissions")
+		return errors.New("PAM helper is unavailable: check Linux CGO build, root-owned policy and execution permissions")
 	}
 	RegisterPAM(app, provider)
 	return nil

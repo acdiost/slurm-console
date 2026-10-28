@@ -2,8 +2,9 @@
 # Enable the bounded local account broker for one explicitly selected cluster.
 set -euo pipefail
 [[ $EUID -eq 0 && $(uname -s) == Linux && $# -eq 1 && $1 =~ ^[a-zA-Z0-9_-]{1,64}$ ]] || { echo 'Usage: sudo bash deploy/setup-linux-users.sh <cluster-record-id>' >&2; exit 1; }
-for cmd in python3 id visudo install systemctl flock runuser cmp chmod chgrp cp; do command -v "$cmd" >/dev/null || exit 1; done
-[[ -x /usr/sbin/useradd && -x /usr/sbin/usermod && -x /usr/bin/getent && -x /usr/bin/nsenter ]] || { echo "Install Linux shadow-utils and glibc utilities first." >&2; exit 1; }
+for cmd in python3 id install systemctl flock cmp chmod cp; do command -v "$cmd" >/dev/null || exit 1; done
+[[ $(systemctl show slurm-console -p User --value) == root ]] || { echo 'Upgrade with deploy/install.sh first: the application unit must run as root.' >&2; exit 1; }
+[[ -x /usr/sbin/useradd && -x /usr/sbin/usermod && -x /usr/bin/getent ]] || { echo "Install Linux shadow-utils and glibc utilities first." >&2; exit 1; }
 [[ -x /opt/slurm-console/slurm-console ]] || { echo 'Install the application first.' >&2; exit 1; }
 app_uid=$(id -u slurm-console)
 [[ $app_uid != 0 ]] || exit 1
@@ -33,11 +34,6 @@ cleanup() {
   exit "$result"
 }
 trap cleanup EXIT
-cat > "$work/sudoers" <<'SUDOERS'
-# One fixed subcommand. It independently enforces a root-owned UID policy.
-slurm-console ALL=(root) NOPASSWD: /usr/bin/nsenter --mount=/proc/1/ns/mnt -- /opt/slurm-console/slurm-console linux-users-admin
-SUDOERS
-visudo -cf "$work/sudoers" >/dev/null
 python3 - "$1" "$app_uid" "$work" <<'PY'
 import json,pathlib,sys,stat
 cid,uid,work=sys.argv[1],int(sys.argv[2]),pathlib.Path(sys.argv[3])
@@ -65,22 +61,23 @@ for line in lines:
 if not found:updated.append(desired)
 (work/'env').write_text('\n'.join(updated)+'\n')
 PY
-for pair in "policy /etc/slurm-console/linux-users-admin.json" "profiles /etc/slurm-console/linux-users.json" "env /etc/slurm-console/slurm-console.env" "sudoers /etc/sudoers.d/slurm-console-linux-users"; do
+for pair in "policy /etc/slurm-console/linux-users-admin.json" "profiles /etc/slurm-console/linux-users.json" "env /etc/slurm-console/slurm-console.env"; do
  read -r source target <<< "$pair"
  [[ -f "$work/$source" ]] || continue
  mode=0640
  [[ $source != policy ]] || mode=0600
- [[ $source != sudoers ]] || mode=0440
  if ! cmp -s "$work/$source" "$target"; then
   install -o root -g root -m "$mode" "$work/$source" "$target"
-  [[ $source == policy || $source == sudoers ]] || chgrp slurm-console "$target"
   changed=true
  fi
  chmod "$mode" "$target"
 done
-visudo -c >/dev/null
-if command -v restorecon >/dev/null; then restorecon /etc/slurm-console/linux-users-admin.json /etc/slurm-console/linux-users.json /etc/slurm-console/slurm-console.env /etc/sudoers.d/slurm-console-linux-users; fi
-result=$(runuser -u slurm-console -- /usr/bin/sudo -n -- /usr/bin/nsenter --mount=/proc/1/ns/mnt -- /opt/slurm-console/slurm-console linux-users-admin <<<'{"mode":"capabilities","spec":{"name":"","uid":0,"comment":"","shell":""}}')
+if [[ -f /etc/sudoers.d/slurm-console-linux-users ]]; then
+ bash "$(dirname -- "${BASH_SOURCE[0]}")/cleanup-sudoers.sh"
+ [[ -f /etc/sudoers.d/slurm-console-linux-users ]] || changed=true
+fi
+if command -v restorecon >/dev/null; then restorecon /etc/slurm-console/linux-users-admin.json /etc/slurm-console/linux-users.json /etc/slurm-console/slurm-console.env; fi
+result=$(/opt/slurm-console/slurm-console linux-users-admin <<<'{"mode":"capabilities","spec":{"name":"","uid":0,"comment":"","shell":""}}')
 python3 -c 'import json,sys; assert json.loads(sys.stdin.read())["allowed"]' <<< "$result"
 if "$changed" && systemctl is-active --quiet slurm-console; then systemctl restart slurm-console; fi
 /opt/slurm-console/slurm-console healthcheck
