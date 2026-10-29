@@ -193,12 +193,24 @@ func TestReservationRejectsJobsAdvancedAndStaleProof(t *testing.T) {
 		t.Fatal("advanced edited")
 	}
 	f.reservations[0]["features"] = ""
-	for _, jobs := range []string{`"jobs":[{"job_id":42,"job_state":["PENDING"],"reservation":"qa-reservation"}]`, `"jobs":[{"job_id":42,"job_state":["PENDING"]}]`} {
+	for _, jobs := range []string{`"jobs":[{"job_id":42,"job_state":["PENDING"],"resv_name":"qa-reservation"}]`, `"jobs":[{"job_id":42,"job_state":["PENDING"]}]`} {
 		f.jobs = jobs
 		r = request(mux, "POST", "/api/v1/clusters/"+cid+"/reservation-controls/prepare", payload(t, map[string]any{"action": "reservation_delete", "spec": client.ReservationSpec{Name: v.Name}}), token)
 		if r.Code != 403 {
 			t.Fatal(r.Code, r.Body.String())
 		}
+	}
+	f.jobs = `"jobs":[{"job_id":43,"job_state":["PENDING"],"resv_name":"other-reservation"}]`
+	p = reservationPrepare(t, mux, cid, token, "reservation_delete", &client.ReservationSpec{Name: v.Name})
+	if !p.Allowed {
+		t.Fatal("unrelated known reservation blocked", p)
+	}
+
+	f.jobs = `"jobs":[]`
+	f.reservations[0]["core_specializations"] = []any{map[string]any{"node": "node1", "core": "0"}}
+	p = reservationPrepare(t, mux, cid, token, "reservation_delete", &client.ReservationSpec{Name: v.Name})
+	if p.Allowed {
+		t.Fatal("core-specific reservation mutated")
 	}
 }
 func TestReservationUnknownRestartsReadOnly(t *testing.T) {

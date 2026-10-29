@@ -173,7 +173,7 @@ export function ReservationsPage() {
   const refresh = () =>
     void client.invalidateQueries({ queryKey: ["reservations", cid] })
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6 lg:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="font-mono text-xs font-semibold tracking-[0.2em] text-primary">

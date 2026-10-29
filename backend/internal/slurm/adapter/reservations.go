@@ -116,6 +116,8 @@ func (a *Adapter) GetReservations(ctx context.Context) ([]models.Reservation, er
 	seen := map[string]bool{}
 	for _, r := range raw {
 		var v struct {
+			CoreSpecializations                                          []json.RawMessage `json:"core_specializations"`
+			MaxStartDelay                                                int64             `json:"max_start_delay"`
 			Name, Accounts, Users, Groups, Partition, Features, Licenses string
 			BurstBuffer                                                  string `json:"burst_buffer"`
 			Nodes                                                        string `json:"node_list"`
@@ -149,7 +151,7 @@ func (a *Adapter) GetReservations(ctx context.Context) ([]models.Reservation, er
 		if v.Flags == nil {
 			v.Flags = []string{}
 		}
-		editable := ok && len(names) > 0 && v.Groups == "" && v.Partition == "" && v.Features == "" && v.Licenses == "" && v.BurstBuffer == ""
+		editable := len(v.CoreSpecializations) == 0 && v.MaxStartDelay == 0 && ok && len(names) > 0 && v.Groups == "" && v.Partition == "" && v.Features == "" && v.Licenses == "" && v.BurstBuffer == ""
 		for _, flag := range v.Flags {
 			if !slices.Contains([]string{"MAINT", "SPEC_NODES"}, flag) {
 				editable = false

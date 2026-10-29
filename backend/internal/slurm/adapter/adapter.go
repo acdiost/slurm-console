@@ -116,7 +116,7 @@ func (a *Adapter) Health(ctx context.Context) (models.Health, error) {
 }
 
 type wireJob struct {
-	Reservation     *string `json:"reservation"`
+	Reservation     *string `json:"resv_name"`
 	UserID          *int64  `json:"user_id"`
 	QOS             string  `json:"qos"`
 	Priority        noVal   `json:"priority"`
