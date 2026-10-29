@@ -151,7 +151,7 @@ func validLocalRequest(r localRequest) bool {
 		if r.Path == prefix+"shares" {
 			return true
 		}
-		for _, resource := range []Resource{Ping, Jobs, Nodes, Partitions} {
+		for _, resource := range []Resource{Ping, Jobs, Nodes, Partitions, Reservations} {
 			if r.Path == prefix+string(resource)+"/" {
 				return true
 			}
@@ -162,6 +162,9 @@ func validLocalRequest(r localRequest) bool {
 		if len(r.Path) > len(prefix+"node/") && r.Path[:len(prefix+"node/")] == prefix+"node/" {
 			return ValidNodeName(r.Path[len(prefix+"node/"):])
 		}
+	}
+	if validReservationWire(r) {
+		return true
 	}
 	if r.Method == "DELETE" && r.Write && len(r.Body) == 0 {
 		start, end := prefix+"job/", "?signal=KILL"

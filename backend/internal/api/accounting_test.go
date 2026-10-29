@@ -28,6 +28,7 @@ type accountingFixture struct {
 	qos                               []map[string]any
 	shares                            string
 	tres                              []map[string]any
+	reservations                      []map[string]any
 }
 
 func newAccountingFixture(app core.App) *accountingFixture {
@@ -49,10 +50,15 @@ func (f *accountingFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(503)
 		return
 	}
+	if f.reservationHTTP(w, r) {
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/slurm/") {
 		switch r.URL.Path {
 		case "/slurm/v0.0.43/ping/":
 			fmt.Fprint(w, slurmEnvelope(`"pings":[{"hostname":"controller","pinged":"UP","mode":"primary"}]`))
+		case "/slurm/v0.0.43/nodes/":
+			fmt.Fprint(w, slurmEnvelope(fixtureNodes))
 		case "/slurm/v0.0.43/jobs/":
 			fmt.Fprint(w, slurmEnvelope(f.jobs))
 		case "/slurm/v0.0.43/partitions/":

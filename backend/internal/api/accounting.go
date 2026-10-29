@@ -35,6 +35,9 @@ func registerAccountingRoutes(group *router.RouterGroup[*core.RequestEvent]) {
 		if err := readConfigurationBody(e, &input); err != nil {
 			return err
 		}
+		if client.IsReservation(input.Action) {
+			return e.BadRequestError("请使用预留操作接口。", nil)
+		}
 		v, err := accounting.For(e.App).Prepare(e.Request.Context(), e.Auth.Id, e.Request.PathValue("clusterId"), input.Action, input.Spec)
 		if err != nil {
 			return slurmFailure(e, err)

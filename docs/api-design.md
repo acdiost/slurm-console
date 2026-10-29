@@ -27,3 +27,5 @@ Linux 系统用户查询为 `GET /clusters/{clusterId}/linux-users` 及 `/linux-
 QOS / Fairshare API 已接入 `/clusters/{clusterId}/qos`、`/fairshare`、`/qos-operations`。QOS 固定字段写入复用记账 controls，完整共享目录与全局写入独立授权，详见 [策略契约](qos-fairshare.md) 及 OpenAPI 0.16.0。
 
 TRES API 已接入 `/clusters/{clusterId}/tres`、`/tres-limits`、`/tres-limits/{kind}/{targetId}`、`/tres-operations`；单资源设置/清除复用记账 controls，契约为 OpenAPI 0.17.0，详见 [TRES 限额](tres.md)。
+
+Reservation 独立接入 `/clusters/{clusterId}/reservations`、`/reservation-controls` 和 `/reservation-operations`，契约更新至 OpenAPI 0.18.0；详见 [资源预留](reservations.md)。

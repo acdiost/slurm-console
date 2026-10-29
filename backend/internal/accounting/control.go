@@ -29,14 +29,15 @@ import (
 )
 
 type Spec struct {
-	Account       string           `json:"account"`
-	User          string           `json:"user"`
-	Partition     string           `json:"partition"`
-	AssociationID string           `json:"associationId"`
-	Description   string           `json:"description"`
-	Organization  string           `json:"organization"`
-	QOS           *client.QOSSpec  `json:"qos,omitempty"`
-	TRES          *client.TRESSpec `json:"tres,omitempty"`
+	Reservation   *client.ReservationSpec `json:"reservation,omitempty"`
+	Account       string                  `json:"account"`
+	User          string                  `json:"user"`
+	Partition     string                  `json:"partition"`
+	AssociationID string                  `json:"associationId"`
+	Description   string                  `json:"description"`
+	Organization  string                  `json:"organization"`
+	QOS           *client.QOSSpec         `json:"qos,omitempty"`
+	TRES          *client.TRESSpec        `json:"tres,omitempty"`
 }
 type Prepared struct {
 	Allowed      bool   `json:"allowed"`
@@ -103,18 +104,21 @@ func digest(value any) string {
 	return hex.EncodeToString(sum[:])
 }
 func mutation(action, cluster string, v Spec) client.AccountingMutation {
-	return client.AccountingMutation{Action: action, Cluster: cluster, Account: v.Account, User: v.User, Partition: v.Partition, AssociationID: v.AssociationID, Description: v.Description, Organization: v.Organization, QOS: v.QOS, TRES: v.TRES}
+	return client.AccountingMutation{Action: action, Cluster: cluster, Account: v.Account, User: v.User, Partition: v.Partition, AssociationID: v.AssociationID, Description: v.Description, Organization: v.Organization, QOS: v.QOS, TRES: v.TRES, Reservation: v.Reservation}
 }
 func spec(m client.AccountingMutation) Spec {
-	return Spec{Account: m.Account, User: m.User, Partition: m.Partition, AssociationID: m.AssociationID, Description: m.Description, Organization: m.Organization, QOS: m.QOS, TRES: m.TRES}
+	return Spec{Account: m.Account, User: m.User, Partition: m.Partition, AssociationID: m.AssociationID, Description: m.Description, Organization: m.Organization, QOS: m.QOS, TRES: m.TRES, Reservation: m.Reservation}
 }
 func Action(action string) string {
-	return map[string]string{"account_create": "accounts.create", "account_update": "accounts.update", "user_create": "slurm_users.create", "association_create": "associations.create", "association_remove": "associations.remove", "qos_create": "qos.create", "qos_update": "qos.update", "qos_tres_update": "qos.tres.update", "association_tres_update": "associations.tres.update"}[action]
+	return map[string]string{"reservation_create": "reservations.create", "reservation_update": "reservations.update", "reservation_delete": "reservations.delete", "account_create": "accounts.create", "account_update": "accounts.update", "user_create": "slurm_users.create", "association_create": "associations.create", "association_remove": "associations.remove", "qos_create": "qos.create", "qos_update": "qos.update", "qos_tres_update": "qos.tres.update", "association_tres_update": "associations.tres.update"}[action]
 }
 func global(action string) bool {
 	return slices.Contains([]string{"account_create", "account_update", "user_create", "qos_create", "qos_update", "qos_tres_update"}, action)
 }
 func confirmation(m client.AccountingMutation) string {
+	if client.IsReservation(m.Action) && m.Reservation != nil {
+		return m.Reservation.Name
+	}
 	if isTRES(m.Action) && m.TRES != nil {
 		if m.TRES.Kind == "qos" {
 			return m.TRES.Name
@@ -136,6 +140,9 @@ func confirmation(m client.AccountingMutation) string {
 	return m.User + "@" + m.Account
 }
 func target(m client.AccountingMutation) (string, string) {
+	if client.IsReservation(m.Action) && m.Reservation != nil {
+		return "reservation", m.Cluster + "/" + m.Reservation.Name
+	}
 	if isTRES(m.Action) && m.TRES != nil {
 		v := m.TRES
 		if v.Kind == "qos" {
@@ -157,6 +164,12 @@ func target(m client.AccountingMutation) (string, string) {
 }
 func required(action string) []string {
 	switch action {
+	case "reservation_create":
+		return []string{"reservations.read", "reservations.create", "nodes.read"}
+	case "reservation_update":
+		return []string{"reservations.read", "reservations.update", "jobs.read"}
+	case "reservation_delete":
+		return []string{"reservations.read", "reservations.delete", "jobs.read"}
 	case "qos_tres_update":
 		return []string{"tres.read", "tres.update", "qos.read", "qos.update"}
 	case "association_tres_update":
@@ -184,11 +197,11 @@ func (s *Service) authorized(actor, cluster, action string) error {
 		return err
 	}
 	if Action(action) == "" {
-		return client.Failure("invalid_request", "不支持的记账操作。")
+		return client.Failure("invalid_request", "不支持的操作。")
 	}
 	for _, p := range required(action) {
 		if !access.Allows(p, cluster) {
-			return client.Failure("operation_forbidden", "未授予此集群的记账操作权限。")
+			return client.Failure("operation_forbidden", "未授予此集群的操作权限。")
 		}
 	}
 	if (isQOS(action) || action == "qos_tres_update") && (!access.Allows("platform.qos.manage", "") || !access.Allows("platform.qos.read", "")) {
@@ -236,6 +249,9 @@ func parent(s adapter.AccountingSnapshot, account string) *models.Association {
 	return nil
 }
 func state(s adapter.AccountingSnapshot, m client.AccountingMutation) string {
+	if client.IsReservation(m.Action) {
+		return reservationState(s, m)
+	}
 	if isTRES(m.Action) {
 		t := findTRESTarget(s, m)
 		if t == nil {
@@ -264,6 +280,9 @@ func protected(name string) bool {
 	return slices.Contains([]string{"root", "slurm-console", "slurm", "munge", "nobody"}, strings.ToLower(name))
 }
 func policy(s adapter.AccountingSnapshot, m client.AccountingMutation) string {
+	if client.IsReservation(m.Action) {
+		return reservationPolicy(s, m)
+	}
 	if isTRES(m.Action) {
 		return tresPolicy(s, m)
 	}
@@ -341,6 +360,9 @@ func (s *Service) pending(m client.AccountingMutation) error {
 	return nil
 }
 func (s *Service) checkLive(ctx context.Context, c services.Connection, snapshot adapter.AccountingSnapshot, m client.AccountingMutation) error {
+	if client.IsReservation(m.Action) {
+		return checkReservationJobs(ctx, c, m)
+	}
 	if m.Partition != "" && m.Action == "association_create" {
 		values, err := c.Adapter.GetPartitions(ctx)
 		if err != nil {
@@ -379,7 +401,7 @@ func (s *Service) Prepare(ctx context.Context, actor, cluster, action string, v 
 		return result, err
 	}
 	if !mutation(action, "validation", v).Valid() {
-		return result, client.Failure("invalid_request", "记账操作参数不合法。")
+		return result, client.Failure("invalid_request", "操作参数不合法。")
 	}
 	select {
 	case s.slots <- struct{}{}:
@@ -399,6 +421,11 @@ func (s *Service) Prepare(ctx context.Context, actor, cluster, action string, v 
 		return result, err
 	}
 	m := preserveQOS(snapshot, mutation(action, snapshot.Cluster, v))
+	if client.IsReservation(action) {
+		if r := findReservation(snapshot, m); r != nil {
+			m.ReservationUnmanagedFingerprint = adapter.ReservationDigest(r.Raw, true)
+		}
+	}
 	if isTRES(action) {
 		m = materializeTRES(snapshot, m)
 	}
@@ -434,7 +461,7 @@ func (s *Service) Prepare(ctx context.Context, actor, cluster, action string, v 
 	result.Allowed = true
 	result.OperationID = p.Operation
 	result.ExpiresAt = time.Unix(p.Expires, 0).UTC().Format(time.RFC3339)
-	result.Message = "已读取最新记账身份及关联，请核对影响范围、填写原因并确认。"
+	result.Message = "已读取最新目标配置，请核对影响范围、填写原因并确认。"
 	if isQOS(action) {
 		result.Message = "已读取共享 QOS 最新定义，请核对全部可编辑字段及跨集群影响，填写原因并确认。"
 	}
@@ -486,6 +513,9 @@ func (s *Service) view(r *core.Record) Result {
 	return Result{r.GetString("operation_key"), m.Action, spec(m), m.Cluster, status, message, r.GetString("reason"), r.GetString("created"), r.GetString("updated")}
 }
 func reached(snapshot adapter.AccountingSnapshot, m client.AccountingMutation) bool {
+	if client.IsReservation(m.Action) {
+		return reservationReached(snapshot, m)
+	}
 	if isTRES(m.Action) {
 		return tresReached(snapshot, m)
 	}
@@ -512,7 +542,7 @@ func reached(snapshot adapter.AccountingSnapshot, m client.AccountingMutation) b
 func (s *Service) Get(ctx context.Context, actor, cluster, id string) (Result, error) {
 	r, err := s.find(id)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Result{}, client.Failure("not_found", "记账操作记录不存在。")
+		return Result{}, client.Failure("not_found", "操作记录不存在。")
 	}
 	if err != nil {
 		return Result{}, err
@@ -530,7 +560,7 @@ func (s *Service) Get(ctx context.Context, actor, cluster, id string) (Result, e
 		return Result{}, client.Failure("operation_forbidden", "共享 QOS 操作记录需要平台目录读取权限。")
 	}
 	if r.GetString("cluster_id") != cluster || !access.Allows(read, cluster) || (r.GetString("actor_id") != actor && !access.Allows("platform.audit.read", "")) {
-		return Result{}, client.Failure("operation_forbidden", "无权读取该记账操作。")
+		return Result{}, client.Failure("operation_forbidden", "无权读取该操作。")
 	}
 	v := s.view(r)
 	if !slices.Contains([]string{"processing", "accepted", "unknown"}, v.Status) {
@@ -561,7 +591,7 @@ func (s *Service) Get(ctx context.Context, actor, cluster, id string) (Result, e
 	current, err := services.ConnectionFor(s.app, cluster)
 	if err == nil && current.Revision == c.Revision && reached(snapshot, m) {
 		r.Set("status", "confirmed")
-		r.Set("message", "已只读核实目标记账状态；未重新发送写请求。")
+		r.Set("message", "已只读核实目标状态；未重新发送写请求。")
 		if err := s.app.Save(r); err != nil {
 			return Result{}, client.Failure("audit_unavailable", "核实结果未能持久化，请稍后重查。")
 		}
@@ -621,7 +651,7 @@ func (s *Service) Execute(actor, cluster, requestID string, input Input) (Result
 		return Result{}, err
 	}
 	if c.Revision != p.Revision || state(snapshot, p.Mutation) != p.State {
-		return Result{}, client.Failure("confirmation_changed", "记账身份、关联或连接已变化，请重新校验。")
+		return Result{}, client.Failure("confirmation_changed", "目标配置或连接已变化，请重新校验。")
 	}
 	if denied := policy(snapshot, p.Mutation); denied != "" {
 		return Result{}, client.Failure("operation_forbidden", denied)
@@ -638,7 +668,7 @@ func (s *Service) Execute(actor, cluster, requestID string, input Input) (Result
 	}
 	r := core.NewRecord(collection)
 	kind, id := target(p.Mutation)
-	for field, value := range map[string]any{"operation_key": p.Operation, "cluster_revision": p.Revision, "action": Action(p.Action), "status": "processing", "message": "记账操作正在处理。", "reason": input.Reason, "input_hash": hash, "fingerprint": p.State, "accounting_spec": stored{p.Mutation}, "observed_states": []string{}, "changes": changes(snapshot, p.Mutation)} {
+	for field, value := range map[string]any{"operation_key": p.Operation, "cluster_revision": p.Revision, "action": Action(p.Action), "status": "processing", "message": "操作正在处理。", "reason": input.Reason, "input_hash": hash, "fingerprint": p.State, "accounting_spec": stored{p.Mutation}, "observed_states": []string{}, "changes": changes(snapshot, p.Mutation)} {
 		r.Set(field, value)
 	}
 	actorRecord, err := s.app.FindRecordById("users", actor)
@@ -681,7 +711,7 @@ func (s *Service) Execute(actor, cluster, requestID string, input Input) (Result
 	observed, readErr := readSnapshot(ctx, current.Adapter, p.Action)
 	latest, configErr := services.ConnectionFor(s.app, cluster)
 	if readErr == nil && configErr == nil && latest.Revision == p.Revision && reached(observed, p.Mutation) {
-		return finish("confirmed", "已核实目标记账状态。")
+		return finish("confirmed", "已核实目标状态。")
 	}
 	if writeErr == nil {
 		return finish("accepted", "Slurm 已受理，结果待只读核实；请勿重复提交。")
@@ -689,6 +719,9 @@ func (s *Service) Execute(actor, cluster, requestID string, input Input) (Result
 	return finish("unknown", "写请求结果未知，请查询操作记录及 Slurm 状态，勿重复提交。")
 }
 func changes(s adapter.AccountingSnapshot, m client.AccountingMutation) []audit.Change {
+	if client.IsReservation(m.Action) {
+		return reservationChanges(s, m)
+	}
 	if isTRES(m.Action) {
 		return tresChanges(s, m)
 	}
@@ -722,6 +755,9 @@ func (s *Service) Recent(actor, cluster string) ([]Result, error) {
 func (s *Service) RecentQOS(actor, cluster string) ([]Result, error) {
 	return s.recent(actor, cluster, "qos")
 }
+func (s *Service) RecentReservations(actor, cluster string) ([]Result, error) {
+	return s.recent(actor, cluster, "reservation")
+}
 func (s *Service) RecentTRES(actor, cluster string) ([]Result, error) {
 	return s.recent(actor, cluster, "tres")
 }
@@ -729,6 +765,9 @@ func (s *Service) recent(actor, cluster string, family string) ([]Result, error)
 	access, err := rbac.Resolve(s.app, actor)
 	if err != nil {
 		return nil, err
+	}
+	if family == "reservation" && !access.Allows("reservations.read", cluster) {
+		return nil, client.Failure("operation_forbidden", "预留读取权限已撤销。")
 	}
 	if family == "qos" && !access.Allows("platform.qos.read", "") {
 		return []Result{}, nil
@@ -739,10 +778,12 @@ func (s *Service) recent(actor, cluster string, family string) ([]Result, error)
 	filter := "cluster_id={:cluster} && actor_id={:actor} && accounting_spec != null"
 	if family == "qos" {
 		filter += " && (action='qos.create' || action='qos.update')"
+	} else if family == "reservation" {
+		filter += " && (action='reservations.create' || action='reservations.update' || action='reservations.delete')"
 	} else if family == "tres" {
 		filter += " && (action='qos.tres.update' || action='associations.tres.update')"
 	} else {
-		filter += " && action!='qos.create' && action!='qos.update' && action!='qos.tres.update' && action!='associations.tres.update'"
+		filter += " && action!='qos.create' && action!='qos.update' && action!='qos.tres.update' && action!='associations.tres.update' && action!='reservations.create' && action!='reservations.update' && action!='reservations.delete'"
 	}
 	rows, err := s.app.FindRecordsByFilter("operation_audits", filter, "-created", 10, 0, dbx.Params{"cluster": cluster, "actor": actor})
 	if err != nil {

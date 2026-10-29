@@ -18,6 +18,11 @@ import {
   SessionLifecycle,
   RequireSession,
 } from "@/features/auth/session-boundary"
+const ReservationsPage = lazy(() =>
+  import("@/pages/reservations-page").then((module) => ({
+    default: module.ReservationsPage,
+  }))
+)
 const TRESPage = lazy(() =>
   import("@/pages/tres-page").then((module) => ({ default: module.TRESPage }))
 )
@@ -105,6 +110,7 @@ export function App() {
                   <Route path="accounts" element={<AccountingPage />} />
                   <Route path="policies" element={<PoliciesPage />} />
                   <Route path="tres" element={<TRESPage />} />
+                  <Route path="reservations" element={<ReservationsPage />} />
                   <Route path="overview" element={<OverviewPage />} />
                   <Route path="jobs" element={<JobsPage />} />
                   <Route path="nodes" element={<NodesPage />} />
@@ -145,33 +151,35 @@ function RouteTitle() {
   const { pathname } = useLocation()
   useEffect(() => {
     const title =
-      pathname === "/tres"
-        ? "TRES 限额"
-        : pathname === "/policies"
-          ? "QOS 与 Fairshare"
-          : pathname === "/accounts"
-            ? "账户与 Association"
-            : pathname === "/linux-users"
-              ? "Linux 系统用户"
-              : pathname === "/fleet"
-                ? "集群工作台"
-                : pathname === "/audits"
-                  ? "操作审计"
-                  : pathname === "/login"
-                    ? "登录"
-                    : pathname === "/partitions"
-                      ? "分区查询"
-                      : pathname === "/nodes"
-                        ? "节点管理"
-                        : pathname === "/jobs"
-                          ? "作业管理"
-                          : pathname === "/overview"
-                            ? "集群总览"
-                            : pathname === "/clusters"
-                              ? "集群配置"
-                              : pathname === "/access"
-                                ? "我的权限"
-                                : "设计系统"
+      pathname === "/reservations"
+        ? "Reservation 资源预留"
+        : pathname === "/tres"
+          ? "TRES 限额"
+          : pathname === "/policies"
+            ? "QOS 与 Fairshare"
+            : pathname === "/accounts"
+              ? "账户与 Association"
+              : pathname === "/linux-users"
+                ? "Linux 系统用户"
+                : pathname === "/fleet"
+                  ? "集群工作台"
+                  : pathname === "/audits"
+                    ? "操作审计"
+                    : pathname === "/login"
+                      ? "登录"
+                      : pathname === "/partitions"
+                        ? "分区查询"
+                        : pathname === "/nodes"
+                          ? "节点管理"
+                          : pathname === "/jobs"
+                            ? "作业管理"
+                            : pathname === "/overview"
+                              ? "集群总览"
+                              : pathname === "/clusters"
+                                ? "集群配置"
+                                : pathname === "/access"
+                                  ? "我的权限"
+                                  : "设计系统"
     document.title = `${title} · Slurm Console`
   }, [pathname])
   return null

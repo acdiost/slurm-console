@@ -37,6 +37,9 @@ export const auditDetailSchema = z.object({
   fetchedAt: z.string(),
 })
 export const actions: Record<string, string> = {
+  "reservations.create": "创建资源预留",
+  "reservations.update": "调整预留结束时间",
+  "reservations.delete": "删除资源预留",
   "qos.tres.update": "配置 QOS TRES 限额",
   "associations.tres.update": "配置 Association TRES 限额",
   "qos.create": "创建 QOS",
@@ -71,6 +74,13 @@ export const statuses: Record<string, string> = {
   unknown: "结果待核实",
 }
 export const fields: Record<string, string> = {
+  reservationName: "预留名称",
+  reservationStart: "开始时间（Unix 秒）",
+  reservationEnd: "结束时间（Unix 秒）",
+  reservationNodes: "节点",
+  reservationUsers: "用户",
+  reservationAccounts: "Account",
+  reservationMaintenance: "维护模式",
   quotaTargetId: "限额对象 ID",
   tresResource: "TRES 资源",
   tresBucket: "限额类型",
@@ -149,6 +159,13 @@ export function resourceLink(item: Audit, permissions: string[]) {
     if (permissions.includes("platform.qos.read"))
       p.set("operation", item.operationId)
     return `/policies?${p}`
+  }
+  if (
+    item.targetType === "reservation" &&
+    permissions.includes("reservations.read")
+  ) {
+    p.set("operation", item.operationId)
+    return `/reservations?${p}`
   }
   if (item.targetType === "job" && permissions.includes("jobs.read")) {
     p.set("job", item.targetId)

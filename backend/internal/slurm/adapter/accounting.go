@@ -10,12 +10,14 @@ import (
 )
 
 type AccountingSnapshot struct {
-	Cluster      string
-	Accounts     []models.Account
-	Users        []models.SlurmUser
-	Associations []models.Association
-	QOS          []models.QOS
-	TRES         *models.TRESSnapshot
+	Reservations   []models.Reservation
+	AvailableNodes []string
+	Cluster        string
+	Accounts       []models.Account
+	Users          []models.SlurmUser
+	Associations   []models.Association
+	QOS            []models.QOS
+	TRES           *models.TRESSnapshot
 }
 
 func (a *Adapter) AccountingCluster(ctx context.Context) (string, error) {

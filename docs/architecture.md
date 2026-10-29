@@ -39,3 +39,5 @@ Linux 本地账户写入通过固定 root 子命令和 root 所有的 UID 策略
 QOS / Fairshare 使用既有 Slurm Client、Adapter 和有界缓存。QOS 全局写入复用记账确认/审计引擎；服务端保留抢占模式并核实未编辑字段指纹。Fairshare 将控制器份额与当前集群关联交叉校验，uint64 用量以字符串传输。
 
 TRES 复用记账确认和审计引擎。目录绑定资源 ID 与类型，数值以十进制字符串传输。Association 写入从最新快照保留全部六类 TRES 列表，QOS 使用单项合并并保留抢占模式；结果核实覆盖目标及所有未编辑字段。见 [TRES 限额](tres.md)。
+
+Reservation 通过 slurmctld API 查询及控制，复用持久确认/审计引擎，保持独立路由和操作家族。更新只发送结束时间并核实未编辑字段，作业检查保留未知归属状态。见 [资源预留](reservations.md)。

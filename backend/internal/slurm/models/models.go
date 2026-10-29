@@ -19,6 +19,8 @@ type Health struct {
 	Capabilities  []string     `json:"capabilities"`
 }
 type Job struct {
+	Reservation      string `json:"reservation"`
+	ReservationKnown bool   `json:"-"`
 	UserID           *int64 `json:"userId"`
 	QOS              string `json:"qos"`
 	Priority         Number `json:"priority"`

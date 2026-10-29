@@ -59,6 +59,7 @@ const (
 	DBQOS          Resource = "db_qos"
 	Shares         Resource = "shares"
 	DBTRES         Resource = "db_tres"
+	Reservations   Resource = "reservations"
 )
 
 var nodePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`)
@@ -113,6 +114,7 @@ type Envelope struct {
 	QOS          json.RawMessage   `json:"qos"`
 	Shares       json.RawMessage   `json:"shares"`
 	TRES         json.RawMessage   `json:"TRES"`
+	Reservations json.RawMessage   `json:"reservations"`
 }
 
 func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelope, error) {
@@ -136,7 +138,7 @@ func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelo
 			return empty, Failure("invalid_request", "Fairshare 查询参数不合法。")
 		}
 		path += "shares"
-	case Ping, Jobs, Nodes, Partitions:
+	case Ping, Jobs, Nodes, Partitions, Reservations:
 		if id != "" {
 			return empty, Failure("invalid_request", "查询参数不合法。")
 		}

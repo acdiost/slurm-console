@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.17.0
+  version: 0.18.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -4671,6 +4671,639 @@ paths:
         "description": "需要 tres.read 并逐条校验对应对象读取权限。仅返回 TRES 家族；单条经 accounting-operations/{operationId} 只读核实，不重发写操作。"
       }
     }
+  /api/v1/clusters/{clusterId}/reservations:
+    {
+      "get": {
+        "operationId": "listReservations",
+        "summary": "分页读取资源预留",
+        "description": "需要reservations.read。仅当前配置控制器的预留；缓存15秒，返回前复查授权。状态按响应时刻及有限起止时间计算，不表示节点健康或作业可运行。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "scheduled",
+                "active",
+                "ended",
+                "unknown"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "perPage",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "startTime",
+                "endTime"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Reservation"
+                          }
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "perPage": {
+                          "type": "integer"
+                        },
+                        "totalItems": {
+                          "type": "integer"
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "items",
+                        "page",
+                        "perPage",
+                        "totalItems",
+                        "fetchedAt",
+                        "cached"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/reservations/{name}:
+    {
+      "get": {
+        "operationId": "getReservation",
+        "summary": "读取资源预留详情",
+        "description": "需要reservations.read；不存在或自动过期返回404，包含高级配置的只读详情。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "$ref": "#/components/schemas/Reservation"
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "item",
+                        "fetchedAt",
+                        "cached"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/reservation-controls/prepare:
+    {
+      "post": {
+        "operationId": "prepareReservationControl",
+        "summary": "校验资源预留变更并生成两分钟确认",
+        "description": "要求reservations.read和对应create/update/delete。创建另需nodes.read；调整/删除另需jobs.read并拒绝任何未结束引用作业或未知归属。更新只允许基本、尚未开始且距开始超过一分钟的预留，绑定完整原配置；高级预留仅查询。操作绑定操作者、集群、连接版本、完整快照，确认文本为精确预留名称。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "reservation_create",
+                      "reservation_update",
+                      "reservation_delete"
+                    ]
+                  },
+                  "spec": {
+                    "$ref": "#/components/schemas/ReservationMutation"
+                  }
+                },
+                "required": [
+                  "action",
+                  "spec"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AccountingPrepared"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/reservation-controls/execute:
+    {
+      "post": {
+        "operationId": "executeReservationControl",
+        "summary": "一次执行已确认的资源预留变更",
+        "description": "复查权限、确认有效期、完整原状态及作业，先持久审计再发送一次写请求。重放返回原记录。控制器无CAS，外部CLI并发仍存在校验后变化窗口。响应confirmed核实目标及未编辑字段；accepted/unknown只读核实，不能自动重发或声称回滚。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "proof",
+                  "confirmation",
+                  "reason"
+                ],
+                "properties": {
+                  "proof": {
+                    "type": "string",
+                    "maxLength": 12288
+                  },
+                  "confirmation": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 300
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AccountingOperation"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/reservation-operations:
+    {
+      "get": {
+        "operationId": "listReservationOperations",
+        "summary": "本人最近十次资源预留操作",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AccountingOperation"
+                          }
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "description": "需要reservations.read，仅预留操作家族。"
+      }
+    }
+  /api/v1/clusters/{clusterId}/reservation-operations/{operationId}:
+    {
+      "get": {
+        "operationId": "getReservationOperation",
+        "summary": "只读核实资源预留操作",
+        "description": "需要当前reservations.read；本人或平台审计管理员可读。仅预留操作；不重发写请求。控制器自动过期导致对象消失也仅说明已观察到删除目标状态，不证明删除因果。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operationId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 26,
+              "maxLength": 26
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AccountingOperation"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -5041,77 +5674,128 @@ components:
     SlurmJob:
       {
         "type": "object",
-        "required":
-          [
-            "id",
-            "name",
-            "user",
-            "account",
-            "partition",
-            "reason",
-            "nodes",
-            "states",
-            "cpus",
-            "nodeCount",
-            "timeLimitMinutes",
-            "submitTime",
-            "startTime",
-            "endTime",
-            "arrayJobId",
-            "arrayTaskId",
-            "userId",
-            "restartCount",
-            "qos",
-            "arrayTaskString",
-            "hetJobIdSet",
-            "priority",
-            "memoryPerNodeMiB",
-            "memoryPerCpuMiB",
-            "hetJobId",
-            "hetJobOffset",
-          ],
-        "properties":
-          {
-            "id": { "type": "string", "pattern": "^[1-9][0-9]*$" },
-            "name": { "type": "string" },
-            "user": { "type": "string" },
-            "account": { "type": "string" },
-            "partition": { "type": "string" },
-            "reason": { "type": "string" },
-            "nodes": { "type": "string" },
-            "states":
-              { "type": "array", "minItems": 1, "items": { "type": "string" } },
-            "cpus": { "$ref": "#/components/schemas/SlurmNumber" },
-            "nodeCount": { "$ref": "#/components/schemas/SlurmNumber" },
-            "timeLimitMinutes": { "$ref": "#/components/schemas/SlurmNumber" },
-            "submitTime": { "$ref": "#/components/schemas/SlurmNumber" },
-            "startTime": { "$ref": "#/components/schemas/SlurmNumber" },
-            "endTime": { "$ref": "#/components/schemas/SlurmNumber" },
-            "arrayJobId": { "$ref": "#/components/schemas/SlurmNumber" },
-            "arrayTaskId": { "$ref": "#/components/schemas/SlurmNumber" },
-            "userId":
-              {
-                "type": "integer",
-                "format": "int64",
-                "nullable": true,
-                "minimum": 0,
-              },
-            "restartCount":
-              {
-                "type": "integer",
-                "format": "int64",
-                "nullable": true,
-                "minimum": 0,
-              },
-            "qos": { "type": "string" },
-            "arrayTaskString": { "type": "string" },
-            "hetJobIdSet": { "type": "string" },
-            "priority": { "$ref": "#/components/schemas/SlurmNumber" },
-            "memoryPerNodeMiB": { "$ref": "#/components/schemas/SlurmNumber" },
-            "memoryPerCpuMiB": { "$ref": "#/components/schemas/SlurmNumber" },
-            "hetJobId": { "$ref": "#/components/schemas/SlurmNumber" },
-            "hetJobOffset": { "$ref": "#/components/schemas/SlurmNumber" },
+        "required": [
+          "id",
+          "name",
+          "user",
+          "account",
+          "partition",
+          "reason",
+          "nodes",
+          "states",
+          "cpus",
+          "nodeCount",
+          "timeLimitMinutes",
+          "submitTime",
+          "startTime",
+          "endTime",
+          "arrayJobId",
+          "arrayTaskId",
+          "userId",
+          "restartCount",
+          "qos",
+          "arrayTaskString",
+          "hetJobIdSet",
+          "priority",
+          "memoryPerNodeMiB",
+          "memoryPerCpuMiB",
+          "hetJobId",
+          "hetJobOffset"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
           },
+          "name": {
+            "type": "string"
+          },
+          "user": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "partition": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "nodes": {
+            "type": "string"
+          },
+          "states": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "cpus": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "nodeCount": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "timeLimitMinutes": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "submitTime": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "startTime": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "endTime": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "arrayJobId": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "arrayTaskId": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "minimum": 0
+          },
+          "restartCount": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "minimum": 0
+          },
+          "qos": {
+            "type": "string"
+          },
+          "arrayTaskString": {
+            "type": "string"
+          },
+          "hetJobIdSet": {
+            "type": "string"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "memoryPerNodeMiB": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "memoryPerCpuMiB": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "hetJobId": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "hetJobOffset": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "reservation": {
+            "type": "string"
+          }
+        }
       }
     SlurmNode:
       {
@@ -6891,10 +7575,13 @@ components:
           },
           "tres": {
             "$ref": "#/components/schemas/TRESMutation"
+          },
+          "reservation": {
+            "$ref": "#/components/schemas/ReservationMutation"
           }
         },
         "additionalProperties": false,
-        "description": "每种动作仅允许对应字段。TRES 动作必须包含 tres，其余身份及 qos 字段为空或省略；其余动作禁止 tres。"
+        "description": "每种动作仅允许对应字段。TRES 动作必须包含 tres，其余身份及 qos 字段为空或省略；其余动作禁止 tres。 Reservation 操作响应包含 reservation；写入请使用独立 reservation-controls，其他字段为空或省略。"
       }
     AccountingPrepared:
       {
@@ -7371,4 +8058,156 @@ components:
         },
         "additionalProperties": false,
         "description": "QOS 绑定 ID/名称；Association 绑定 ID/实际集群/account/user/partition 完整身份。Association 禁用 per_user/per_account。Relative QOS 容量值 0..100%，分钟额度只读及清除。root/服务关联只读。"
+      }
+    ReservationMutation:
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$"
+          },
+          "startTime": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4102444800
+          },
+          "endTime": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4102444800
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 255
+            }
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          "maintenance": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "description": "创建：明确节点最多128项（禁止ALL/范围/重复），users/accounts至少一项且仅正向名单；开始一分钟后、一年内，窗口最多30天。更新：仅name/endTime，其他字段空或零。删除：仅name，其他字段空或零。节点/用户/账户名单均拒绝ALL；支持MAINT，不开放其他Flags。"
+      }
+    Reservation:
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "nodes": {
+            "type": "string"
+          },
+          "users": {
+            "type": "string"
+          },
+          "accounts": {
+            "type": "string"
+          },
+          "groups": {
+            "type": "string"
+          },
+          "partition": {
+            "type": "string"
+          },
+          "features": {
+            "type": "string"
+          },
+          "licenses": {
+            "type": "string"
+          },
+          "burstBuffer": {
+            "type": "string"
+          },
+          "tres": {
+            "type": "string"
+          },
+          "nodeNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nodeCount": {
+            "type": "integer"
+          },
+          "coreCount": {
+            "type": "integer"
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "editable": {
+            "type": "boolean",
+            "description": "基本、明确节点的一次性预留；高级预留仅查询。"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "active",
+              "ended",
+              "unknown"
+            ]
+          },
+          "startTime": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4102444800,
+            "nullable": true
+          },
+          "endTime": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4102444800,
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "nodes",
+          "users",
+          "accounts",
+          "groups",
+          "partition",
+          "features",
+          "licenses",
+          "burstBuffer",
+          "tres",
+          "nodeNames",
+          "nodeCount",
+          "coreCount",
+          "flags",
+          "editable",
+          "state",
+          "startTime",
+          "endTime"
+        ]
       }

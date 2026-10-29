@@ -13,6 +13,9 @@ import (
 
 func isQOS(action string) bool { return action == "qos_create" || action == "qos_update" }
 func readPermission(action string) string {
+	if client.IsReservation(action) {
+		return "reservations.read"
+	}
 	if isTRES(action) {
 		return "tres.read"
 	}
@@ -28,6 +31,9 @@ func readPermission(action string) string {
 	return "associations.read"
 }
 func readSnapshot(ctx context.Context, a *adapter.Adapter, action string) (adapter.AccountingSnapshot, error) {
+	if client.IsReservation(action) {
+		return readReservationSnapshot(ctx, a, action)
+	}
 	if isTRES(action) {
 		return readTRESSnapshot(ctx, a, action)
 	}

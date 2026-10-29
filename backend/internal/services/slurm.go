@@ -98,6 +98,9 @@ func (s *Slurm) load(key, clusterID string, revision int, epoch uint64, kind, id
 	var err error
 	ttl := 5 * time.Second
 	switch kind {
+	case "reservations":
+		value, err = a.GetReservations(s.ctx)
+		ttl = 15 * time.Second
 	case "tres":
 		value, err = a.TRESCatalog(s.ctx)
 		ttl = 60 * time.Second
@@ -242,7 +245,7 @@ func (s *Slurm) InvalidateAccounting() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for key, cached := range s.cache {
-		if strings.Contains(key, ":accounts:") || strings.Contains(key, ":slurm_users:") || strings.Contains(key, ":associations:") || strings.Contains(key, ":qos:") || strings.Contains(key, ":fairshare:") || strings.Contains(key, ":tres:") || strings.Contains(key, ":tres_limits:") {
+		if strings.Contains(key, ":accounts:") || strings.Contains(key, ":slurm_users:") || strings.Contains(key, ":associations:") || strings.Contains(key, ":qos:") || strings.Contains(key, ":fairshare:") || strings.Contains(key, ":tres:") || strings.Contains(key, ":tres_limits:") || strings.Contains(key, ":reservations:") {
 			s.bytes -= len(cached.result.Data)
 			delete(s.cache, key)
 		}
