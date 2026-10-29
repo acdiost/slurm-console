@@ -132,7 +132,7 @@ func validLocalRequest(r localRequest) bool {
 	dbPrefix := "/slurmdb/" + r.Version + "/"
 	if strings.HasPrefix(r.Path, dbPrefix) {
 		if r.Method == "GET" && !r.Write && len(r.Body) == 0 {
-			if r.Path == dbPrefix+"accounts/" || r.Path == dbPrefix+"users/?with_assocs=true" || r.Path == dbPrefix+"qos/" {
+			if r.Path == dbPrefix+"accounts/" || r.Path == dbPrefix+"users/?with_assocs=true" || r.Path == dbPrefix+"qos/" || r.Path == dbPrefix+"tres/" {
 				return true
 			}
 			u, err := url.Parse(r.Path)
@@ -144,7 +144,7 @@ func validLocalRequest(r localRequest) bool {
 		}
 		// Root-generated writes must be the exact serialization of an approved
 		// mutation; arbitrary JSON, CSV selectors and global deletions are rejected.
-		return validAccountingWire(r) || validQOSWire(r)
+		return validAccountingWire(r) || validQOSWire(r) || validTRESWire(r)
 	}
 	prefix := "/slurm/" + r.Version + "/"
 	if r.Method == "GET" && !r.Write && len(r.Body) == 0 {

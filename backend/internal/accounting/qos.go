@@ -13,6 +13,9 @@ import (
 
 func isQOS(action string) bool { return action == "qos_create" || action == "qos_update" }
 func readPermission(action string) string {
+	if isTRES(action) {
+		return "tres.read"
+	}
 	if isQOS(action) {
 		return "qos.read"
 	}
@@ -25,6 +28,9 @@ func readPermission(action string) string {
 	return "associations.read"
 }
 func readSnapshot(ctx context.Context, a *adapter.Adapter, action string) (adapter.AccountingSnapshot, error) {
+	if isTRES(action) {
+		return readTRESSnapshot(ctx, a, action)
+	}
 	if !isQOS(action) {
 		return a.Accounting(ctx)
 	}

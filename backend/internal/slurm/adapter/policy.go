@@ -122,7 +122,7 @@ func (a *Adapter) AllQOS(ctx context.Context) ([]models.QOS, error) {
 		}
 		unmanagedRaw, _ := json.Marshal(unmanaged)
 		unmanagedSum := sha256.Sum256(unmanagedRaw)
-		out = append(out, models.QOS{ID: strconv.FormatInt(*v.ID, 10), Name: v.Name, Description: v.Description, Flags: v.Flags, PreemptModes: v.Preempt.Mode, Priority: v.Priority.Number, UsageFactor: v.UsageFactor.Decimal, MaxJobsPerUser: v.Limits.Max.Jobs.Active.Per.User.Number, MaxSubmitJobsPerUser: v.Limits.Max.Jobs.Per.User.Number, MaxWallMinutes: v.Limits.Max.Wall.Per.Job.Number, Fingerprint: hex.EncodeToString(sum[:]), UnmanagedFingerprint: hex.EncodeToString(unmanagedSum[:])})
+		out = append(out, models.QOS{ID: strconv.FormatInt(*v.ID, 10), Name: v.Name, Description: v.Description, Flags: v.Flags, PreemptModes: v.Preempt.Mode, Priority: v.Priority.Number, UsageFactor: v.UsageFactor.Decimal, MaxJobsPerUser: v.Limits.Max.Jobs.Active.Per.User.Number, MaxSubmitJobsPerUser: v.Limits.Max.Jobs.Per.User.Number, MaxWallMinutes: v.Limits.Max.Wall.Per.Job.Number, Fingerprint: hex.EncodeToString(sum[:]), UnmanagedFingerprint: hex.EncodeToString(unmanagedSum[:]), Raw: raw})
 	}
 	return out, nil
 }

@@ -71,3 +71,5 @@ Unix socket 默认继续使用非 root `slurm-console` 对端身份。管理员�
 正式连接另以独立应用数据库实测一次 Account 创建并核实成功，测试 Account 随后清理。服务器恢复时校正了 NTP 约 20 小时的偏差，PAM account 检查及定时备份补跑均通过。
 
 QOS 全局策略管理复用本项确认及持久操作引擎，权限、字段保留及 Fairshare 查询见 [QOS / Fairshare](qos-fairshare.md)。本人操作列表按业务分类展示。
+
+TRES 容量及分钟额度在 [TRES 限额](tres.md) 页面管理，Association 保留实际集群和完整身份边界。

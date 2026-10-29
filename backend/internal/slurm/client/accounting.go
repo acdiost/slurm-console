@@ -17,20 +17,30 @@ func ValidAccountingName(value string) bool {
 }
 
 type AccountingMutation struct {
-	Action                  string   `json:"action"`
-	Cluster                 string   `json:"cluster"`
-	Account                 string   `json:"account"`
-	User                    string   `json:"user"`
-	Partition               string   `json:"partition"`
-	AssociationID           string   `json:"associationId"`
-	Description             string   `json:"description"`
-	Organization            string   `json:"organization"`
-	QOS                     *QOSSpec `json:"qos,omitempty"`
-	QOSPreemptModes         []string `json:"qosPreemptModes,omitempty"`
-	QOSUnmanagedFingerprint string   `json:"qosUnmanagedFingerprint,omitempty"`
+	Action                   string                     `json:"action"`
+	Cluster                  string                     `json:"cluster"`
+	Account                  string                     `json:"account"`
+	User                     string                     `json:"user"`
+	Partition                string                     `json:"partition"`
+	AssociationID            string                     `json:"associationId"`
+	Description              string                     `json:"description"`
+	Organization             string                     `json:"organization"`
+	QOS                      *QOSSpec                   `json:"qos,omitempty"`
+	QOSPreemptModes          []string                   `json:"qosPreemptModes,omitempty"`
+	QOSUnmanagedFingerprint  string                     `json:"qosUnmanagedFingerprint,omitempty"`
+	TRES                     *TRESSpec                  `json:"tres,omitempty"`
+	TRESEntries              []TRESWireEntry            `json:"tresEntries,omitempty"`
+	TRESUnmanagedFingerprint string                     `json:"tresUnmanagedFingerprint,omitempty"`
+	TRESLists                map[string][]TRESWireEntry `json:"tresLists,omitempty"`
 }
 
 func (m AccountingMutation) Valid() bool {
+	if m.Action == "qos_tres_update" || m.Action == "association_tres_update" {
+		return validTRESMutation(m)
+	}
+	if m.TRES != nil || len(m.TRESEntries) > 0 || m.TRESUnmanagedFingerprint != "" || len(m.TRESLists) > 0 {
+		return false
+	}
 	if m.Action == "qos_create" || m.Action == "qos_update" {
 		return ValidAccountingName(m.Cluster) && m.Account == "" && m.User == "" && m.Partition == "" && m.AssociationID == "" && m.Description == "" && m.Organization == "" && m.QOS != nil && m.QOS.Valid(m.Action) && validQOSPreservation(m)
 	}
@@ -53,6 +63,9 @@ func (m AccountingMutation) Valid() bool {
 }
 
 func accountingWrite(version string, m AccountingMutation) (string, string, []byte, bool) {
+	if m.Action == "qos_tres_update" || m.Action == "association_tres_update" {
+		return tresWrite(version, m)
+	}
 	if m.Action == "qos_create" || m.Action == "qos_update" {
 		return qosWrite(version, m)
 	}

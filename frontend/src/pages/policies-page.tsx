@@ -469,6 +469,15 @@ export function PoliciesPage() {
                       编辑 QOS
                     </Button>
                   )}
+                  {has("tres.read", "associations.read") && (
+                    <Button variant="outline" asChild>
+                      <Link
+                        to={`/tres?${new URLSearchParams({ cluster: clusterId, target: "qos", item: qosDetail.id })}`}
+                      >
+                        查看 TRES 限额
+                      </Link>
+                    </Button>
+                  )}
                 </>
               ) : (
                 <Skeleton className="h-48" />

@@ -35,7 +35,7 @@ QOS 缓存 60 秒，Fairshare 缓存 15 秒，均按平台集群及连接版本�
 | 每用户提交作业上限 | 同上，包含运行与等待作业 |
 | 单作业时限 | 同上，单位分钟 |
 
-数值零会按零提交，不能省略限额字段代替显式无限制。抢占、Flags、TRES 及其他高级配置保留现有值；QOS 的 Association/Partition 使用授权仍由管理员按站点策略维护。本项不提供删除 QOS、任意 Slurm JSON、抢占关系修改或 Fairshare 权重写入。TRES 配额属于下一项开发。
+数值零会按零提交，不能省略限额字段代替显式无限制。抢占、Flags、TRES 及其他高级配置保留现有值；QOS 的 Association/Partition 使用授权仍由管理员按站点策略维护。本项不提供删除 QOS、任意 Slurm JSON、抢占关系修改或 Fairshare 权重写入。TRES 配额已在独立的 [TRES 限额](tres.md) 页面实现。
 
 实测 v0.0.43 部分更新会把省略的 `preempt.mode` 重置为 DISABLED。服务端从最新快照取出原模式，绑定签名并显式回填，浏览器不能指定该字段。Flags 使用 `NOT_SET`。写后除核对可编辑值外，还核对未编辑字段的完整指纹；未能确认保留时不会标记已核实。
 

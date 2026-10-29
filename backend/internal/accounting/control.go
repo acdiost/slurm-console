@@ -29,13 +29,14 @@ import (
 )
 
 type Spec struct {
-	Account       string          `json:"account"`
-	User          string          `json:"user"`
-	Partition     string          `json:"partition"`
-	AssociationID string          `json:"associationId"`
-	Description   string          `json:"description"`
-	Organization  string          `json:"organization"`
-	QOS           *client.QOSSpec `json:"qos,omitempty"`
+	Account       string           `json:"account"`
+	User          string           `json:"user"`
+	Partition     string           `json:"partition"`
+	AssociationID string           `json:"associationId"`
+	Description   string           `json:"description"`
+	Organization  string           `json:"organization"`
+	QOS           *client.QOSSpec  `json:"qos,omitempty"`
+	TRES          *client.TRESSpec `json:"tres,omitempty"`
 }
 type Prepared struct {
 	Allowed      bool   `json:"allowed"`
@@ -102,18 +103,24 @@ func digest(value any) string {
 	return hex.EncodeToString(sum[:])
 }
 func mutation(action, cluster string, v Spec) client.AccountingMutation {
-	return client.AccountingMutation{Action: action, Cluster: cluster, Account: v.Account, User: v.User, Partition: v.Partition, AssociationID: v.AssociationID, Description: v.Description, Organization: v.Organization, QOS: v.QOS}
+	return client.AccountingMutation{Action: action, Cluster: cluster, Account: v.Account, User: v.User, Partition: v.Partition, AssociationID: v.AssociationID, Description: v.Description, Organization: v.Organization, QOS: v.QOS, TRES: v.TRES}
 }
 func spec(m client.AccountingMutation) Spec {
-	return Spec{Account: m.Account, User: m.User, Partition: m.Partition, AssociationID: m.AssociationID, Description: m.Description, Organization: m.Organization, QOS: m.QOS}
+	return Spec{Account: m.Account, User: m.User, Partition: m.Partition, AssociationID: m.AssociationID, Description: m.Description, Organization: m.Organization, QOS: m.QOS, TRES: m.TRES}
 }
 func Action(action string) string {
-	return map[string]string{"account_create": "accounts.create", "account_update": "accounts.update", "user_create": "slurm_users.create", "association_create": "associations.create", "association_remove": "associations.remove", "qos_create": "qos.create", "qos_update": "qos.update"}[action]
+	return map[string]string{"account_create": "accounts.create", "account_update": "accounts.update", "user_create": "slurm_users.create", "association_create": "associations.create", "association_remove": "associations.remove", "qos_create": "qos.create", "qos_update": "qos.update", "qos_tres_update": "qos.tres.update", "association_tres_update": "associations.tres.update"}[action]
 }
 func global(action string) bool {
-	return slices.Contains([]string{"account_create", "account_update", "user_create", "qos_create", "qos_update"}, action)
+	return slices.Contains([]string{"account_create", "account_update", "user_create", "qos_create", "qos_update", "qos_tres_update"}, action)
 }
 func confirmation(m client.AccountingMutation) string {
+	if isTRES(m.Action) && m.TRES != nil {
+		if m.TRES.Kind == "qos" {
+			return m.TRES.Name
+		}
+		return m.TRES.TargetID
+	}
 	if isQOS(m.Action) && m.QOS != nil {
 		return m.QOS.Name
 	}
@@ -129,6 +136,13 @@ func confirmation(m client.AccountingMutation) string {
 	return m.User + "@" + m.Account
 }
 func target(m client.AccountingMutation) (string, string) {
+	if isTRES(m.Action) && m.TRES != nil {
+		v := m.TRES
+		if v.Kind == "qos" {
+			return "slurm_qos", v.Name
+		}
+		return "association", m.Cluster + "/" + v.Account + "/" + v.User + "/" + v.Partition
+	}
 	if isQOS(m.Action) && m.QOS != nil {
 		return "slurm_qos", m.QOS.Name
 	}
@@ -143,6 +157,10 @@ func target(m client.AccountingMutation) (string, string) {
 }
 func required(action string) []string {
 	switch action {
+	case "qos_tres_update":
+		return []string{"tres.read", "tres.update", "qos.read", "qos.update"}
+	case "association_tres_update":
+		return []string{"tres.read", "tres.update", "associations.read", "associations.update"}
 	case "qos_create", "qos_update":
 		return []string{"qos.read", "qos.update"}
 	case "account_create", "account_update":
@@ -173,10 +191,10 @@ func (s *Service) authorized(actor, cluster, action string) error {
 			return client.Failure("operation_forbidden", "未授予此集群的记账操作权限。")
 		}
 	}
-	if isQOS(action) && (!access.Allows("platform.qos.manage", "") || !access.Allows("platform.qos.read", "")) {
+	if (isQOS(action) || action == "qos_tres_update") && (!access.Allows("platform.qos.manage", "") || !access.Allows("platform.qos.read", "")) {
 		return client.Failure("operation_forbidden", "共享 QOS 变更需要平台 QOS 读取及管理权限。")
 	}
-	if global(action) && !isQOS(action) && !access.Allows("platform.accounting.manage", "") {
+	if global(action) && !isQOS(action) && action != "qos_tres_update" && !access.Allows("platform.accounting.manage", "") {
 		return client.Failure("operation_forbidden", "全局记账身份变更需要独立的平台记账管理权限。")
 	}
 	return nil
@@ -218,6 +236,13 @@ func parent(s adapter.AccountingSnapshot, account string) *models.Association {
 	return nil
 }
 func state(s adapter.AccountingSnapshot, m client.AccountingMutation) string {
+	if isTRES(m.Action) {
+		t := findTRESTarget(s, m)
+		if t == nil {
+			return digest([]any{s.Cluster, nil, s.TRES.Resources})
+		}
+		return digest([]any{s.Cluster, t.Fingerprint, s.TRES.Resources})
+	}
 	if isQOS(m.Action) {
 		q := findQOS(s, m.QOS.Name)
 		fingerprint := ""
@@ -239,6 +264,9 @@ func protected(name string) bool {
 	return slices.Contains([]string{"root", "slurm-console", "slurm", "munge", "nobody"}, strings.ToLower(name))
 }
 func policy(s adapter.AccountingSnapshot, m client.AccountingMutation) string {
+	if isTRES(m.Action) {
+		return tresPolicy(s, m)
+	}
 	if isQOS(m.Action) {
 		return qosPolicy(s, m)
 	}
@@ -371,6 +399,9 @@ func (s *Service) Prepare(ctx context.Context, actor, cluster, action string, v 
 		return result, err
 	}
 	m := preserveQOS(snapshot, mutation(action, snapshot.Cluster, v))
+	if isTRES(action) {
+		m = materializeTRES(snapshot, m)
+	}
 	result.SlurmCluster = m.Cluster
 	result.Confirmation = confirmation(m)
 	if denied := policy(snapshot, m); denied != "" {
@@ -397,6 +428,9 @@ func (s *Service) Prepare(ctx context.Context, actor, cluster, action string, v 
 	mac := hmac.New(sha256.New, s.key[:])
 	mac.Write([]byte(encoded))
 	result.Proof = encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	if len(result.Proof) > 12000 {
+		return result, client.Failure("invalid_request", "本次确认保留数据超过安全上限，请管理员维护。")
+	}
 	result.Allowed = true
 	result.OperationID = p.Operation
 	result.ExpiresAt = time.Unix(p.Expires, 0).UTC().Format(time.RFC3339)
@@ -404,13 +438,16 @@ func (s *Service) Prepare(ctx context.Context, actor, cluster, action string, v 
 	if isQOS(action) {
 		result.Message = "已读取共享 QOS 最新定义，请核对全部可编辑字段及跨集群影响，填写原因并确认。"
 	}
+	if isTRES(action) {
+		result.Message = "已校验资源目录、完整对象及未编辑字段；请核对本层限额、影响范围、填写原因并确认。"
+	}
 	return result, nil
 }
 func (s *Service) parse(raw, actor, cluster string) (intent, error) {
 	p := intent{}
 	failure := client.Failure("confirmation_invalid", "记账确认无效或服务已重启，请重新校验。")
 	parts := strings.Split(raw, ".")
-	if len(raw) > 8192 || len(parts) != 2 {
+	if len(raw) > 12288 || len(parts) != 2 {
 		return p, failure
 	}
 	signature, err := base64.RawURLEncoding.DecodeString(parts[1])
@@ -449,6 +486,9 @@ func (s *Service) view(r *core.Record) Result {
 	return Result{r.GetString("operation_key"), m.Action, spec(m), m.Cluster, status, message, r.GetString("reason"), r.GetString("created"), r.GetString("updated")}
 }
 func reached(snapshot adapter.AccountingSnapshot, m client.AccountingMutation) bool {
+	if isTRES(m.Action) {
+		return tresReached(snapshot, m)
+	}
 	if isQOS(m.Action) {
 		return qosReached(snapshot, m)
 	}
@@ -483,6 +523,9 @@ func (s *Service) Get(ctx context.Context, actor, cluster, id string) (Result, e
 		return Result{}, err
 	}
 	read := readPermission(m.Action)
+	if isTRES(m.Action) && !tresAllowed(access, cluster, m.Action) {
+		return Result{}, client.Failure("operation_forbidden", "TRES 限额读取权限已撤销。")
+	}
 	if isQOS(m.Action) && !access.Allows("platform.qos.read", "") {
 		return Result{}, client.Failure("operation_forbidden", "共享 QOS 操作记录需要平台目录读取权限。")
 	}
@@ -509,7 +552,7 @@ func (s *Service) Get(ctx context.Context, actor, cluster, id string) (Result, e
 	if accessErr != nil {
 		return Result{}, accessErr
 	}
-	if !latestAccess.Allows(read, cluster) || isQOS(m.Action) && !latestAccess.Allows("platform.qos.read", "") {
+	if !latestAccess.Allows(read, cluster) || isQOS(m.Action) && !latestAccess.Allows("platform.qos.read", "") || isTRES(m.Action) && !tresAllowed(latestAccess, cluster, m.Action) {
 		return Result{}, client.Failure("operation_forbidden", "记账读取权限已撤销。")
 	}
 	if err != nil {
@@ -646,6 +689,9 @@ func (s *Service) Execute(actor, cluster, requestID string, input Input) (Result
 	return finish("unknown", "写请求结果未知，请查询操作记录及 Slurm 状态，勿重复提交。")
 }
 func changes(s adapter.AccountingSnapshot, m client.AccountingMutation) []audit.Change {
+	if isTRES(m.Action) {
+		return tresChanges(s, m)
+	}
 	if isQOS(m.Action) {
 		return qosChanges(s, m)
 	}
@@ -671,27 +717,32 @@ func changes(s adapter.AccountingSnapshot, m client.AccountingMutation) []audit.
 }
 
 func (s *Service) Recent(actor, cluster string) ([]Result, error) {
-	return s.recent(actor, cluster, false)
+	return s.recent(actor, cluster, "accounting")
 }
 func (s *Service) RecentQOS(actor, cluster string) ([]Result, error) {
-	return s.recent(actor, cluster, true)
+	return s.recent(actor, cluster, "qos")
 }
-func (s *Service) recent(actor, cluster string, qosOnly bool) ([]Result, error) {
+func (s *Service) RecentTRES(actor, cluster string) ([]Result, error) {
+	return s.recent(actor, cluster, "tres")
+}
+func (s *Service) recent(actor, cluster string, family string) ([]Result, error) {
 	access, err := rbac.Resolve(s.app, actor)
 	if err != nil {
 		return nil, err
 	}
-	if qosOnly && !access.Allows("platform.qos.read", "") {
+	if family == "qos" && !access.Allows("platform.qos.read", "") {
 		return []Result{}, nil
 	}
-	if qosOnly && !access.Allows("qos.read", cluster) || !qosOnly && !access.Allows("accounts.read", cluster) && !access.Allows("slurm_users.read", cluster) && !access.Allows("associations.read", cluster) {
+	if family == "qos" && !access.Allows("qos.read", cluster) || family == "accounting" && !access.Allows("accounts.read", cluster) && !access.Allows("slurm_users.read", cluster) && !access.Allows("associations.read", cluster) {
 		return nil, client.Failure("operation_forbidden", "未授予该集群的记账读取权限。")
 	}
 	filter := "cluster_id={:cluster} && actor_id={:actor} && accounting_spec != null"
-	if qosOnly {
+	if family == "qos" {
 		filter += " && (action='qos.create' || action='qos.update')"
+	} else if family == "tres" {
+		filter += " && (action='qos.tres.update' || action='associations.tres.update')"
 	} else {
-		filter += " && action!='qos.create' && action!='qos.update'"
+		filter += " && action!='qos.create' && action!='qos.update' && action!='qos.tres.update' && action!='associations.tres.update'"
 	}
 	rows, err := s.app.FindRecordsByFilter("operation_audits", filter, "-created", 10, 0, dbx.Params{"cluster": cluster, "actor": actor})
 	if err != nil {
@@ -701,7 +752,7 @@ func (s *Service) recent(actor, cluster string, qosOnly bool) ([]Result, error) 
 	for _, r := range rows {
 		m := storedMutation(r)
 		read := readPermission(m.Action)
-		if access.Allows(read, cluster) {
+		if access.Allows(read, cluster) && (!isTRES(m.Action) || tresAllowed(access, cluster, m.Action)) {
 			out = append(out, s.view(r))
 		}
 	}

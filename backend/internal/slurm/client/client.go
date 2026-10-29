@@ -58,6 +58,7 @@ const (
 	DBAssociations Resource = "db_associations"
 	DBQOS          Resource = "db_qos"
 	Shares         Resource = "shares"
+	DBTRES         Resource = "db_tres"
 )
 
 var nodePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`)
@@ -111,17 +112,18 @@ type Envelope struct {
 	Associations json.RawMessage   `json:"associations"`
 	QOS          json.RawMessage   `json:"qos"`
 	Shares       json.RawMessage   `json:"shares"`
+	TRES         json.RawMessage   `json:"TRES"`
 }
 
 func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelope, error) {
 	var empty Envelope
 	path := "/slurm/" + c.config.Version + "/"
 	switch resource {
-	case DBAccounts, DBUsers, DBAssociations, DBQOS:
+	case DBAccounts, DBUsers, DBAssociations, DBQOS, DBTRES:
 		if resource != DBAssociations && id != "" || resource == DBAssociations && !ValidAccountingName(id) {
 			return empty, Failure("invalid_request", "记账查询参数不合法。")
 		}
-		name := map[Resource]string{DBAccounts: "accounts", DBUsers: "users", DBAssociations: "associations", DBQOS: "qos"}[resource]
+		name := map[Resource]string{DBAccounts: "accounts", DBUsers: "users", DBAssociations: "associations", DBQOS: "qos", DBTRES: "tres"}[resource]
 		path = "/slurmdb/" + c.config.Version + "/" + name + "/"
 		if resource == DBUsers {
 			path += "?with_assocs=true"

@@ -27,6 +27,7 @@ type accountingFixture struct {
 	jobs                              string
 	qos                               []map[string]any
 	shares                            string
+	tres                              []map[string]any
 }
 
 func newAccountingFixture(app core.App) *accountingFixture {
@@ -87,6 +88,8 @@ func (f *accountingFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			emit("associations", f.assocs)
 		case "/slurmdb/v0.0.43/qos/":
 			emit("qos", f.qos)
+		case "/slurmdb/v0.0.43/tres/":
+			emit("TRES", f.tres)
 		default:
 			w.WriteHeader(404)
 		}
@@ -111,7 +114,9 @@ func (f *accountingFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		Condition struct{ Accounts, Clusters, Users []string } `json:"association_condition"`
 	}
-	if r.Method == "POST" && json.NewDecoder(r.Body).Decode(&body) != nil {
+	d := json.NewDecoder(r.Body)
+	d.UseNumber()
+	if r.Method == "POST" && d.Decode(&body) != nil {
 		w.WriteHeader(400)
 		return
 	}
@@ -131,19 +136,7 @@ func (f *accountingFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if v["preempt"] == nil {
 					v["preempt"] = map[string]any{"mode": []string{"DISABLED"}}
 				}
-				var merge func(map[string]any, map[string]any)
-				merge = func(dst, src map[string]any) {
-					for key, value := range src {
-						child, ok := value.(map[string]any)
-						previous, exists := dst[key].(map[string]any)
-						if ok && exists {
-							merge(previous, child)
-						} else {
-							dst[key] = value
-						}
-					}
-				}
-				merge(q, v)
+				mergeAccountingFixture(q, v, true)
 				f.qos[i] = q
 				found = true
 			}
@@ -168,6 +161,25 @@ func (f *accountingFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.assocs = append(f.assocs, map[string]any{"id": 100 + len(f.assocs), "cluster": body.Condition.Clusters[0], "account": body.Condition.Accounts[0], "user": body.Condition.Users[0], "is_default": true})
 	case "/slurmdb/v0.0.43/associations/":
 		a := body.Associations[0]
+		if a["id"] != nil {
+			found := false
+			for _, existing := range f.assocs {
+				if fmt.Sprint(existing["id"]) == fmt.Sprint(a["id"]) {
+					if max, ok := a["max"].(map[string]any); ok && max["tres"] != nil {
+						// Slurm 25.11 resets GrpTRES when another nested TRES bucket is supplied alone.
+						existing["max"].(map[string]any)["tres"].(map[string]any)["total"] = []any{}
+					}
+					mergeAccountingFixture(existing, a, false)
+					found = true
+					break
+				}
+			}
+			if !found {
+				w.WriteHeader(404)
+				return
+			}
+			break
+		}
 		a["id"] = 100 + len(f.assocs)
 		f.assocs = append(f.assocs, a)
 	case "/slurmdb/v0.0.43/association/":
@@ -195,6 +207,42 @@ func (f *accountingFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	emit("warnings", []any{})
+}
+func mergeAccountingFixture(dst, src map[string]any, qos bool) {
+	for key, value := range src {
+		child, ok := value.(map[string]any)
+		previous, exists := dst[key].(map[string]any)
+		if ok && exists {
+			mergeAccountingFixture(previous, child, qos)
+			continue
+		}
+		rows, isArray := value.([]any)
+		if isArray && len(rows) > 0 {
+			if entry, ok := rows[0].(map[string]any); ok && entry["count"] != nil {
+				result := []any{}
+				changed := map[string]bool{}
+				for _, row := range rows {
+					changed[fmt.Sprint(row.(map[string]any)["id"])] = true
+				}
+				if qos {
+					old, _ := dst[key].([]any)
+					for _, row := range old {
+						if !changed[fmt.Sprint(row.(map[string]any)["id"])] {
+							result = append(result, row)
+						}
+					}
+				}
+				for _, row := range rows {
+					if fmt.Sprint(row.(map[string]any)["count"]) != "-1" {
+						result = append(result, row)
+					}
+				}
+				dst[key] = result
+				continue
+			}
+		}
+		dst[key] = value
+	}
 }
 func accountingSetup(t *testing.T, role string) (core.App, http.Handler, string, string, *accountingFixture) {
 	t.Helper()

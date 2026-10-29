@@ -37,6 +37,8 @@ export const auditDetailSchema = z.object({
   fetchedAt: z.string(),
 })
 export const actions: Record<string, string> = {
+  "qos.tres.update": "配置 QOS TRES 限额",
+  "associations.tres.update": "配置 Association TRES 限额",
   "qos.create": "创建 QOS",
   "qos.update": "编辑 QOS",
   "jobs.cancel": "取消作业",
@@ -69,6 +71,11 @@ export const statuses: Record<string, string> = {
   unknown: "结果待核实",
 }
 export const fields: Record<string, string> = {
+  quotaTargetId: "限额对象 ID",
+  tresResource: "TRES 资源",
+  tresBucket: "限额类型",
+  tresLimit: "本层限额",
+  tresIdentity: "对象身份",
   account: "Slurm Account",
   slurmCluster: "Slurm 集群",
   partition: "分区",
@@ -121,6 +128,18 @@ export function errorMessage(error: unknown) {
 export function resourceLink(item: Audit, permissions: string[]) {
   if (!item.clusterId) return undefined
   const p = new URLSearchParams({ cluster: item.clusterId })
+  if (
+    item.action.endsWith(".tres.update") &&
+    permissions.includes("tres.read")
+  ) {
+    const id = item.changes.find((v) => v.field === "quotaTargetId")?.after
+    if (id) {
+      p.set("target", item.targetType === "slurm_qos" ? "qos" : "association")
+      p.set("item", id)
+      p.set("operation", item.operationId)
+      return `/tres?${p}`
+    }
+  }
   if (
     item.targetType === "slurm_qos" &&
     permissions.includes("qos.read") &&

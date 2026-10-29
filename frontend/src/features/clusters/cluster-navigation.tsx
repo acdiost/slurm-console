@@ -8,6 +8,7 @@ const operational = new Set([
   "/linux-users",
   "/accounts",
   "/policies",
+  "/tres",
 ])
 export function scopedNavigation(to: string, pathname: string, search: string) {
   if (!operational.has(to) || !operational.has(pathname)) return to

@@ -1,23 +1,26 @@
 package models
 
+import "encoding/json"
+
 type Decimal struct {
 	Value    *float64 `json:"value"`
 	Infinite bool     `json:"infinite"`
 }
 
 type QOS struct {
-	ID                   string   `json:"id"`
-	Name                 string   `json:"name"`
-	Description          string   `json:"description"`
-	Priority             Number   `json:"priority"`
-	UsageFactor          Decimal  `json:"usageFactor"`
-	MaxJobsPerUser       Number   `json:"maxJobsPerUser"`
-	MaxSubmitJobsPerUser Number   `json:"maxSubmitJobsPerUser"`
-	MaxWallMinutes       Number   `json:"maxWallMinutes"`
-	Flags                []string `json:"flags"`
-	PreemptModes         []string `json:"preemptModes"`
-	Fingerprint          string   `json:"-"`
-	UnmanagedFingerprint string   `json:"-"`
+	ID                   string          `json:"id"`
+	Name                 string          `json:"name"`
+	Description          string          `json:"description"`
+	Priority             Number          `json:"priority"`
+	UsageFactor          Decimal         `json:"usageFactor"`
+	MaxJobsPerUser       Number          `json:"maxJobsPerUser"`
+	MaxSubmitJobsPerUser Number          `json:"maxSubmitJobsPerUser"`
+	MaxWallMinutes       Number          `json:"maxWallMinutes"`
+	Flags                []string        `json:"flags"`
+	PreemptModes         []string        `json:"preemptModes"`
+	Fingerprint          string          `json:"-"`
+	UnmanagedFingerprint string          `json:"-"`
+	Raw                  json.RawMessage `json:"-"`
 }
 
 type PolicySnapshot struct {

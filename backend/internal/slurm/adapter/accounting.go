@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 	"slurm-console/backend/internal/slurm/client"
 	"slurm-console/backend/internal/slurm/models"
@@ -14,6 +15,7 @@ type AccountingSnapshot struct {
 	Users        []models.SlurmUser
 	Associations []models.Association
 	QOS          []models.QOS
+	TRES         *models.TRESSnapshot
 }
 
 func (a *Adapter) AccountingCluster(ctx context.Context) (string, error) {
@@ -93,21 +95,26 @@ func (a *Adapter) AssociationsIn(ctx context.Context, cluster string) ([]models.
 	if err != nil {
 		return nil, err
 	}
-	values, err := decode[struct {
-		ID                                         *int64
-		Cluster, Account, User, Partition, Comment string
-		Parent                                     string `json:"parent_account"`
-		IsDefault                                  bool   `json:"is_default"`
-		Flags                                      []string
-		QOS                                        []string
-		Default                                    struct{ QOS string }
-	}](envelope.Associations)
+	values, err := decode[json.RawMessage](envelope.Associations)
 	if err != nil {
 		return nil, err
 	}
 	result := []models.Association{}
 	seen := map[int64]bool{}
-	for _, v := range values {
+	for _, raw := range values {
+		var v struct {
+			ID                                         *int64
+			Cluster, Account, User, Partition, Comment string
+			Parent                                     string `json:"parent_account"`
+			IsDefault                                  bool   `json:"is_default"`
+			Flags                                      []string
+			QOS                                        []string
+			Default                                    struct{ QOS string }
+		}
+		if json.Unmarshal(raw, &v) != nil {
+			return nil, invalid()
+		}
+
 		// Slurm may ignore a query selector; enforce cluster isolation locally too.
 		if v.Cluster != cluster || slices.Contains(v.Flags, "DELETED") {
 			continue
@@ -127,7 +134,7 @@ func (a *Adapter) AssociationsIn(ctx context.Context, cluster string) ([]models.
 		if v.QOS == nil {
 			v.QOS = []string{}
 		}
-		result = append(result, models.Association{ID: strconv.FormatInt(*v.ID, 10), Cluster: v.Cluster, Account: v.Account, User: v.User, Partition: v.Partition, ParentAccount: v.Parent, IsDefault: v.IsDefault, Comment: v.Comment, QOS: v.QOS, DefaultQOS: v.Default.QOS})
+		result = append(result, models.Association{ID: strconv.FormatInt(*v.ID, 10), Cluster: v.Cluster, Account: v.Account, User: v.User, Partition: v.Partition, ParentAccount: v.Parent, IsDefault: v.IsDefault, Comment: v.Comment, QOS: v.QOS, DefaultQOS: v.Default.QOS, Raw: raw})
 	}
 	return result, nil
 }

@@ -25,3 +25,5 @@ Linux 系统用户查询为 `GET /clusters/{clusterId}/linux-users` 及 `/linux-
 记账身份读取和确认操作端点见 [Account 与 Association](accounting.md)，对接固定 slurmdbd v0.0.43。全局身份变更需独立平台权限，关联操作按实际集群隔离；已发起写操作没有自动重试路径。
 
 QOS / Fairshare API 已接入 `/clusters/{clusterId}/qos`、`/fairshare`、`/qos-operations`。QOS 固定字段写入复用记账 controls，完整共享目录与全局写入独立授权，详见 [策略契约](qos-fairshare.md) 及 OpenAPI 0.16.0。
+
+TRES API 已接入 `/clusters/{clusterId}/tres`、`/tres-limits`、`/tres-limits/{kind}/{targetId}`、`/tres-operations`；单资源设置/清除复用记账 controls，契约为 OpenAPI 0.17.0，详见 [TRES 限额](tres.md)。

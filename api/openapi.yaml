@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.16.0
+  version: 0.17.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -3280,7 +3280,7 @@ paths:
       "post": {
         "operationId": "accounting_controls_prepare",
         "summary": "校验最新状态与权限，返回绑定操作人、集群、配置版本和目标快照的两分钟确认",
-        "description": "校验最新状态与权限，返回绑定操作人、集群、配置版本和目标快照的两分钟确认。全局身份操作另需 platform.accounting.manage；QOS 创建/编辑需 qos.read/update 和平台 platform.qos.read/manage，未编辑字段绑定快照并在写后核实；Association 移除要求 jobs.read 且无未结束作业、非默认、非最后一个关联。",
+        "description": "校验最新状态与权限，返回绑定操作人、集群、配置版本和目标快照的两分钟确认。全局身份操作另需 platform.accounting.manage；QOS 创建/编辑需 qos.read/update 和平台 platform.qos.read/manage，未编辑字段绑定快照并在写后核实；TRES 另需 tres.read/update，Association 要求 associations.read/update；QOS 要求 qos.read/update 和平台 platform.qos.read/manage。写入前绑定全部原配置，写后核实未编辑字段；Association 移除要求 jobs.read 且无未结束作业、非默认、非最后一个关联。",
         "security": [
           {
             "platformToken": []
@@ -3316,7 +3316,9 @@ paths:
                       "association_create",
                       "association_remove",
                       "qos_create",
-                      "qos_update"
+                      "qos_update",
+                      "qos_tres_update",
+                      "association_tres_update"
                     ]
                   },
                   "spec": {
@@ -3415,7 +3417,7 @@ paths:
                 "properties": {
                   "proof": {
                     "type": "string",
-                    "maxLength": 8192
+                    "maxLength": 12288
                   },
                   "confirmation": {
                     "type": "string"
@@ -4177,6 +4179,496 @@ paths:
           }
         },
         "description": "需要 qos.read。完整 QOS 操作需要 platform.qos.read，撤销后返回空列表；不与账户身份操作混排。单条仍经 accounting-operations/{operationId} 只读核实，核实只观察、不重发写请求。"
+      }
+    }
+  /api/v1/clusters/{clusterId}/tres:
+    {
+      "get": {
+        "operationId": "listTRESResources",
+        "summary": "查询注册的共享 TRES 目录",
+        "description": "需要 tres.read。共享注册目录不代表本集群物理资源；支持 CPU、内存、节点、billing、license 以及已注册 gres/gpu 和子类型写入；其他资源只读。缓存 60 秒，返回前复查权限。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "scope",
+                        "fetchedAt",
+                        "cached"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TRESResource"
+                          }
+                        },
+                        "scope": {
+                          "type": "string",
+                          "enum": [
+                            "shared_registry"
+                          ]
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/tres-limits:
+    {
+      "get": {
+        "operationId": "listTRESLimits",
+        "summary": "分页查询本层 TRES 配置",
+        "description": "需要 tres.read/associations.read；QOS 另需 qos.read，无 platform.qos.read 时仅本集群关联引用的 QOS。target 默认 association，账户/用户精确匹配，q 搜索身份。缓存 60 秒，返回前复查权限。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "qos",
+                "association"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "in": "query",
+            "name": "account",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "in": "query",
+            "name": "user",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "id",
+                "name",
+                "account",
+                "user"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "resources",
+                        "slurmCluster",
+                        "page",
+                        "perPage",
+                        "totalItems",
+                        "fetchedAt",
+                        "cached"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TRESTarget"
+                          }
+                        },
+                        "resources": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TRESResource"
+                          }
+                        },
+                        "slurmCluster": {
+                          "type": "string"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "perPage": {
+                          "type": "integer"
+                        },
+                        "totalItems": {
+                          "type": "integer"
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/tres-limits/{kind}/{targetId}:
+    {
+      "get": {
+        "operationId": "getTRESLimits",
+        "summary": "查询限额对象详情",
+        "description": "与列表相同授权。不可见对象返回 404。仅返回本层配置；清除以后依 Slurm 继承与策略组合求值。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "qos",
+                "association"
+              ]
+            }
+          },
+          {
+            "in": "path",
+            "name": "targetId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "item",
+                        "resources",
+                        "fetchedAt",
+                        "cached"
+                      ],
+                      "properties": {
+                        "item": {
+                          "$ref": "#/components/schemas/TRESTarget"
+                        },
+                        "resources": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TRESResource"
+                          }
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/tres-operations:
+    {
+      "get": {
+        "operationId": "listTRESOperations",
+        "summary": "本人最近十次 TRES 操作",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AccountingOperation"
+                          }
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "description": "需要 tres.read 并逐条校验对应对象读取权限。仅返回 TRES 家族；单条经 accounting-operations/{operationId} 只读核实，不重发写操作。"
       }
     }
 components:
@@ -6396,10 +6888,13 @@ components:
           },
           "qos": {
             "$ref": "#/components/schemas/QosMutation"
+          },
+          "tres": {
+            "$ref": "#/components/schemas/TRESMutation"
           }
         },
         "additionalProperties": false,
-        "description": "QOS 动作必须包含完整 qos 对象，其余身份字段为空或省略；其他动作禁止 qos，并要求相应身份字段。"
+        "description": "每种动作仅允许对应字段。TRES 动作必须包含 tres，其余身份及 qos 字段为空或省略；其余动作禁止 tres。"
       }
     AccountingPrepared:
       {
@@ -6695,4 +7190,185 @@ components:
           }
         },
         "additionalProperties": false
+      }
+    TRESResource:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "name",
+          "key",
+          "unit",
+          "editable"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "editable": {
+            "type": "boolean",
+            "description": "目录注册且在写入白名单内；不代表物理资源可用。"
+          }
+        }
+      }
+    TRESAmount:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "value",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string",
+            "description": "有限值按十进制字符串保留 uint64 精度；infinite/unset 时为空字符串。"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "finite",
+              "infinite",
+              "unset"
+            ]
+          }
+        }
+      }
+    TRESTarget:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "cluster",
+          "account",
+          "user",
+          "partition",
+          "kind",
+          "relative",
+          "limits"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cluster": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "user": {
+            "type": "string"
+          },
+          "partition": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "qos",
+              "association"
+            ]
+          },
+          "relative": {
+            "type": "boolean"
+          },
+          "limits": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/TRESAmount"
+              }
+            },
+            "description": "本层配置；键为限额 bucket。未列资源未在本层设置，不能据此推导最终有效限制。"
+          }
+        }
+      }
+    TRESMutation:
+      {
+        "type": "object",
+        "required": [
+          "kind",
+          "targetId",
+          "resourceId",
+          "bucket",
+          "mode",
+          "value"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "qos",
+              "association"
+            ]
+          },
+          "targetId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "user": {
+            "type": "string"
+          },
+          "partition": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "bucket": {
+            "type": "string",
+            "enum": [
+              "group_total",
+              "per_job",
+              "per_user",
+              "per_account",
+              "per_node",
+              "group_minutes",
+              "run_minutes",
+              "job_minutes"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "set",
+              "clear"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "description": "set 为标准十进制字符串 0..9223372036854775807，不接受前导零；clear 必须为空字符串。零和清除不同。"
+          }
+        },
+        "additionalProperties": false,
+        "description": "QOS 绑定 ID/名称；Association 绑定 ID/实际集群/account/user/partition 完整身份。Association 禁用 per_user/per_account。Relative QOS 容量值 0..100%，分钟额度只读及清除。root/服务关联只读。"
       }

@@ -539,6 +539,15 @@ export function AccountingPage() {
                   ))}
                 </dl>
                 <div className="flex flex-wrap gap-2">
+                  {kind === "associations" && has("tres.read") && (
+                    <Button variant="outline" asChild>
+                      <Link
+                        to={`/tres?${new URLSearchParams({ cluster: clusterId, target: "association", item: (value as Association).id })}`}
+                      >
+                        查看 TRES 限额
+                      </Link>
+                    </Button>
+                  )}
                   {kind === "accounts" && has("associations.read") && (
                     <Button
                       variant="outline"
