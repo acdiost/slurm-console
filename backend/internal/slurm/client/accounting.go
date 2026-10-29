@@ -17,17 +17,26 @@ func ValidAccountingName(value string) bool {
 }
 
 type AccountingMutation struct {
-	Action        string `json:"action"`
-	Cluster       string `json:"cluster"`
-	Account       string `json:"account"`
-	User          string `json:"user"`
-	Partition     string `json:"partition"`
-	AssociationID string `json:"associationId"`
-	Description   string `json:"description"`
-	Organization  string `json:"organization"`
+	Action                  string   `json:"action"`
+	Cluster                 string   `json:"cluster"`
+	Account                 string   `json:"account"`
+	User                    string   `json:"user"`
+	Partition               string   `json:"partition"`
+	AssociationID           string   `json:"associationId"`
+	Description             string   `json:"description"`
+	Organization            string   `json:"organization"`
+	QOS                     *QOSSpec `json:"qos,omitempty"`
+	QOSPreemptModes         []string `json:"qosPreemptModes,omitempty"`
+	QOSUnmanagedFingerprint string   `json:"qosUnmanagedFingerprint,omitempty"`
 }
 
 func (m AccountingMutation) Valid() bool {
+	if m.Action == "qos_create" || m.Action == "qos_update" {
+		return ValidAccountingName(m.Cluster) && m.Account == "" && m.User == "" && m.Partition == "" && m.AssociationID == "" && m.Description == "" && m.Organization == "" && m.QOS != nil && m.QOS.Valid(m.Action) && validQOSPreservation(m)
+	}
+	if m.QOS != nil || len(m.QOSPreemptModes) != 0 || m.QOSUnmanagedFingerprint != "" {
+		return false
+	}
 	if !ValidAccountingName(m.Cluster) || !ValidAccountingName(m.Account) || strings.EqualFold(m.Account, "root") {
 		return false
 	}
@@ -44,6 +53,9 @@ func (m AccountingMutation) Valid() bool {
 }
 
 func accountingWrite(version string, m AccountingMutation) (string, string, []byte, bool) {
+	if m.Action == "qos_create" || m.Action == "qos_update" {
+		return qosWrite(version, m)
+	}
 	if !m.Valid() {
 		return "", "", nil, false
 	}

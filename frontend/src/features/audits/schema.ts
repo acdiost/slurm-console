@@ -37,6 +37,8 @@ export const auditDetailSchema = z.object({
   fetchedAt: z.string(),
 })
 export const actions: Record<string, string> = {
+  "qos.create": "创建 QOS",
+  "qos.update": "编辑 QOS",
   "jobs.cancel": "取消作业",
   "accounts.create": "创建 Slurm Account",
   "accounts.update": "编辑 Slurm Account",
@@ -73,6 +75,12 @@ export const fields: Record<string, string> = {
   associationId: "Association ID",
   description: "描述",
   organization: "组织",
+  qosName: "QOS 名称",
+  qosPriority: "QOS 优先级",
+  usageFactor: "计费用量因子",
+  maxJobsPerUser: "每用户运行作业上限",
+  maxSubmitJobsPerUser: "每用户提交作业上限",
+  maxWallMinutes: "单作业时限（分钟）",
   home: "主目录",
   shell: "登录 Shell",
   accountExpiry: "账户到期日（UTC 天数，-1 为无到期日）",
@@ -113,6 +121,16 @@ export function errorMessage(error: unknown) {
 export function resourceLink(item: Audit, permissions: string[]) {
   if (!item.clusterId) return undefined
   const p = new URLSearchParams({ cluster: item.clusterId })
+  if (
+    item.targetType === "slurm_qos" &&
+    permissions.includes("qos.read") &&
+    permissions.includes("associations.read")
+  ) {
+    p.set("item", item.targetId)
+    if (permissions.includes("platform.qos.read"))
+      p.set("operation", item.operationId)
+    return `/policies?${p}`
+  }
   if (item.targetType === "job" && permissions.includes("jobs.read")) {
     p.set("job", item.targetId)
     return `/jobs?${p}`

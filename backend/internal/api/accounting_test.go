@@ -25,6 +25,8 @@ type accountingFixture struct {
 	loseReply, failReadback, rejected bool
 	onRead                            func()
 	jobs                              string
+	qos                               []map[string]any
+	shares                            string
 }
 
 func newAccountingFixture(app core.App) *accountingFixture {
@@ -54,6 +56,8 @@ func (f *accountingFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, slurmEnvelope(f.jobs))
 		case "/slurm/v0.0.43/partitions/":
 			fmt.Fprint(w, slurmEnvelope(fixturePartitions))
+		case "/slurm/v0.0.43/shares":
+			fmt.Fprint(w, strings.Replace(slurmEnvelope(f.shares), `"data_parser":"data_parser/v0.0.43"`, `"data_parser":"data_parser/v0.0.43","type":"openapi/slurmctld"`, 1))
 		default:
 			w.WriteHeader(404)
 		}
@@ -81,6 +85,8 @@ func (f *accountingFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			emit("associations", f.assocs)
+		case "/slurmdb/v0.0.43/qos/":
+			emit("qos", f.qos)
 		default:
 			w.WriteHeader(404)
 		}
@@ -97,9 +103,9 @@ func (f *accountingFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	f.writes.Add(1)
 	var body struct {
-		Accounts, Associations []map[string]any
-		Account                map[string]any
-		User                   struct {
+		Accounts, Associations, QOS []map[string]any
+		Account                     map[string]any
+		User                        struct {
 			DefaultAccount string `json:"defaultaccount"`
 			Adminlevel     []string
 		}
@@ -110,6 +116,44 @@ func (f *accountingFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch r.URL.Path {
+	case "/slurmdb/v0.0.43/qos/":
+		if len(body.QOS) != 1 {
+			w.WriteHeader(400)
+			return
+		}
+		v := body.QOS[0]
+		found := false
+		for i, q := range f.qos {
+			if q["name"] == v["name"] {
+				// Match v0.0.43 partial updates: omitted mode resets to DISABLED,
+				// NOT_SET leaves flags intact, and omitted other fields survive.
+				delete(v, "flags")
+				if v["preempt"] == nil {
+					v["preempt"] = map[string]any{"mode": []string{"DISABLED"}}
+				}
+				var merge func(map[string]any, map[string]any)
+				merge = func(dst, src map[string]any) {
+					for key, value := range src {
+						child, ok := value.(map[string]any)
+						previous, exists := dst[key].(map[string]any)
+						if ok && exists {
+							merge(previous, child)
+						} else {
+							dst[key] = value
+						}
+					}
+				}
+				merge(q, v)
+				f.qos[i] = q
+				found = true
+			}
+		}
+		if !found {
+			v["id"] = 100 + len(f.qos)
+			v["flags"] = []string{}
+			v["preempt"] = map[string]any{"mode": []string{"DISABLED"}}
+			f.qos = append(f.qos, v)
+		}
 	case "/slurmdb/v0.0.43/accounts_association/":
 		f.accounts = append(f.accounts, map[string]any{"name": body.Condition.Accounts[0], "description": body.Account["description"], "organization": body.Account["organization"]})
 		f.assocs = append(f.assocs, map[string]any{"id": 100 + len(f.assocs), "cluster": body.Condition.Clusters[0], "account": body.Condition.Accounts[0], "user": "", "parent_account": "root"})

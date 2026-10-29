@@ -69,3 +69,5 @@ Unix socket 默认继续使用非 root `slurm-console` 对端身份。管理员�
 按管理员明确授权，现有正式 `slurm-console` 连接身份已授予 Slurm Administrator，REST 已启用 slurmctld/slurmdbd 插件。该站点授权由管理员维护，不由应用安装器或迁移自动执行。原有控制器、SlurmDBD 进程及 Slurm、LDAP、PAM 配置保持一致。
 
 正式连接另以独立应用数据库实测一次 Account 创建并核实成功，测试 Account 随后清理。服务器恢复时校正了 NTP 约 20 小时的偏差，PAM account 检查及定时备份补跑均通过。
+
+QOS 全局策略管理复用本项确认及持久操作引擎，权限、字段保留及 Fairshare 查询见 [QOS / Fairshare](qos-fairshare.md)。本人操作列表按业务分类展示。

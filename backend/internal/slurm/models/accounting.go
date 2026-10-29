@@ -15,12 +15,14 @@ type SlurmUser struct {
 	AssociationCount    int      `json:"associationCount"`
 }
 type Association struct {
-	ID            string `json:"id"`
-	Cluster       string `json:"cluster"`
-	Account       string `json:"account"`
-	User          string `json:"user"`
-	Partition     string `json:"partition"`
-	ParentAccount string `json:"parentAccount"`
-	IsDefault     bool   `json:"isDefault"`
-	Comment       string `json:"comment"`
+	ID            string   `json:"id"`
+	Cluster       string   `json:"cluster"`
+	Account       string   `json:"account"`
+	User          string   `json:"user"`
+	Partition     string   `json:"partition"`
+	ParentAccount string   `json:"parentAccount"`
+	IsDefault     bool     `json:"isDefault"`
+	Comment       string   `json:"comment"`
+	QOS           []string `json:"qos"`
+	DefaultQOS    string   `json:"defaultQos"`
 }

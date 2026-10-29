@@ -56,6 +56,8 @@ const (
 	DBAccounts     Resource = "db_accounts"
 	DBUsers        Resource = "db_users"
 	DBAssociations Resource = "db_associations"
+	DBQOS          Resource = "db_qos"
+	Shares         Resource = "shares"
 )
 
 var nodePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`)
@@ -107,17 +109,19 @@ type Envelope struct {
 	Accounts     json.RawMessage   `json:"accounts"`
 	Users        json.RawMessage   `json:"users"`
 	Associations json.RawMessage   `json:"associations"`
+	QOS          json.RawMessage   `json:"qos"`
+	Shares       json.RawMessage   `json:"shares"`
 }
 
 func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelope, error) {
 	var empty Envelope
 	path := "/slurm/" + c.config.Version + "/"
 	switch resource {
-	case DBAccounts, DBUsers, DBAssociations:
+	case DBAccounts, DBUsers, DBAssociations, DBQOS:
 		if resource != DBAssociations && id != "" || resource == DBAssociations && !ValidAccountingName(id) {
 			return empty, Failure("invalid_request", "记账查询参数不合法。")
 		}
-		name := map[Resource]string{DBAccounts: "accounts", DBUsers: "users", DBAssociations: "associations"}[resource]
+		name := map[Resource]string{DBAccounts: "accounts", DBUsers: "users", DBAssociations: "associations", DBQOS: "qos"}[resource]
 		path = "/slurmdb/" + c.config.Version + "/" + name + "/"
 		if resource == DBUsers {
 			path += "?with_assocs=true"
@@ -125,6 +129,11 @@ func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelo
 		if resource == DBAssociations {
 			path += "?cluster=" + url.QueryEscape(id)
 		}
+	case Shares:
+		if id != "" {
+			return empty, Failure("invalid_request", "Fairshare 查询参数不合法。")
+		}
+		path += "shares"
 	case Ping, Jobs, Nodes, Partitions:
 		if id != "" {
 			return empty, Failure("invalid_request", "查询参数不合法。")

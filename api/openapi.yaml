@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.15.0
+  version: 0.16.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -3280,7 +3280,7 @@ paths:
       "post": {
         "operationId": "accounting_controls_prepare",
         "summary": "校验最新状态与权限，返回绑定操作人、集群、配置版本和目标快照的两分钟确认",
-        "description": "校验最新状态与权限，返回绑定操作人、集群、配置版本和目标快照的两分钟确认。全局身份操作另需 platform.accounting.manage；Association 移除要求 jobs.read 且无未结束作业、非默认、非最后一个关联。",
+        "description": "校验最新状态与权限，返回绑定操作人、集群、配置版本和目标快照的两分钟确认。全局身份操作另需 platform.accounting.manage；QOS 创建/编辑需 qos.read/update 和平台 platform.qos.read/manage，未编辑字段绑定快照并在写后核实；Association 移除要求 jobs.read 且无未结束作业、非默认、非最后一个关联。",
         "security": [
           {
             "platformToken": []
@@ -3314,7 +3314,9 @@ paths:
                       "account_update",
                       "user_create",
                       "association_create",
-                      "association_remove"
+                      "association_remove",
+                      "qos_create",
+                      "qos_update"
                     ]
                   },
                   "spec": {
@@ -3645,6 +3647,536 @@ paths:
             "$ref": "#/components/responses/Error"
           }
         }
+      }
+    }
+  /api/v1/clusters/{clusterId}/qos:
+    {
+      "get": {
+        "operationId": "listQosPolicies",
+        "summary": "分页查询 QOS 定义",
+        "description": "需要 qos.read 和 associations.read。平台 platform.qos.read 可读共享记账库全目录；其他用户仅看到所选实际 Slurm 集群 Association 引用的 QOS。缓存 60 秒，返回前复查授权。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "priority"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "page",
+                        "perPage",
+                        "totalItems",
+                        "fetchedAt",
+                        "cached",
+                        "slurmCluster",
+                        "catalogScope"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/QosPolicy"
+                          }
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "perPage": {
+                          "type": "integer"
+                        },
+                        "totalItems": {
+                          "type": "integer"
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        },
+                        "slurmCluster": {
+                          "type": "string"
+                        },
+                        "catalogScope": {
+                          "type": "string",
+                          "enum": [
+                            "global",
+                            "referenced"
+                          ]
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/fairshare:
+    {
+      "get": {
+        "operationId": "listFairshare",
+        "summary": "分页查询实时公平份额",
+        "description": "需要 fairshare.read 和 associations.read。控制器 shares 按实际集群名、Association ID、身份和分区交叉校验；缓存 15 秒。因子由 Slurm 提供，未知、无限与零分别保留。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "account",
+                "user",
+                "factor",
+                "id"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "account",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "in": "query",
+            "name": "user",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "account",
+                "user"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "page",
+                        "perPage",
+                        "totalItems",
+                        "fetchedAt",
+                        "cached"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/FairshareRecord"
+                          }
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "perPage": {
+                          "type": "integer"
+                        },
+                        "totalItems": {
+                          "type": "integer"
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/qos/{name}:
+    {
+      "get": {
+        "operationId": "getQosPolicy",
+        "summary": "读取可见 QOS 详情",
+        "description": "权限和目录可见性与 QOS 列表一致；无权看到的名称统一返回 404。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "item",
+                        "fetchedAt",
+                        "cached"
+                      ],
+                      "properties": {
+                        "item": {
+                          "$ref": "#/components/schemas/QosPolicy"
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/qos-operations:
+    {
+      "get": {
+        "operationId": "listQosOperations",
+        "summary": "读取本人最近十次 QOS 操作",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AccountingOperation"
+                          }
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "description": "需要 qos.read。完整 QOS 操作需要 platform.qos.read，撤销后返回空列表；不与账户身份操作混排。单条仍经 accounting-operations/{operationId} 只读核实，核实只观察、不重发写请求。"
       }
     }
 components:
@@ -5799,7 +6331,9 @@ components:
           "partition",
           "parentAccount",
           "comment",
-          "isDefault"
+          "isDefault",
+          "qos",
+          "defaultQos"
         ],
         "properties": {
           "id": {
@@ -5825,15 +6359,22 @@ components:
           },
           "isDefault": {
             "type": "boolean"
+          },
+          "qos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "defaultQos": {
+            "type": "string"
           }
         }
       }
     AccountingSpec:
       {
         "type": "object",
-        "required": [
-          "account"
-        ],
+        "required": [],
         "properties": {
           "account": {
             "type": "string"
@@ -5852,8 +6393,13 @@ components:
           },
           "organization": {
             "type": "string"
+          },
+          "qos": {
+            "$ref": "#/components/schemas/QosMutation"
           }
-        }
+        },
+        "additionalProperties": false,
+        "description": "QOS 动作必须包含完整 qos 对象，其余身份字段为空或省略；其他动作禁止 qos，并要求相应身份字段。"
       }
     AccountingPrepared:
       {
@@ -5953,4 +6499,200 @@ components:
             "type": "string"
           }
         }
+      }
+    SlurmDecimal:
+      {
+        "type": "object",
+        "required": [
+          "value",
+          "infinite"
+        ],
+        "properties": {
+          "value": {
+            "type": "number",
+            "nullable": true,
+            "description": "未提供或 infinite 时为 null；零值保留为 0。"
+          },
+          "infinite": {
+            "type": "boolean"
+          }
+        }
+      }
+    QosPolicy:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "priority",
+          "usageFactor",
+          "maxJobsPerUser",
+          "maxSubmitJobsPerUser",
+          "maxWallMinutes",
+          "flags",
+          "preemptModes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "usageFactor": {
+            "$ref": "#/components/schemas/SlurmDecimal"
+          },
+          "maxJobsPerUser": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "maxSubmitJobsPerUser": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "maxWallMinutes": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preemptModes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    FairshareRecord:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "cluster",
+          "account",
+          "user",
+          "parent",
+          "partition",
+          "shares",
+          "normalizedShares",
+          "rawUsage",
+          "normalizedUsage",
+          "effectiveUsage",
+          "factor",
+          "level"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "cluster": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "user": {
+            "type": "string"
+          },
+          "parent": {
+            "type": "string"
+          },
+          "partition": {
+            "type": "string"
+          },
+          "shares": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "normalizedShares": {
+            "$ref": "#/components/schemas/SlurmDecimal"
+          },
+          "rawUsage": {
+            "type": "string",
+            "pattern": "^[0-9]{1,20}$",
+            "description": "Slurm 原始累计计费用量，使用十进制字符串保留 uint64 精度。"
+          },
+          "normalizedUsage": {
+            "$ref": "#/components/schemas/SlurmDecimal"
+          },
+          "effectiveUsage": {
+            "$ref": "#/components/schemas/SlurmDecimal"
+          },
+          "factor": {
+            "$ref": "#/components/schemas/SlurmDecimal"
+          },
+          "level": {
+            "$ref": "#/components/schemas/SlurmDecimal"
+          }
+        }
+      }
+    QosMutation:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "priority",
+          "usageFactor",
+          "maxJobsPerUser",
+          "maxSubmitJobsPerUser",
+          "maxWallMinutes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "创建为空字符串；编辑为目标既有 QOS ID，名称不可更改。"
+          },
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$",
+            "description": "新建使用小写；禁止 ALL。"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "usageFactor": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "maxJobsPerUser": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "nullable": true,
+            "description": "必须显式传入；null 表示无限制，0 保留为数值零。"
+          },
+          "maxSubmitJobsPerUser": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "nullable": true,
+            "description": "必须显式传入；null 表示无限制，0 保留为数值零。"
+          },
+          "maxWallMinutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "nullable": true,
+            "description": "必须显式传入；null 表示无限制，0 保留为数值零。"
+          }
+        },
+        "additionalProperties": false
       }

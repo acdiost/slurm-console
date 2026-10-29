@@ -35,3 +35,5 @@ Linux 本地账户写入通过固定 root 子命令和 root 所有的 UID 策略
 应用 systemd 服务以 root 运行，PAM 与本地账户 helper 直接调用。Slurm Unix socket 请求通过一次性降权子进程保留专用 `slurm-console` 对端身份，使用有界 JSON 管道和固定环境，不继承 root 附加组；HTTPS/JWT 连接保持原传输。升级快照在权限迁移前生成，恢复依据归档 unit 选择 root 或旧版服务账户的数据所有者。
 
 `internal/accounting` 通过固定 SlurmDBD REST 请求管理 Account/User/Association；全局身份变更与集群关联权限分离，写前确认与审计、写后只读核实，未决目标不重发。只读页面 `/accounts` 通过实际 Slurm 集群名过滤记账数据，隐藏其他集群身份及默认 Account。
+
+QOS / Fairshare 使用既有 Slurm Client、Adapter 和有界缓存。QOS 全局写入复用记账确认/审计引擎；服务端保留抢占模式并核实未编辑字段指纹。Fairshare 将控制器份额与当前集群关联交叉校验，uint64 用量以字符串传输。

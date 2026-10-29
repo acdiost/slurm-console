@@ -40,3 +40,5 @@ Linux 身份列表及精确详情要求对应集群的 `linux_users.read`，来�
 本机 Linux 账户写操作独立要求 `linux_users.create/lock/unlock`，显式绑定 Super Admin/Cluster Admin，Operator/Viewer 不获得这些动作。系统管理员还须启用本机来源及 root UID 策略；集群权限不会绕过主机保护名单、账户来源或到期状态检查。写前确认、持久审计及主机幂等日志共同控制执行边界。
 
 Account、Slurm 用户及 Association 分别要求 `accounts.read`、`slurm_users.read`、`associations.read`。全局身份元数据和新用户默认账户还要求独立平台权限 `platform.accounting.manage`，默认仅 Super Admin；Cluster Admin 只能按集群管理关联。移除关联另需 `jobs.read` 以核对未结束作业。范围和确认规则见 [记账身份管理](accounting.md)。
+
+QOS 完整目录需要平台 `platform.qos.read`，全局写入另需 `platform.qos.manage` 和集群 `qos.read/update`，两项新平台权限默认只绑定 Super Admin。普通集群角色只读本集群 Association 引用的 QOS；Fairshare 需要 `fairshare.read` 与 `associations.read`。详见 [QOS / Fairshare](qos-fairshare.md)。

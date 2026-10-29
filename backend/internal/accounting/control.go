@@ -29,12 +29,13 @@ import (
 )
 
 type Spec struct {
-	Account       string `json:"account"`
-	User          string `json:"user"`
-	Partition     string `json:"partition"`
-	AssociationID string `json:"associationId"`
-	Description   string `json:"description"`
-	Organization  string `json:"organization"`
+	Account       string          `json:"account"`
+	User          string          `json:"user"`
+	Partition     string          `json:"partition"`
+	AssociationID string          `json:"associationId"`
+	Description   string          `json:"description"`
+	Organization  string          `json:"organization"`
+	QOS           *client.QOSSpec `json:"qos,omitempty"`
 }
 type Prepared struct {
 	Allowed      bool   `json:"allowed"`
@@ -101,18 +102,21 @@ func digest(value any) string {
 	return hex.EncodeToString(sum[:])
 }
 func mutation(action, cluster string, v Spec) client.AccountingMutation {
-	return client.AccountingMutation{Action: action, Cluster: cluster, Account: v.Account, User: v.User, Partition: v.Partition, AssociationID: v.AssociationID, Description: v.Description, Organization: v.Organization}
+	return client.AccountingMutation{Action: action, Cluster: cluster, Account: v.Account, User: v.User, Partition: v.Partition, AssociationID: v.AssociationID, Description: v.Description, Organization: v.Organization, QOS: v.QOS}
 }
 func spec(m client.AccountingMutation) Spec {
-	return Spec{m.Account, m.User, m.Partition, m.AssociationID, m.Description, m.Organization}
+	return Spec{Account: m.Account, User: m.User, Partition: m.Partition, AssociationID: m.AssociationID, Description: m.Description, Organization: m.Organization, QOS: m.QOS}
 }
 func Action(action string) string {
-	return map[string]string{"account_create": "accounts.create", "account_update": "accounts.update", "user_create": "slurm_users.create", "association_create": "associations.create", "association_remove": "associations.remove"}[action]
+	return map[string]string{"account_create": "accounts.create", "account_update": "accounts.update", "user_create": "slurm_users.create", "association_create": "associations.create", "association_remove": "associations.remove", "qos_create": "qos.create", "qos_update": "qos.update"}[action]
 }
 func global(action string) bool {
-	return slices.Contains([]string{"account_create", "account_update", "user_create"}, action)
+	return slices.Contains([]string{"account_create", "account_update", "user_create", "qos_create", "qos_update"}, action)
 }
 func confirmation(m client.AccountingMutation) string {
+	if isQOS(m.Action) && m.QOS != nil {
+		return m.QOS.Name
+	}
 	if m.Action == "account_create" || m.Action == "account_update" {
 		return m.Account
 	}
@@ -125,6 +129,9 @@ func confirmation(m client.AccountingMutation) string {
 	return m.User + "@" + m.Account
 }
 func target(m client.AccountingMutation) (string, string) {
+	if isQOS(m.Action) && m.QOS != nil {
+		return "slurm_qos", m.QOS.Name
+	}
 	switch m.Action {
 	case "account_create", "account_update":
 		return "slurm_account", m.Account
@@ -136,6 +143,8 @@ func target(m client.AccountingMutation) (string, string) {
 }
 func required(action string) []string {
 	switch action {
+	case "qos_create", "qos_update":
+		return []string{"qos.read", "qos.update"}
 	case "account_create", "account_update":
 		return []string{"accounts.read", "accounts.update"}
 	case "user_create":
@@ -164,7 +173,10 @@ func (s *Service) authorized(actor, cluster, action string) error {
 			return client.Failure("operation_forbidden", "未授予此集群的记账操作权限。")
 		}
 	}
-	if global(action) && !access.Allows("platform.accounting.manage", "") {
+	if isQOS(action) && (!access.Allows("platform.qos.manage", "") || !access.Allows("platform.qos.read", "")) {
+		return client.Failure("operation_forbidden", "共享 QOS 变更需要平台 QOS 读取及管理权限。")
+	}
+	if global(action) && !isQOS(action) && !access.Allows("platform.accounting.manage", "") {
 		return client.Failure("operation_forbidden", "全局记账身份变更需要独立的平台记账管理权限。")
 	}
 	return nil
@@ -206,6 +218,14 @@ func parent(s adapter.AccountingSnapshot, account string) *models.Association {
 	return nil
 }
 func state(s adapter.AccountingSnapshot, m client.AccountingMutation) string {
+	if isQOS(m.Action) {
+		q := findQOS(s, m.QOS.Name)
+		fingerprint := ""
+		if q != nil {
+			fingerprint = q.Fingerprint
+		}
+		return digest([]any{s.Cluster, q, fingerprint})
+	}
 	a, u, assoc := findAccount(s, m.Account), findUser(s, m.User), matching(s, m)
 	if m.Action == "account_create" {
 		return digest([]any{s.Cluster, a, parent(s, "root")})
@@ -219,6 +239,9 @@ func protected(name string) bool {
 	return slices.Contains([]string{"root", "slurm-console", "slurm", "munge", "nobody"}, strings.ToLower(name))
 }
 func policy(s adapter.AccountingSnapshot, m client.AccountingMutation) string {
+	if isQOS(m.Action) {
+		return qosPolicy(s, m)
+	}
 	if !m.Valid() || s.Cluster != m.Cluster || protected(m.Account) || m.User != "" && protected(m.User) {
 		return "目标名称、字段或集群不符合操作策略。"
 	}
@@ -340,14 +363,14 @@ func (s *Service) Prepare(ctx context.Context, actor, cluster, action string, v 
 	if err != nil {
 		return result, err
 	}
-	snapshot, err := c.Adapter.Accounting(ctx)
+	snapshot, err := readSnapshot(ctx, c.Adapter, action)
 	if err != nil {
 		return result, err
 	}
 	if err := s.authorized(actor, cluster, action); err != nil {
 		return result, err
 	}
-	m := mutation(action, snapshot.Cluster, v)
+	m := preserveQOS(snapshot, mutation(action, snapshot.Cluster, v))
 	result.SlurmCluster = m.Cluster
 	result.Confirmation = confirmation(m)
 	if denied := policy(snapshot, m); denied != "" {
@@ -378,6 +401,9 @@ func (s *Service) Prepare(ctx context.Context, actor, cluster, action string, v 
 	result.OperationID = p.Operation
 	result.ExpiresAt = time.Unix(p.Expires, 0).UTC().Format(time.RFC3339)
 	result.Message = "已读取最新记账身份及关联，请核对影响范围、填写原因并确认。"
+	if isQOS(action) {
+		result.Message = "已读取共享 QOS 最新定义，请核对全部可编辑字段及跨集群影响，填写原因并确认。"
+	}
 	return result, nil
 }
 func (s *Service) parse(raw, actor, cluster string) (intent, error) {
@@ -423,6 +449,9 @@ func (s *Service) view(r *core.Record) Result {
 	return Result{r.GetString("operation_key"), m.Action, spec(m), m.Cluster, status, message, r.GetString("reason"), r.GetString("created"), r.GetString("updated")}
 }
 func reached(snapshot adapter.AccountingSnapshot, m client.AccountingMutation) bool {
+	if isQOS(m.Action) {
+		return qosReached(snapshot, m)
+	}
 	if snapshot.Cluster != m.Cluster {
 		return false
 	}
@@ -453,12 +482,9 @@ func (s *Service) Get(ctx context.Context, actor, cluster, id string) (Result, e
 	if err != nil {
 		return Result{}, err
 	}
-	read := "associations.read"
-	if strings.HasPrefix(m.Action, "account_") {
-		read = "accounts.read"
-	}
-	if m.Action == "user_create" {
-		read = "slurm_users.read"
+	read := readPermission(m.Action)
+	if isQOS(m.Action) && !access.Allows("platform.qos.read", "") {
+		return Result{}, client.Failure("operation_forbidden", "共享 QOS 操作记录需要平台目录读取权限。")
 	}
 	if r.GetString("cluster_id") != cluster || !access.Allows(read, cluster) || (r.GetString("actor_id") != actor && !access.Allows("platform.audit.read", "")) {
 		return Result{}, client.Failure("operation_forbidden", "无权读取该记账操作。")
@@ -478,12 +504,12 @@ func (s *Service) Get(ctx context.Context, actor, cluster, id string) (Result, e
 	if err != nil || c.Revision != r.GetInt("cluster_revision") {
 		return v, nil
 	}
-	snapshot, err := c.Adapter.Accounting(ctx)
+	snapshot, err := readSnapshot(ctx, c.Adapter, m.Action)
 	latestAccess, accessErr := rbac.Resolve(s.app, actor)
 	if accessErr != nil {
 		return Result{}, accessErr
 	}
-	if !latestAccess.Allows(read, cluster) {
+	if !latestAccess.Allows(read, cluster) || isQOS(m.Action) && !latestAccess.Allows("platform.qos.read", "") {
 		return Result{}, client.Failure("operation_forbidden", "记账读取权限已撤销。")
 	}
 	if err != nil {
@@ -497,6 +523,7 @@ func (s *Service) Get(ctx context.Context, actor, cluster, id string) (Result, e
 			return Result{}, client.Failure("audit_unavailable", "核实结果未能持久化，请稍后重查。")
 		}
 		services.SlurmFor(s.app).Invalidate(cluster)
+		services.SlurmFor(s.app).InvalidateAccounting()
 		return s.view(r), nil
 	}
 	return v, nil
@@ -546,7 +573,7 @@ func (s *Service) Execute(actor, cluster, requestID string, input Input) (Result
 	}
 	ctx, cancel := context.WithTimeout(s.ctx, min(60*time.Second, 10*c.Timeout+time.Second))
 	defer cancel()
-	snapshot, err := c.Adapter.Accounting(ctx)
+	snapshot, err := readSnapshot(ctx, c.Adapter, p.Action)
 	if err != nil {
 		return Result{}, err
 	}
@@ -608,7 +635,7 @@ func (s *Service) Execute(actor, cluster, requestID string, input Input) (Result
 	if writeErr != nil && !sent {
 		return finish("failed", writeErr.Error())
 	}
-	observed, readErr := current.Adapter.Accounting(ctx)
+	observed, readErr := readSnapshot(ctx, current.Adapter, p.Action)
 	latest, configErr := services.ConnectionFor(s.app, cluster)
 	if readErr == nil && configErr == nil && latest.Revision == p.Revision && reached(observed, p.Mutation) {
 		return finish("confirmed", "已核实目标记账状态。")
@@ -619,6 +646,9 @@ func (s *Service) Execute(actor, cluster, requestID string, input Input) (Result
 	return finish("unknown", "写请求结果未知，请查询操作记录及 Slurm 状态，勿重复提交。")
 }
 func changes(s adapter.AccountingSnapshot, m client.AccountingMutation) []audit.Change {
+	if isQOS(m.Action) {
+		return qosChanges(s, m)
+	}
 	out := []audit.Change{{Field: "account", After: m.Account}, {Field: "slurmCluster", After: m.Cluster}}
 	if m.User != "" {
 		out = append(out, audit.Change{Field: "username", After: m.User})
@@ -641,27 +671,36 @@ func changes(s adapter.AccountingSnapshot, m client.AccountingMutation) []audit.
 }
 
 func (s *Service) Recent(actor, cluster string) ([]Result, error) {
+	return s.recent(actor, cluster, false)
+}
+func (s *Service) RecentQOS(actor, cluster string) ([]Result, error) {
+	return s.recent(actor, cluster, true)
+}
+func (s *Service) recent(actor, cluster string, qosOnly bool) ([]Result, error) {
 	access, err := rbac.Resolve(s.app, actor)
 	if err != nil {
 		return nil, err
 	}
-	if !access.Allows("accounts.read", cluster) && !access.Allows("slurm_users.read", cluster) && !access.Allows("associations.read", cluster) {
+	if qosOnly && !access.Allows("platform.qos.read", "") {
+		return []Result{}, nil
+	}
+	if qosOnly && !access.Allows("qos.read", cluster) || !qosOnly && !access.Allows("accounts.read", cluster) && !access.Allows("slurm_users.read", cluster) && !access.Allows("associations.read", cluster) {
 		return nil, client.Failure("operation_forbidden", "未授予该集群的记账读取权限。")
 	}
-	rows, err := s.app.FindRecordsByFilter("operation_audits", "cluster_id={:cluster} && actor_id={:actor} && accounting_spec != null", "-created", 10, 0, dbx.Params{"cluster": cluster, "actor": actor})
+	filter := "cluster_id={:cluster} && actor_id={:actor} && accounting_spec != null"
+	if qosOnly {
+		filter += " && (action='qos.create' || action='qos.update')"
+	} else {
+		filter += " && action!='qos.create' && action!='qos.update'"
+	}
+	rows, err := s.app.FindRecordsByFilter("operation_audits", filter, "-created", 10, 0, dbx.Params{"cluster": cluster, "actor": actor})
 	if err != nil {
 		return nil, err
 	}
 	out := []Result{}
 	for _, r := range rows {
 		m := storedMutation(r)
-		read := "associations.read"
-		if strings.HasPrefix(m.Action, "account_") {
-			read = "accounts.read"
-		}
-		if m.Action == "user_create" {
-			read = "slurm_users.read"
-		}
+		read := readPermission(m.Action)
 		if access.Allows(read, cluster) {
 			out = append(out, s.view(r))
 		}

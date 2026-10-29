@@ -23,3 +23,5 @@
 Linux 系统用户查询为 `GET /clusters/{clusterId}/linux-users` 及 `/linux-users/{username}`，独立使用 `linux_users.read`。身份来源只能来自部署管理员的配置，浏览器不能指定 SSH 目标或命令；枚举与精确查找范围不同，见 [Linux 用户契约](linux-users.md)。
 
 记账身份读取和确认操作端点见 [Account 与 Association](accounting.md)，对接固定 slurmdbd v0.0.43。全局身份变更需独立平台权限，关联操作按实际集群隔离；已发起写操作没有自动重试路径。
+
+QOS / Fairshare API 已接入 `/clusters/{clusterId}/qos`、`/fairshare`、`/qos-operations`。QOS 固定字段写入复用记账 controls，完整共享目录与全局写入独立授权，详见 [策略契约](qos-fairshare.md) 及 OpenAPI 0.16.0。

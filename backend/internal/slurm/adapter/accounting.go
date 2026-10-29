@@ -13,6 +13,7 @@ type AccountingSnapshot struct {
 	Accounts     []models.Account
 	Users        []models.SlurmUser
 	Associations []models.Association
+	QOS          []models.QOS
 }
 
 func (a *Adapter) AccountingCluster(ctx context.Context) (string, error) {
@@ -98,6 +99,8 @@ func (a *Adapter) AssociationsIn(ctx context.Context, cluster string) ([]models.
 		Parent                                     string `json:"parent_account"`
 		IsDefault                                  bool   `json:"is_default"`
 		Flags                                      []string
+		QOS                                        []string
+		Default                                    struct{ QOS string }
 	}](envelope.Associations)
 	if err != nil {
 		return nil, err
@@ -113,7 +116,18 @@ func (a *Adapter) AssociationsIn(ctx context.Context, cluster string) ([]models.
 			return nil, invalid()
 		}
 		seen[*v.ID] = true
-		result = append(result, models.Association{ID: strconv.FormatInt(*v.ID, 10), Cluster: v.Cluster, Account: v.Account, User: v.User, Partition: v.Partition, ParentAccount: v.Parent, IsDefault: v.IsDefault, Comment: v.Comment})
+		if len(v.QOS) > 20000 || v.Default.QOS != "" && !client.ValidAccountingName(v.Default.QOS) {
+			return nil, invalid()
+		}
+		for _, q := range v.QOS {
+			if !client.ValidAccountingName(q) {
+				return nil, invalid()
+			}
+		}
+		if v.QOS == nil {
+			v.QOS = []string{}
+		}
+		result = append(result, models.Association{ID: strconv.FormatInt(*v.ID, 10), Cluster: v.Cluster, Account: v.Account, User: v.User, Partition: v.Partition, ParentAccount: v.Parent, IsDefault: v.IsDefault, Comment: v.Comment, QOS: v.QOS, DefaultQOS: v.Default.QOS})
 	}
 	return result, nil
 }

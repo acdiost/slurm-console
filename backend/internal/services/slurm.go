@@ -98,6 +98,12 @@ func (s *Slurm) load(key, clusterID string, revision int, epoch uint64, kind, id
 	var err error
 	ttl := 5 * time.Second
 	switch kind {
+	case "qos":
+		value, err = a.Policy(s.ctx)
+		ttl = 60 * time.Second
+	case "fairshare":
+		value, err = a.Fairshare(s.ctx)
+		ttl = 15 * time.Second
 	case "accounts":
 		value, err = a.GetAccounts(s.ctx)
 		ttl = 60 * time.Second
@@ -230,7 +236,7 @@ func (s *Slurm) InvalidateAccounting() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for key, cached := range s.cache {
-		if strings.Contains(key, ":accounts:") || strings.Contains(key, ":slurm_users:") || strings.Contains(key, ":associations:") {
+		if strings.Contains(key, ":accounts:") || strings.Contains(key, ":slurm_users:") || strings.Contains(key, ":associations:") || strings.Contains(key, ":qos:") || strings.Contains(key, ":fairshare:") {
 			s.bytes -= len(cached.result.Data)
 			delete(s.cache, key)
 		}
