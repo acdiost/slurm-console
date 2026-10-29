@@ -38,6 +38,11 @@ export const auditDetailSchema = z.object({
 })
 export const actions: Record<string, string> = {
   "jobs.cancel": "取消作业",
+  "accounts.create": "创建 Slurm Account",
+  "accounts.update": "编辑 Slurm Account",
+  "slurm_users.create": "创建 Slurm 用户",
+  "associations.create": "创建 Association",
+  "associations.remove": "移除 Association",
   "nodes.drain": "Drain 节点",
   "nodes.resume": "Resume 节点",
   "linux_users.create": "创建本地账户",
@@ -62,6 +67,12 @@ export const statuses: Record<string, string> = {
   unknown: "结果待核实",
 }
 export const fields: Record<string, string> = {
+  account: "Slurm Account",
+  slurmCluster: "Slurm 集群",
+  partition: "分区",
+  associationId: "Association ID",
+  description: "描述",
+  organization: "组织",
   home: "主目录",
   shell: "登录 Shell",
   accountExpiry: "账户到期日（UTC 天数，-1 为无到期日）",
@@ -109,6 +120,29 @@ export function resourceLink(item: Audit, permissions: string[]) {
   if (item.targetType === "node" && permissions.includes("nodes.read")) {
     p.set("node", item.targetId)
     return `/nodes?${p}`
+  }
+  if (
+    ["slurm_account", "slurm_user", "association"].includes(item.targetType)
+  ) {
+    const permission =
+      item.targetType === "slurm_account"
+        ? "accounts.read"
+        : item.targetType === "slurm_user"
+          ? "slurm_users.read"
+          : "associations.read"
+    if (permissions.includes(permission)) {
+      p.set(
+        "tab",
+        item.targetType === "slurm_account"
+          ? "accounts"
+          : item.targetType === "slurm_user"
+            ? "slurm-users"
+            : "associations"
+      )
+      p.set("operation", item.operationId)
+      if (item.targetType !== "association") p.set("item", item.targetId)
+      return `/accounts?${p}`
+    }
   }
   return undefined
 }

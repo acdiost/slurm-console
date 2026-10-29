@@ -38,3 +38,5 @@ Adapter 的健康、作业、节点、分区端点分别要求对应集群的 `c
 Linux 身份列表及精确详情要求对应集群的 `linux_users.read`，来源访问前和返回数据前分别复查权限。该权限不包含账户创建、密码锁定/解锁、平台账户或 Slurm Association 管理；内置四类角色显式加入读取动作，自定义角色不会隐式获得。见 [Linux 系统用户查询](linux-users.md)。
 
 本机 Linux 账户写操作独立要求 `linux_users.create/lock/unlock`，显式绑定 Super Admin/Cluster Admin，Operator/Viewer 不获得这些动作。系统管理员还须启用本机来源及 root UID 策略；集群权限不会绕过主机保护名单、账户来源或到期状态检查。写前确认、持久审计及主机幂等日志共同控制执行边界。
+
+Account、Slurm 用户及 Association 分别要求 `accounts.read`、`slurm_users.read`、`associations.read`。全局身份元数据和新用户默认账户还要求独立平台权限 `platform.accounting.manage`，默认仅 Super Admin；Cluster Admin 只能按集群管理关联。移除关联另需 `jobs.read` 以核对未结束作业。范围和确认规则见 [记账身份管理](accounting.md)。

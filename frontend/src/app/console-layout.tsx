@@ -61,7 +61,7 @@ const sections = [
   },
   {
     label: "身份与策略",
-    items: [{ label: "账户与策略", icon: ShieldCheck }],
+    items: [],
   },
   {
     label: "平台管理",
@@ -207,6 +207,18 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
             )}
             {section.label === "身份与策略" && (
               <NavLink
+                to="/accounts"
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
+                }
+              >
+                <ShieldCheck />
+                <span>账户与 Association</span>
+              </NavLink>
+            )}
+            {section.label === "身份与策略" && (
+              <NavLink
                 to="/linux-users"
                 onClick={onNavigate}
                 className={({ isActive }) =>
@@ -344,25 +356,27 @@ export function ConsoleLayout() {
             </span>
             <ChevronRight className="hidden size-3 text-muted-foreground sm:inline" />
             <span>
-              {pathname === "/linux-users"
-                ? "Linux 系统用户"
-                : pathname === "/fleet"
-                  ? "集群工作台"
-                  : pathname === "/audits"
-                    ? "操作审计"
-                    : pathname === "/partitions"
-                      ? "分区查询"
-                      : pathname === "/nodes"
-                        ? "节点管理"
-                        : pathname === "/jobs"
-                          ? "作业管理"
-                          : pathname === "/overview"
-                            ? "集群总览"
-                            : pathname === "/clusters"
-                              ? "集群配置"
-                              : pathname === "/access"
-                                ? "我的权限"
-                                : "设计系统"}
+              {pathname === "/accounts"
+                ? "账户与 Association"
+                : pathname === "/linux-users"
+                  ? "Linux 系统用户"
+                  : pathname === "/fleet"
+                    ? "集群工作台"
+                    : pathname === "/audits"
+                      ? "操作审计"
+                      : pathname === "/partitions"
+                        ? "分区查询"
+                        : pathname === "/nodes"
+                          ? "节点管理"
+                          : pathname === "/jobs"
+                            ? "作业管理"
+                            : pathname === "/overview"
+                              ? "集群总览"
+                              : pathname === "/clusters"
+                                ? "集群配置"
+                                : pathname === "/access"
+                                  ? "我的权限"
+                                  : "设计系统"}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">

@@ -98,6 +98,15 @@ func (s *Slurm) load(key, clusterID string, revision int, epoch uint64, kind, id
 	var err error
 	ttl := 5 * time.Second
 	switch kind {
+	case "accounts":
+		value, err = a.GetAccounts(s.ctx)
+		ttl = 60 * time.Second
+	case "slurm_users":
+		value, err = a.GetSlurmUsers(s.ctx)
+		ttl = 60 * time.Second
+	case "associations":
+		value, err = a.GetAssociations(s.ctx)
+		ttl = 60 * time.Second
 	case "health":
 		value, err = a.Health(s.ctx)
 	case "jobs":
@@ -213,5 +222,25 @@ func (s *Slurm) Invalidate(clusterID string) {
 			s.bytes -= len(cached.result.Data)
 			delete(s.cache, key)
 		}
+	}
+}
+
+// Global accounting identity metadata is shared across profile/cluster views.
+func (s *Slurm) InvalidateAccounting() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for key, cached := range s.cache {
+		if strings.Contains(key, ":accounts:") || strings.Contains(key, ":slurm_users:") || strings.Contains(key, ":associations:") {
+			s.bytes -= len(cached.result.Data)
+			delete(s.cache, key)
+		}
+	}
+	// In-flight reads also become stale, including aliases to the same SlurmDBD.
+	for cluster := range s.epochs {
+		s.epochs[cluster]++
+	}
+	for key := range s.pending {
+		cluster, _, _ := strings.Cut(key, ":")
+		s.epochs[cluster]++
 	}
 }

@@ -70,7 +70,7 @@ func auditView(r *core.Record) auditItem {
 	_ = json.Unmarshal(data, &changes)
 	// Expose only reviewed scalar change fields, even for malformed local records.
 	for _, c := range changes {
-		if slices.Contains([]string{"name", "slug", "enabled", "apiVersion", "connectionRef", "timeoutSeconds", "revision", "authSource", "username", "uid", "scope", "role", "home", "shell", "accountExpiry"}, c.Field) {
+		if slices.Contains([]string{"name", "slug", "enabled", "apiVersion", "connectionRef", "timeoutSeconds", "revision", "authSource", "username", "uid", "scope", "role", "home", "shell", "accountExpiry", "account", "slurmCluster", "partition", "associationId", "description", "organization"}, c.Field) {
 			v.Changes = append(v.Changes, c)
 		}
 	}

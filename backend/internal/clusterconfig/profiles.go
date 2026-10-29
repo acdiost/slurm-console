@@ -24,6 +24,7 @@ type Profile struct {
 	AuthType  string   `json:"authType"`
 	Versions  []string `json:"apiVersions"`
 	Username  string   `json:"username,omitempty"`
+	LocalUser string   `json:"localUser,omitempty"`
 	TokenFile string   `json:"tokenFile,omitempty"`
 	CAFile    string   `json:"caFile,omitempty"`
 	tls       *tls.Config
@@ -83,10 +84,16 @@ func NewRegistry(profiles map[string]Profile) (*Registry, error) {
 		}
 		switch u.Scheme {
 		case "unix":
+			if profile.LocalUser != "" && (!keyPattern.MatchString(profile.LocalUser) || profile.LocalUser == "root") {
+				return nil, errors.New("localUser must name a dedicated non-root Unix socket identity")
+			}
 			if u.Host != "" || !filepath.IsAbs(u.Path) || filepath.Clean(u.Path) != u.Path || u.RawPath != "" || profile.AuthType != "local" || profile.TokenFile != "" || profile.Username != "" || profile.CAFile != "" {
 				return nil, errors.New("Unix profiles require an absolute socket and local authentication")
 			}
 		case "https":
+			if profile.LocalUser != "" {
+				return nil, errors.New("localUser is only supported for Unix sockets")
+			}
 			if u.Hostname() == "" || (u.Path != "" && u.Path != "/") || profile.AuthType != "jwt" || !keyPattern.MatchString(profile.Username) || !filepath.IsAbs(profile.TokenFile) {
 				return nil, errors.New("HTTPS profiles require JWT identity, protected token file and an origin URL")
 			}

@@ -33,3 +33,5 @@
 Linux 本地账户写入通过固定 root 子命令和 root 所有的 UID 策略隔离；平台先持久审计，主机再记录意图与结果。平台或主机未知结果只读取核实，绝不自动重发 OS 命令。主机恢复状态独立于应用数据库生命周期。
 
 应用 systemd 服务以 root 运行，PAM 与本地账户 helper 直接调用。Slurm Unix socket 请求通过一次性降权子进程保留专用 `slurm-console` 对端身份，使用有界 JSON 管道和固定环境，不继承 root 附加组；HTTPS/JWT 连接保持原传输。升级快照在权限迁移前生成，恢复依据归档 unit 选择 root 或旧版服务账户的数据所有者。
+
+`internal/accounting` 通过固定 SlurmDBD REST 请求管理 Account/User/Association；全局身份变更与集群关联权限分离，写前确认与审计、写后只读核实，未决目标不重发。只读页面 `/accounts` 通过实际 Slurm 集群名过滤记账数据，隐藏其他集群身份及默认 Account。

@@ -3,6 +3,7 @@ package clusterconfig
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -163,5 +164,23 @@ func TestRegistryRejectsUnapprovedTransportsAndDoesNotExportSecrets(t *testing.T
 	view := fmt.Sprintf("%+v", registry.Views())
 	if strings.Contains(view, profile.TokenFile) || strings.Contains(view, profile.CAFile) || strings.Contains(view, profile.Username) {
 		t.Fatal("credential metadata leaked")
+	}
+}
+
+func TestLocalAccountingIdentityIsProtectedConfiguration(t *testing.T) {
+	profile := Profile{Label: "Accounting", Endpoint: "unix:///run/accounting/rest.sock", AuthType: "local", Versions: []string{"v0.0.43"}, LocalUser: "accounting-reader"}
+	registry, err := NewRegistry(map[string]Profile{"accounting": profile})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(registry.Views())
+	if strings.Contains(string(raw), profile.LocalUser) {
+		t.Fatal("local peer identity escaped profile DTO")
+	}
+	for _, name := range []string{"root", "invalid name", "../root"} {
+		profile.LocalUser = name
+		if _, err := NewRegistry(map[string]Profile{"accounting": profile}); err == nil {
+			t.Fatal("invalid peer identity accepted", name)
+		}
 	}
 }

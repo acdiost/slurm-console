@@ -57,7 +57,7 @@ func slurmFailure(e *core.RequestEvent, err error) error {
 		status = 403
 	case "invalid_request":
 		status = 400
-	case "disabled", "configuration_changed", "data_changed", "confirmation_invalid", "confirmation_expired", "confirmation_changed":
+	case "operation_rejected", "disabled", "configuration_changed", "data_changed", "confirmation_invalid", "confirmation_expired", "confirmation_changed":
 		status = 409
 	case "busy":
 		status = 429

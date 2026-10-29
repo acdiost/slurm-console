@@ -47,12 +47,15 @@ type Client struct{ config Config }
 type Resource string
 
 const (
-	Ping       Resource = "ping"
-	Jobs       Resource = "jobs"
-	Job        Resource = "job"
-	Nodes      Resource = "nodes"
-	Node       Resource = "node"
-	Partitions Resource = "partitions"
+	Ping           Resource = "ping"
+	Jobs           Resource = "jobs"
+	Job            Resource = "job"
+	Nodes          Resource = "nodes"
+	Node           Resource = "node"
+	Partitions     Resource = "partitions"
+	DBAccounts     Resource = "db_accounts"
+	DBUsers        Resource = "db_users"
+	DBAssociations Resource = "db_associations"
 )
 
 var nodePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`)
@@ -88,6 +91,7 @@ func New(config Config) (*Client, error) {
 type Envelope struct {
 	Meta struct {
 		Plugin struct {
+			Type   string `json:"type"`
 			Parser string `json:"data_parser"`
 		} `json:"plugin"`
 		Slurm struct {
@@ -95,17 +99,32 @@ type Envelope struct {
 			Cluster string `json:"cluster"`
 		} `json:"slurm"`
 	} `json:"meta"`
-	Errors     []json.RawMessage `json:"errors"`
-	Pings      json.RawMessage   `json:"pings"`
-	Jobs       json.RawMessage   `json:"jobs"`
-	Nodes      json.RawMessage   `json:"nodes"`
-	Partitions json.RawMessage   `json:"partitions"`
+	Errors       []json.RawMessage `json:"errors"`
+	Pings        json.RawMessage   `json:"pings"`
+	Jobs         json.RawMessage   `json:"jobs"`
+	Nodes        json.RawMessage   `json:"nodes"`
+	Partitions   json.RawMessage   `json:"partitions"`
+	Accounts     json.RawMessage   `json:"accounts"`
+	Users        json.RawMessage   `json:"users"`
+	Associations json.RawMessage   `json:"associations"`
 }
 
 func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelope, error) {
 	var empty Envelope
 	path := "/slurm/" + c.config.Version + "/"
 	switch resource {
+	case DBAccounts, DBUsers, DBAssociations:
+		if resource != DBAssociations && id != "" || resource == DBAssociations && !ValidAccountingName(id) {
+			return empty, Failure("invalid_request", "记账查询参数不合法。")
+		}
+		name := map[Resource]string{DBAccounts: "accounts", DBUsers: "users", DBAssociations: "associations"}[resource]
+		path = "/slurmdb/" + c.config.Version + "/" + name + "/"
+		if resource == DBUsers {
+			path += "?with_assocs=true"
+		}
+		if resource == DBAssociations {
+			path += "?cluster=" + url.QueryEscape(id)
+		}
 	case Ping, Jobs, Nodes, Partitions:
 		if id != "" {
 			return empty, Failure("invalid_request", "查询参数不合法。")
@@ -226,6 +245,9 @@ func (c *Client) request(ctx context.Context, method, path string, bodyData []by
 		if sent != nil {
 			*sent = false
 		}
+		if strings.HasPrefix(path, "/slurmdb/") {
+			return empty, Failure("accounting_unavailable", "连接未开放 slurmdbd 记账接口，请管理员配置对应 REST 插件。")
+		}
 		if strings.Contains(path, "/job/") || strings.Contains(path, "/node/") {
 			return empty, Failure("not_found", "Slurm 资源不存在或对连接身份不可见。")
 		}
@@ -243,18 +265,31 @@ func (c *Client) request(ctx context.Context, method, path string, bodyData []by
 	if err != nil || len(body) > 8<<20 || json.Unmarshal(body, &empty) != nil {
 		return Envelope{}, Failure("invalid_response", "Slurm 响应格式异常或超过大小限制。")
 	}
+	if strings.HasPrefix(path, "/slurmdb/") && empty.Meta.Plugin.Type != "openapi/slurmdbd" {
+		return Envelope{}, Failure("invalid_response", "记账响应来源不是已批准的 slurmdbd 插件。")
+	}
 	if len(empty.Errors) > 0 {
 		// Stable Slurm authorization errors are explicit rejections, even when
 		// REST reports them with HTTP 500. Never expose the upstream text.
 		if sent != nil && strings.TrimPrefix(empty.Meta.Plugin.Parser, "data_parser/") == c.config.Version && empty.Meta.Slurm.Release != "" && len(empty.Meta.Slurm.Release) <= 64 {
 			denied := true
+			ambiguous := strings.HasPrefix(path, "/slurmdb/") && method == http.MethodDelete
 			for _, raw := range empty.Errors {
 				var item struct {
 					Number int `json:"error_number"`
 				}
+				if json.Unmarshal(raw, &item) != nil || item.Number != 9210 {
+					ambiguous = false
+				}
 				if json.Unmarshal(raw, &item) != nil || (item.Number != 2002 && item.Number != 2010) {
 					denied = false
 				}
+			}
+			if ambiguous {
+				// ESLURM_DATA_AMBIGUOUS_MODIFY: Slurm refuses to commit the
+				// singular endpoint when removal would affect several rows.
+				*sent = false
+				return Envelope{}, Failure("operation_rejected", "Slurm 拒绝了多目标记账变更，未提交删除。请先核对并移除分区子关联。")
 			}
 			if denied {
 				*sent = false

@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -127,6 +129,23 @@ func ServeLocal(in io.Reader, out io.Writer) int {
 }
 
 func validLocalRequest(r localRequest) bool {
+	dbPrefix := "/slurmdb/" + r.Version + "/"
+	if strings.HasPrefix(r.Path, dbPrefix) {
+		if r.Method == "GET" && !r.Write && len(r.Body) == 0 {
+			if r.Path == dbPrefix+"accounts/" || r.Path == dbPrefix+"users/?with_assocs=true" {
+				return true
+			}
+			u, err := url.Parse(r.Path)
+			if err != nil || u.Path != dbPrefix+"associations/" {
+				return false
+			}
+			q, err := url.ParseQuery(u.RawQuery)
+			return err == nil && len(q) == 1 && len(q["cluster"]) == 1 && ValidAccountingName(q.Get("cluster")) && r.Path == dbPrefix+"associations/?cluster="+url.QueryEscape(q.Get("cluster"))
+		}
+		// Root-generated writes must be the exact serialization of an approved
+		// mutation; arbitrary JSON, CSV selectors and global deletions are rejected.
+		return validAccountingWire(r)
+	}
 	prefix := "/slurm/" + r.Version + "/"
 	if r.Method == "GET" && !r.Write && len(r.Body) == 0 {
 		for _, resource := range []Resource{Ping, Jobs, Nodes, Partitions} {

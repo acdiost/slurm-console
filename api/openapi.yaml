@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.14.0
+  version: 0.15.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -2490,6 +2490,1163 @@ paths:
             },
         },
     }
+  /api/v1/clusters/{clusterId}/accounts:
+    {
+      "get": {
+        "operationId": "listAccountingSlurmAccount",
+        "summary": "按集群分页读取 accounts",
+        "description": "需要 accounts.read。依据控制器实际集群名过滤关联，再关联 Account/User；读取前后复查授权。固定 v0.0.43，60 秒有界缓存，不暴露其他集群记录。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "page",
+                        "perPage",
+                        "totalItems",
+                        "fetchedAt",
+                        "cached"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SlurmAccount"
+                          }
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "perPage": {
+                          "type": "integer"
+                        },
+                        "totalItems": {
+                          "type": "integer"
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/accounts/{name}:
+    {
+      "get": {
+        "operationId": "getAccountingSlurmAccount",
+        "summary": "精确读取所选集群的 accounts",
+        "description": "需要 accounts.read。Association 使用唯一数字 ID，Account/User 使用精确名称。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "item",
+                        "fetchedAt",
+                        "cached"
+                      ],
+                      "properties": {
+                        "item": {
+                          "$ref": "#/components/schemas/SlurmAccount"
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/slurm-users:
+    {
+      "get": {
+        "operationId": "listAccountingSlurmAccountingUser",
+        "summary": "按集群分页读取 slurm-users",
+        "description": "需要 slurm_users.read。依据控制器实际集群名过滤关联，再关联 Account/User；读取前后复查授权。固定 v0.0.43，60 秒有界缓存，不暴露其他集群记录。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "page",
+                        "perPage",
+                        "totalItems",
+                        "fetchedAt",
+                        "cached"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SlurmAccountingUser"
+                          }
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "perPage": {
+                          "type": "integer"
+                        },
+                        "totalItems": {
+                          "type": "integer"
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/slurm-users/{name}:
+    {
+      "get": {
+        "operationId": "getAccountingSlurmAccountingUser",
+        "summary": "精确读取所选集群的 slurm-users",
+        "description": "需要 slurm_users.read。Association 使用唯一数字 ID，Account/User 使用精确名称。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "item",
+                        "fetchedAt",
+                        "cached"
+                      ],
+                      "properties": {
+                        "item": {
+                          "$ref": "#/components/schemas/SlurmAccountingUser"
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/associations:
+    {
+      "get": {
+        "operationId": "listAccountingSlurmAssociation",
+        "summary": "按集群分页读取 associations",
+        "description": "需要 associations.read。依据控制器实际集群名过滤关联，再关联 Account/User；读取前后复查授权。固定 v0.0.43，60 秒有界缓存，不暴露其他集群记录。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "id",
+                "account",
+                "user",
+                "partition"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "account",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "partition",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "account",
+                "user"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "page",
+                        "perPage",
+                        "totalItems",
+                        "fetchedAt",
+                        "cached"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SlurmAssociation"
+                          }
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "perPage": {
+                          "type": "integer"
+                        },
+                        "totalItems": {
+                          "type": "integer"
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/associations/{name}:
+    {
+      "get": {
+        "operationId": "getAccountingSlurmAssociation",
+        "summary": "精确读取所选集群的 associations",
+        "description": "需要 associations.read。Association 使用唯一数字 ID，Account/User 使用精确名称。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "item",
+                        "fetchedAt",
+                        "cached"
+                      ],
+                      "properties": {
+                        "item": {
+                          "$ref": "#/components/schemas/SlurmAssociation"
+                        },
+                        "fetchedAt": {
+                          "type": "string"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/accounting-controls/prepare:
+    {
+      "post": {
+        "operationId": "accounting_controls_prepare",
+        "summary": "校验最新状态与权限，返回绑定操作人、集群、配置版本和目标快照的两分钟确认",
+        "description": "校验最新状态与权限，返回绑定操作人、集群、配置版本和目标快照的两分钟确认。全局身份操作另需 platform.accounting.manage；Association 移除要求 jobs.read 且无未结束作业、非默认、非最后一个关联。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "action",
+                  "spec"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "account_create",
+                      "account_update",
+                      "user_create",
+                      "association_create",
+                      "association_remove"
+                    ]
+                  },
+                  "spec": {
+                    "$ref": "#/components/schemas/AccountingSpec"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AccountingPrepared"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/accounting-controls/execute:
+    {
+      "post": {
+        "operationId": "accounting_controls_execute",
+        "summary": "先持久化审计再发送唯一写请求",
+        "description": "先持久化审计再发送唯一写请求。仅接受确认 proof、目标文本和原因，拒绝额外字段。重放返回原操作；未知结果只读核实，不自动重试。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "proof",
+                  "confirmation",
+                  "reason"
+                ],
+                "properties": {
+                  "proof": {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  "confirmation": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 300
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AccountingOperation"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/accounting-operations:
+    {
+      "get": {
+        "operationId": "recentAccountingOperations",
+        "summary": "本人最近十项有读取权限的记账操作",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AccountingOperation"
+                          }
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/accounting-operations/{operationId}:
+    {
+      "get": {
+        "operationId": "getAccountingOperation",
+        "summary": "只读核实记账操作，不重发写请求",
+        "description": "需对应资源读取权限，仅本人或平台审计管理员可读；连接版本变化或来源不可用时保留未知结果。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operationId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 26,
+              "maxLength": 26
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AccountingOperation"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -2548,6 +3705,13 @@ components:
                         SLURM_PROFILE_UNAVAILABLE,
                         SLURM_CREDENTIALS_UNAVAILABLE,
                         SLURM_UNREACHABLE,
+                        SLURM_ACCOUNTING_UNAVAILABLE,
+                        SLURM_OPERATION_REJECTED,
+                        SLURM_OPERATION_FORBIDDEN,
+                        SLURM_CONFIRMATION_INVALID,
+                        SLURM_CONFIRMATION_EXPIRED,
+                        SLURM_CONFIRMATION_CHANGED,
+                        SLURM_AUDIT_UNAVAILABLE,
                       ]
                   message:
                     type: string
@@ -4555,4 +5719,238 @@ components:
             "minUid": { "type": "integer" },
             "maxUid": { "type": "integer" },
           },
+      }
+    SlurmAccount:
+      {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "organization",
+          "associationCount",
+          "userCount"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "organization": {
+            "type": "string"
+          },
+          "associationCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "userCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    SlurmAccountingUser:
+      {
+        "type": "object",
+        "required": [
+          "name",
+          "defaultAccount",
+          "defaultAccountScope",
+          "administratorLevel",
+          "associationCount"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "defaultAccount": {
+            "type": "string",
+            "description": "仅返回所选集群可见的默认 Account，其他集群名称隐藏"
+          },
+          "defaultAccountScope": {
+            "type": "string",
+            "enum": [
+              "cluster",
+              "outside_cluster",
+              "unset"
+            ]
+          },
+          "administratorLevel": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "associationCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    SlurmAssociation:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "cluster",
+          "account",
+          "user",
+          "partition",
+          "parentAccount",
+          "comment",
+          "isDefault"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "cluster": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "user": {
+            "type": "string"
+          },
+          "partition": {
+            "type": "string"
+          },
+          "parentAccount": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        }
+      }
+    AccountingSpec:
+      {
+        "type": "object",
+        "required": [
+          "account"
+        ],
+        "properties": {
+          "account": {
+            "type": "string"
+          },
+          "user": {
+            "type": "string"
+          },
+          "partition": {
+            "type": "string"
+          },
+          "associationId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "organization": {
+            "type": "string"
+          }
+        }
+      }
+    AccountingPrepared:
+      {
+        "type": "object",
+        "required": [
+          "allowed",
+          "message",
+          "action",
+          "spec",
+          "slurmCluster",
+          "global",
+          "confirmation",
+          "proof",
+          "operationId",
+          "expiresAt"
+        ],
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/AccountingSpec"
+          },
+          "slurmCluster": {
+            "type": "string"
+          },
+          "global": {
+            "type": "boolean"
+          },
+          "confirmation": {
+            "type": "string"
+          },
+          "proof": {
+            "type": "string"
+          },
+          "operationId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        }
+      }
+    AccountingOperation:
+      {
+        "type": "object",
+        "required": [
+          "operationId",
+          "action",
+          "spec",
+          "slurmCluster",
+          "status",
+          "message",
+          "reason",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/AccountingSpec"
+          },
+          "slurmCluster": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "processing",
+              "confirmed",
+              "accepted",
+              "unknown",
+              "failed"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
       }

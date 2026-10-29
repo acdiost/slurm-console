@@ -7,7 +7,7 @@
 
 ## 当前进度与本地启动
 
-已完成阶段一全部十一项：项目初始化及 UI 设计系统、PocketBase Go 框架与认证、基础 RBAC 及集群权限、集群连接配置、Slurm Adapter、集群总览、作业列表/详情/取消、节点查询与控制、分区查询、操作审计、基础部署与备份，并按实施顺序提前接入 Linux PAM 和 LDAP。V1 已接入多集群工作台与 Linux 系统用户查询及本地账户管理。当前支持用户名或邮箱登录、会话刷新、退出、按动作及集群授权的查询，以及 `/linux-users`、`/fleet`、`/overview`、`/jobs`、`/nodes`、`/partitions`、`/audits`、`/design-system`、`/access` 和 `/clusters` 页面。
+已完成阶段一全部十一项：项目初始化及 UI 设计系统、PocketBase Go 框架与认证、基础 RBAC 及集群权限、集群连接配置、Slurm Adapter、集群总览、作业列表/详情/取消、节点查询与控制、分区查询、操作审计、基础部署与备份，并按实施顺序提前接入 Linux PAM 和 LDAP。V1 已接入多集群工作台与 Linux 系统用户查询及本地账户管理。当前支持用户名或邮箱登录、会话刷新、退出、按动作及集群授权的查询，以及 `/accounts`、`/linux-users`、`/fleet`、`/overview`、`/jobs`、`/nodes`、`/partitions`、`/audits`、`/design-system`、`/access` 和 `/clusters` 页面。
 
 要求 Node.js 22.16+（22.x）或 24 LTS、npm 10+、Go 1.27.3+（Go 的自动工具链可按 `go.mod` 下载）。PocketBase 固定为 v0.40.6：
 
@@ -21,7 +21,7 @@ make dev          # 终端二，打开 Vite 输出的地址
 
 首次登录前，在 `backend/` 中运行 `go run . users create --email <你的邮箱> --name <显示名称>`，在隐藏输入提示中设置密码。账户默认没有集群权限；本机管理员可用 `access grant` 授权，详见 [认证与授权](docs/authentication.md)。没有内置账户或默认密码，公开注册已关闭。
 
-设计系统的作业记录仍为固定样例；[集群连接配置](docs/cluster-connections.md) 支持受保护的服务端连接方式、增改启停、REST API 兼容性与控制器连通检测。[Slurm Adapter](docs/slurm-adapter.md) 已提供健康、作业、节点、分区只读 API，明确支持 `v0.0.43`。[集群总览](docs/overview.md) 已接入真实资源、调度与控制器状态。[作业管理](docs/jobs.md) 支持真实筛选分页、详情和经显式身份关联的审计取消。[节点管理](docs/nodes.md) 支持状态矩阵、资源详情及逐节点审计的 Drain / Resume。[分区查询](docs/partitions.md) 支持筛选排序、约束详情及独立授权的关联节点资源。[操作审计](docs/audits.md) 支持跨集群检索、详情、当前页导出及平台管理变更的事务留痕。[基础部署与备份](docs/backups.md) 已支持加密快照、每日调度、校验和恢复。[多集群管理](docs/multi-cluster.md) 提供登录后默认首页 `/fleet`，按授权分页展示各集群的连接、资源和作业，并保留跨业务页集群选择。[Linux 系统用户查询](docs/linux-users.md) 支持本机/固定 SSH 身份来源、NSS 枚举、筛选分页和精确用户名详情；本机来源增加受限的账户创建、到期锁定/解锁、显式确认及持久审计，目录账户仍由管理员维护。V1 下一项为“账户与 Association”。Web 服务以 root 运行，直接调用 PAM 与本地账户 helper；Slurm 本地 socket 请求仍以专用 `slurm-console` 身份执行；认证支持平台密码、使用受限 helper 的 [PAM](docs/pam.md)，以及校验证书的 [LDAP / StartTLS](docs/ldap.md)。LDAP 关联目录唯一标识，保留现有 RBAC；FreeIPA/AD 的专属生命周期及目录组同步尚未实现。
+设计系统的作业记录仍为固定样例；[集群连接配置](docs/cluster-connections.md) 支持受保护的服务端连接方式、增改启停、REST API 兼容性与控制器连通检测。[Slurm Adapter](docs/slurm-adapter.md) 已提供健康、作业、节点、分区只读 API，明确支持 `v0.0.43`。[集群总览](docs/overview.md) 已接入真实资源、调度与控制器状态。[作业管理](docs/jobs.md) 支持真实筛选分页、详情和经显式身份关联的审计取消。[节点管理](docs/nodes.md) 支持状态矩阵、资源详情及逐节点审计的 Drain / Resume。[分区查询](docs/partitions.md) 支持筛选排序、约束详情及独立授权的关联节点资源。[操作审计](docs/audits.md) 支持跨集群检索、详情、当前页导出及平台管理变更的事务留痕。[基础部署与备份](docs/backups.md) 已支持加密快照、每日调度、校验和恢复。[多集群管理](docs/multi-cluster.md) 提供登录后默认首页 `/fleet`，按授权分页展示各集群的连接、资源和作业，并保留跨业务页集群选择。[Linux 系统用户查询](docs/linux-users.md) 支持本机/固定 SSH 身份来源、NSS 枚举、筛选分页和精确用户名详情；本机来源增加受限的账户创建、到期锁定/解锁、显式确认及持久审计，目录账户仍由管理员维护。[账户与 Association](docs/accounting.md) 已接入按集群隔离的 Account、Slurm 用户和关联查询，以及确认、审计和只读结果核实的账户创建/编辑、Slurm 用户创建及关联创建/移除；全局身份变更需要独立平台记账权限。V1 下一项为“QOS / Fairshare”。Web 服务以 root 运行，直接调用 PAM 与本地账户 helper；Slurm 本地 socket 请求仍以专用 `slurm-console` 身份执行；认证支持平台密码、使用受限 helper 的 [PAM](docs/pam.md)，以及校验证书的 [LDAP / StartTLS](docs/ldap.md)。LDAP 关联目录唯一标识，保留现有 RBAC；FreeIPA/AD 的专属生命周期及目录组同步尚未实现。
 
 部署只安装本应用；LDAP、FreeIPA、slurmrestd 等第三方服务由系统管理员自行安装。PAM 可通过 `sudo bash deploy/install.sh --pam` 一键配置，重复执行保持幂等。安装器默认启用每日加密备份；异机复制目标和密钥离线保管由管理员配置，见 [恢复流程](docs/backups.md)。
 
@@ -617,7 +617,7 @@ PocketBase + Go
 
 - [x] 多集群管理
 - [x] Linux 系统用户查询、本地账户创建及锁定/解锁
-- [ ] 账户与 Association
+- [x] 账户与 Association
 - [ ] QOS / Fairshare
 - [ ] TRES 限额
 - [ ] Reservation

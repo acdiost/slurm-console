@@ -26,7 +26,10 @@ type ProbeResult struct {
 func (profile Profile) Client(version string, timeout time.Duration) (*client.Client, error) {
 	localUsername := ""
 	if os.Geteuid() == 0 {
-		localUsername = "slurm-console"
+		localUsername = profile.LocalUser
+		if localUsername == "" {
+			localUsername = "slurm-console"
+		}
 	}
 	return client.New(client.Config{LocalUsername: localUsername, Endpoint: profile.Endpoint, AuthType: profile.AuthType, Username: profile.Username, TokenFile: profile.TokenFile, TLS: profile.tls, Version: version, Timeout: timeout})
 }
