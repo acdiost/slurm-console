@@ -444,7 +444,10 @@ export function GPUPage() {
           if (!open) update({ gpu: null, node: null })
         }}
       >
-        <SheetContent className="overflow-y-auto sm:max-w-3xl">
+        <SheetContent
+          className="overflow-y-auto"
+          style={{ width: "min(100vw, 48rem)", maxWidth: "100vw" }}
+        >
           <SheetHeader>
             <SheetTitle>{uuid || "GPU 详情"}</SheetTitle>
             <SheetDescription>
