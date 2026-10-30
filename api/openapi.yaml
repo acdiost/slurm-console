@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.19.0
+  version: 0.20.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -5547,6 +5547,403 @@ paths:
         }
       }
     }
+  /api/v1/clusters/{clusterId}/job-history:
+    {
+      "get": {
+        "operationId": "listJobHistory",
+        "summary": "按提交时间分页查询历史作业",
+        "description": "Requires job_history.read independently of jobs.read. Server resolves the actual controller cluster. Submission [start,end), maximum 31 days; default last 24h. Duplicate Job IDs remain separate. 30s bounded cache, 5000 job/20000 step maximum; source warnings except exact successful empty-result warning are errors. Detail requires same time and exact conditions. List steps are empty; detail includes steps. No scripts, environment or mutation.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "description": "Submission UNIX seconds; supply start/end together, maximum 31 days.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "description": "Submission UNIX seconds; supply start/end together, maximum 31 days.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "partition",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "qos",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "jobId",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "submitTime",
+                "startTime",
+                "endTime",
+                "elapsedSeconds",
+                "id"
+              ],
+              "default": "submitTime"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Normalized slurmdbd records; zero preserved, unknown null.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/HistoryPage"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/job-history/{recordKey}:
+    {
+      "get": {
+        "operationId": "getJobHistoryRecord",
+        "summary": "读取独立历史作业及步骤",
+        "description": "Requires job_history.read independently of jobs.read. Server resolves the actual controller cluster. Submission [start,end), maximum 31 days; default last 24h. Duplicate Job IDs remain separate. 30s bounded cache, 5000 job/20000 step maximum; source warnings except exact successful empty-result warning are errors. Detail requires same time and exact conditions. List steps are empty; detail includes steps. No scripts, environment or mutation.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "description": "Submission UNIX seconds; supply start/end together, maximum 31 days.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "description": "Submission UNIX seconds; supply start/end together, maximum 31 days.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "partition",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "qos",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "jobId",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "submitTime",
+                "startTime",
+                "endTime",
+                "elapsedSeconds",
+                "id"
+              ],
+              "default": "submitTime"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "description": "Single exact value; q is a local contains match.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "path",
+            "name": "recordKey",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Normalized slurmdbd records; zero preserved, unknown null.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/HistoryDetail"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -8730,4 +9127,340 @@ components:
           "fetchedAt",
           "cached"
         ]
+      }
+    HistoryExit:
+      {
+        "type": "object",
+        "required": [
+          "status",
+          "code",
+          "signal",
+          "signalName"
+        ],
+        "properties": {
+          "status": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "code": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "signal": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "signalName": {
+            "type": "string"
+          }
+        }
+      }
+    HistoryTRES:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "name",
+          "count"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "count": {
+            "type": "string",
+            "nullable": true,
+            "description": "Decimal count, null for unset/negative sentinels. Allocation mem is MiB; consumed values preserve source units."
+          }
+        }
+      }
+    HistoryStep:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "states",
+          "nodes",
+          "tasks",
+          "startTime",
+          "endTime",
+          "elapsedSeconds",
+          "totalCpuSeconds",
+          "exit",
+          "allocatedTres",
+          "consumedAverage",
+          "consumedTotal"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "states": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nodes": {
+            "type": "string"
+          },
+          "tasks": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "startTime": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "endTime": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "elapsedSeconds": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "totalCpuSeconds": {
+            "type": "number",
+            "nullable": true
+          },
+          "exit": {
+            "$ref": "#/components/schemas/HistoryExit"
+          },
+          "allocatedTres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryTRES"
+            }
+          },
+          "consumedAverage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryTRES"
+            }
+          },
+          "consumedTotal": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryTRES"
+            }
+          }
+        }
+      }
+    HistoryJob:
+      {
+        "type": "object",
+        "required": [
+          "key",
+          "id",
+          "cluster",
+          "name",
+          "user",
+          "account",
+          "partition",
+          "qos",
+          "reason",
+          "nodes",
+          "states",
+          "submitTime",
+          "startTime",
+          "endTime",
+          "elapsedSeconds",
+          "suspendedSeconds",
+          "timeLimitMinutes",
+          "arrayJobId",
+          "arrayTaskId",
+          "hetJobId",
+          "hetJobOffset",
+          "totalCpuSeconds",
+          "exit",
+          "derivedExit",
+          "allocatedTres",
+          "requestedTres",
+          "steps"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "cluster": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "user": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "partition": {
+            "type": "string"
+          },
+          "qos": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "nodes": {
+            "type": "string"
+          },
+          "states": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "submitTime": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "startTime": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "endTime": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "elapsedSeconds": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "suspendedSeconds": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "timeLimitMinutes": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "arrayJobId": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "arrayTaskId": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "hetJobId": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "hetJobOffset": {
+            "$ref": "#/components/schemas/SlurmNumber"
+          },
+          "totalCpuSeconds": {
+            "type": "number",
+            "nullable": true
+          },
+          "exit": {
+            "$ref": "#/components/schemas/HistoryExit"
+          },
+          "derivedExit": {
+            "$ref": "#/components/schemas/HistoryExit"
+          },
+          "allocatedTres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryTRES"
+            }
+          },
+          "requestedTres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryTRES"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryStep"
+            }
+          }
+        }
+      }
+    HistoryPage:
+      {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "perPage",
+          "totalItems",
+          "cluster",
+          "start",
+          "end",
+          "fetchedAt",
+          "cached"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryJob"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "perPage": {
+            "type": "integer"
+          },
+          "totalItems": {
+            "type": "integer"
+          },
+          "cluster": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "end": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "fetchedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cached": {
+            "type": "boolean"
+          }
+        }
+      }
+    HistoryDetail:
+      {
+        "type": "object",
+        "required": [
+          "item",
+          "start",
+          "end",
+          "fetchedAt",
+          "cached"
+        ],
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/HistoryJob"
+          },
+          "start": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "end": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "fetchedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cached": {
+            "type": "boolean"
+          }
+        }
       }

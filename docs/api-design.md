@@ -31,3 +31,5 @@ TRES API 已接入 `/clusters/{clusterId}/tres`、`/tres-limits`、`/tres-limits
 Reservation 独立接入 `/clusters/{clusterId}/reservations`、`/reservation-controls` 和 `/reservation-operations`，契约更新至 OpenAPI 0.18.0；详见 [资源预留](reservations.md)。
 
 GPU 监控接入 `/clusters/{clusterId}/metrics/gpu` 和 `/{uuid}/history`，契约更新至 OpenAPI 0.19.0，详见 [GPU 监控](gpu-monitoring.md)。
+
+历史作业新增 `GET /api/v1/clusters/{clusterId}/job-history` 及 `/{recordKey}`，独立要求 `job_history.read`。最多 31 天提交时间窗口、精确条件、分页排序和重复 Job ID 独立记录；详情含步骤，全部只读。见 [历史记账契约](job-history.md) 和 OpenAPI 0.20.0。

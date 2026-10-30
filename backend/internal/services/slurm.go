@@ -98,6 +98,9 @@ func (s *Slurm) load(key, clusterID string, revision int, epoch uint64, kind, id
 	var err error
 	ttl := 5 * time.Second
 	switch kind {
+	case "job_history":
+		value, err = a.History(s.ctx, id)
+		ttl = 30 * time.Second
 	case "reservations":
 		value, err = a.GetReservations(s.ctx)
 		ttl = 15 * time.Second

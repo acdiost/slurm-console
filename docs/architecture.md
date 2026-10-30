@@ -43,3 +43,5 @@ TRES 复用记账确认和审计引擎。目录绑定资源 ID 与类型，数�
 Reservation 通过 slurmctld API 查询及控制，复用持久确认/审计引擎，保持独立路由和操作家族。更新只发送结束时间并核实未编辑字段，作业检查保留未知归属状态。见 [资源预留](reservations.md)。
 
 GPU 实际指标通过独立 gpumetrics 模块接入受保护的 Prometheus 配置，固定 DCGM 查询、单位归一、有界缓存及采样新鲜度检查；趋势与 Slurm 调度分配分别采样，缺失不补零。见 [GPU 监控](gpu-monitoring.md)。
+
+历史作业使用现有 Slurm 连接和有界查询服务，Adapter 从控制器解析实际集群后限定 slurmdbd 条件，避免浏览器指定多集群范围。记账 DTO 与当前作业、监控分别建模，重复 ID 保留独立身份，步骤不重复计数。见 [历史作业](job-history.md)。

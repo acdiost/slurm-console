@@ -11,6 +11,7 @@ const operational = new Set([
   "/tres",
   "/reservations",
   "/gpu",
+  "/history",
 ])
 export function scopedNavigation(to: string, pathname: string, search: string) {
   if (!operational.has(to) || !operational.has(pathname)) return to

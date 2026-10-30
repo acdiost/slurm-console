@@ -132,6 +132,9 @@ func validLocalRequest(r localRequest) bool {
 	dbPrefix := "/slurmdb/" + r.Version + "/"
 	if strings.HasPrefix(r.Path, dbPrefix) {
 		if r.Method == "GET" && !r.Write && len(r.Body) == 0 {
+			if validHistoryWire(r) {
+				return true
+			}
 			if r.Path == dbPrefix+"accounts/" || r.Path == dbPrefix+"users/?with_assocs=true" || r.Path == dbPrefix+"qos/" || r.Path == dbPrefix+"tres/" {
 				return true
 			}

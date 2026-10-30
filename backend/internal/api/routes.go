@@ -98,6 +98,7 @@ func Register(routes *router.Router[*core.RequestEvent], publicDir string) {
 	registerTRESRoutes(group)
 	registerReservationRoutes(group)
 	registerGPURoutes(group)
+	registerHistoryRoutes(group)
 	// Never serve the SPA for missing API routes.
 	routes.Any("/api/{path...}", func(e *core.RequestEvent) error { return e.NotFoundError("接口不存在。", nil) })
 	if _, err := os.Stat(publicDir + "/index.html"); err == nil {

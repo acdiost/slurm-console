@@ -60,6 +60,7 @@ const (
 	Shares         Resource = "shares"
 	DBTRES         Resource = "db_tres"
 	Reservations   Resource = "reservations"
+	DBJobs         Resource = "db_jobs"
 )
 
 var nodePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`)
@@ -104,6 +105,7 @@ type Envelope struct {
 		} `json:"slurm"`
 	} `json:"meta"`
 	Errors       []json.RawMessage `json:"errors"`
+	Warnings     []json.RawMessage `json:"warnings"`
 	Pings        json.RawMessage   `json:"pings"`
 	Jobs         json.RawMessage   `json:"jobs"`
 	Nodes        json.RawMessage   `json:"nodes"`
@@ -121,6 +123,16 @@ func (c *Client) Read(ctx context.Context, resource Resource, id string) (Envelo
 	var empty Envelope
 	path := "/slurm/" + c.config.Version + "/"
 	switch resource {
+	case DBJobs:
+		var q HistoryQuery
+		if json.Unmarshal([]byte(id), &q) != nil {
+			return empty, Failure("invalid_request", "历史作业查询不合法。")
+		}
+		var ok bool
+		path, ok = historyPath(c.config.Version, q)
+		if !ok {
+			return empty, Failure("invalid_request", "历史作业查询不合法。")
+		}
 	case DBAccounts, DBUsers, DBAssociations, DBQOS, DBTRES:
 		if resource != DBAssociations && id != "" || resource == DBAssociations && !ValidAccountingName(id) {
 			return empty, Failure("invalid_request", "记账查询参数不合法。")
@@ -280,6 +292,9 @@ func (c *Client) request(ctx context.Context, method, path string, bodyData []by
 	}
 	if strings.HasPrefix(path, "/slurmdb/") && empty.Meta.Plugin.Type != "openapi/slurmdbd" {
 		return Envelope{}, Failure("invalid_response", "记账响应来源不是已批准的 slurmdbd 插件。")
+	}
+	if strings.Contains(path, "/jobs/?") && strings.HasPrefix(path, "/slurmdb/") && !validHistoryWarnings(empty) {
+		return Envelope{}, Failure("invalid_response", "记账来源返回不完整警告，请缩小范围或核对服务。")
 	}
 	if len(empty.Errors) > 0 {
 		// Stable Slurm authorization errors are explicit rejections, even when
