@@ -46,3 +46,5 @@ QOS 完整目录需要平台 `platform.qos.read`，全局写入另需 `platform.
 TRES 查询需要 `tres.read` 及对应 Association/QOS 读取权限；Association 写入另需 `tres.update` 和 `associations.update`，QOS 写入另需 `qos.update` 与平台 `platform.qos.read/manage`。四类内置角色获得读取，Super Admin/Cluster Admin 获得集群更新动作；root/服务关联只读。见 [TRES 限额](tres.md)。
 
 Reservation 使用集群 `reservations.read/create/update/delete`：四类内置角色读取，Super Admin/Cluster Admin 写入。创建另需 `nodes.read`，调整和删除另需 `jobs.read`；高级预留只读，未结束作业阻止变更。见 [资源预留](reservations.md)。
+
+GPU 监控与趋势需要集群 `metrics.read`；Slurm 节点分配汇总独立检查 `nodes.read`，缺权不查询来源。监控源绑定配置由部署管理员维护，平台 API 不开放任意查询或地址输入。见 [GPU 监控](gpu-monitoring.md)。

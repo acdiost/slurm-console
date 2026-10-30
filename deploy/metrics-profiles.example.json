@@ -1,0 +1,15 @@
+{
+  "clusters": {
+    "replace-with-platform-cluster-id": {
+      "label": "Production DCGM",
+      "endpoint": "https://prometheus.example.internal:9090",
+      "clusterLabel": "cluster",
+      "clusterValue": "production",
+      "nodeLabel": "Hostname",
+      "utilizationUnit": "percent",
+      "nodeMap": {
+        "gpu01.example.internal": "gpu01"
+      }
+    }
+  }
+}

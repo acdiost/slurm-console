@@ -12,6 +12,7 @@ import (
 	"slurm-console/backend/internal/auth"
 	"slurm-console/backend/internal/backup"
 	"slurm-console/backend/internal/clusterconfig"
+	"slurm-console/backend/internal/gpumetrics"
 	"slurm-console/backend/internal/jobcontrol"
 	"slurm-console/backend/internal/linuxusers"
 	"slurm-console/backend/internal/rbac"
@@ -34,6 +35,11 @@ func New() (*pocketbase.PocketBase, error) {
 	if err != nil {
 		return nil, err
 	}
+	metricsRegistry, err := gpumetrics.LoadRegistry(os.Getenv("SLURM_CONSOLE_METRICS_PROFILES"))
+	if err != nil {
+		return nil, err
+	}
+	gpumetrics.Register(app, metricsRegistry)
 	linuxusers.Register(app, linuxRegistry, nil)
 	connections := clusterconfig.Register(app, registry)
 	connectionContext, cancelConnections := context.WithCancel(context.Background())

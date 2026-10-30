@@ -66,3 +66,5 @@ Linux 系统用户查询的构建、来源映射及受限 SSH 配置见 [Linux �
 Slurm `auth/local` 取 Unix socket 对端身份，部分部署拒绝 root。因此 root 主服务以清空环境、只保留专用 UID/GID 的短时子进程执行本地 REST 请求，继续使用 `slurm-console` 身份，且不继承 root 附加组。子进程不打开平台数据库，单次请求有截止时间和大小限制；写操作丢失结果仍按未知状态核实，绝不自动重发。HTTPS/JWT 连接使用原配置。Slurm 上游是否授予该连接身份管理权限，继续由集群管理员负责。
 
 2026-10-28 在现有 Rocky Linux 虚拟机完成 root 迁移验收：服务实际 UID/GID 均为 0；PAM 登录、LDAP TLS 查询、Slurm 健康/作业/节点/分区及本地账户创建、锁定、解锁与审计通过，临时账户已清理。重复安装及两个配置脚本保持运行 PID；独立挂载命名空间验证 root/旧版快照恢复，以及模拟升级失败后的程序、数据库和旧版数据权限回退。原有 Slurm、LDAP、PAM 配置内容及外部 Slurm 服务 PID 保持一致。
+
+GPU 实际监控使用管理员既有 Prometheus/DCGM；应用只读取受保护的 metrics-profiles.json，安装器不安装第三方监控组件。配置见 [GPU 监控](gpu-monitoring.md)。

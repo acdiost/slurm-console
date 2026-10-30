@@ -277,12 +277,26 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                 <span>资源预留</span>
               </NavLink>
             )}
-            {section.items.map(({ label, icon: Icon }) => (
-              <button key={label} disabled className="nav-item">
-                <Icon />
-                <span>{label}</span>
-              </button>
-            ))}
+            {section.label === "资源与调度" && (
+              <NavLink
+                to="/gpu"
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
+                }
+              >
+                <Database />
+                <span>GPU 监控</span>
+              </NavLink>
+            )}
+            {section.items
+              .filter((item) => item.label !== "CPU / GPU 资源")
+              .map(({ label, icon: Icon }) => (
+                <button key={label} disabled className="nav-item">
+                  <Icon />
+                  <span>{label}</span>
+                </button>
+              ))}
           </div>
         ))}
         <NavLink
@@ -392,33 +406,35 @@ export function ConsoleLayout() {
             </span>
             <ChevronRight className="hidden size-3 text-muted-foreground sm:inline" />
             <span>
-              {pathname === "/reservations"
-                ? "Reservation 资源预留"
-                : pathname === "/tres"
-                  ? "TRES 限额"
-                  : pathname === "/policies"
-                    ? "QOS 与 Fairshare"
-                    : pathname === "/accounts"
-                      ? "账户与 Association"
-                      : pathname === "/linux-users"
-                        ? "Linux 系统用户"
-                        : pathname === "/fleet"
-                          ? "集群工作台"
-                          : pathname === "/audits"
-                            ? "操作审计"
-                            : pathname === "/partitions"
-                              ? "分区查询"
-                              : pathname === "/nodes"
-                                ? "节点管理"
-                                : pathname === "/jobs"
-                                  ? "作业管理"
-                                  : pathname === "/overview"
-                                    ? "集群总览"
-                                    : pathname === "/clusters"
-                                      ? "集群配置"
-                                      : pathname === "/access"
-                                        ? "我的权限"
-                                        : "设计系统"}
+              {pathname === "/gpu"
+                ? "GPU 监控"
+                : pathname === "/reservations"
+                  ? "Reservation 资源预留"
+                  : pathname === "/tres"
+                    ? "TRES 限额"
+                    : pathname === "/policies"
+                      ? "QOS 与 Fairshare"
+                      : pathname === "/accounts"
+                        ? "账户与 Association"
+                        : pathname === "/linux-users"
+                          ? "Linux 系统用户"
+                          : pathname === "/fleet"
+                            ? "集群工作台"
+                            : pathname === "/audits"
+                              ? "操作审计"
+                              : pathname === "/partitions"
+                                ? "分区查询"
+                                : pathname === "/nodes"
+                                  ? "节点管理"
+                                  : pathname === "/jobs"
+                                    ? "作业管理"
+                                    : pathname === "/overview"
+                                      ? "集群总览"
+                                      : pathname === "/clusters"
+                                        ? "集群配置"
+                                        : pathname === "/access"
+                                          ? "我的权限"
+                                          : "设计系统"}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">

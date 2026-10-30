@@ -41,3 +41,5 @@ QOS / Fairshare 使用既有 Slurm Client、Adapter 和有界缓存。QOS 全局
 TRES 复用记账确认和审计引擎。目录绑定资源 ID 与类型，数值以十进制字符串传输。Association 写入从最新快照保留全部六类 TRES 列表，QOS 使用单项合并并保留抢占模式；结果核实覆盖目标及所有未编辑字段。见 [TRES 限额](tres.md)。
 
 Reservation 通过 slurmctld API 查询及控制，复用持久确认/审计引擎，保持独立路由和操作家族。更新只发送结束时间并核实未编辑字段，作业检查保留未知归属状态。见 [资源预留](reservations.md)。
+
+GPU 实际指标通过独立 gpumetrics 模块接入受保护的 Prometheus 配置，固定 DCGM 查询、单位归一、有界缓存及采样新鲜度检查；趋势与 Slurm 调度分配分别采样，缺失不补零。见 [GPU 监控](gpu-monitoring.md)。

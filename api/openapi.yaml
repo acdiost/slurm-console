@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.18.0
+  version: 0.19.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -5304,6 +5304,249 @@ paths:
         }
       }
     }
+  /api/v1/clusters/{clusterId}/metrics/gpu:
+    {
+      "get": {
+        "operationId": "listGPUMetrics",
+        "summary": "读取物理GPU实际指标与独立调度汇总",
+        "description": "需要metrics.read。监控使用管理员按平台clusterId配置的Prometheus来源及固定集群标签；只查询固定DCGM指标，禁止任意PromQL/URL。Slurm分配汇总另需nodes.read，无权不查询。缺失、过期、无效、重复值为null，合法零保留。当前数据15秒缓存；返回前复查授权及集群版本。未配置/无数据/故障使用monitoring.status区分，不伪造硬件。MIG实例不聚合进物理卡。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "in": "query",
+            "name": "node",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "fresh",
+                "partial",
+                "stale",
+                "ambiguous"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "node",
+                "utilization",
+                "temperature"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GPUPage"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/metrics/gpu/{uuid}/history:
+    {
+      "get": {
+        "operationId": "getGPUHistory",
+        "summary": "读取已识别物理GPU的固定窗口趋势",
+        "description": "需要metrics.read；node+UUID必须在当前来源快照中且无身份冲突。1h/6h/24h对应60/300/600秒步长。固定last_over_time(...[60s])，不使用默认五分钟向前填充；缺失时点保留null。趋势30秒缓存，返回前复查授权与集群版本。不存在/未配置404，来源故障503。",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uuid",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^GPU-[a-zA-Z0-9-]{1,100}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "range",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "6h",
+                "24h"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；Cache-Control 为 no-store",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GPUHistory"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -8209,5 +8452,282 @@ components:
           "state",
           "startTime",
           "endTime"
+        ]
+      }
+    GPUSample:
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number",
+            "nullable": true
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "fresh",
+              "missing",
+              "stale",
+              "invalid",
+              "ambiguous"
+            ]
+          }
+        },
+        "required": [
+          "value",
+          "timestamp",
+          "status"
+        ]
+      }
+    GPUDevice:
+      {
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "index": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "totalSource": {
+            "type": "string"
+          },
+          "utilization": {
+            "$ref": "#/components/schemas/GPUSample"
+          },
+          "memoryUsedMiB": {
+            "$ref": "#/components/schemas/GPUSample"
+          },
+          "memoryFreeMiB": {
+            "$ref": "#/components/schemas/GPUSample"
+          },
+          "memoryTotalMiB": {
+            "$ref": "#/components/schemas/GPUSample"
+          },
+          "temperatureC": {
+            "$ref": "#/components/schemas/GPUSample"
+          },
+          "powerW": {
+            "$ref": "#/components/schemas/GPUSample"
+          }
+        },
+        "required": [
+          "uuid",
+          "node",
+          "index",
+          "model",
+          "status",
+          "totalSource",
+          "utilization",
+          "memoryUsedMiB",
+          "memoryFreeMiB",
+          "memoryTotalMiB",
+          "temperatureC",
+          "powerW"
+        ]
+      }
+    GPUMonitoring:
+      {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "not_configured",
+              "error"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "fetchedAt": {
+            "type": "string"
+          },
+          "cached": {
+            "type": "boolean"
+          },
+          "ignoredSeries": {
+            "type": "integer"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GPUDevice"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "source",
+          "fetchedAt",
+          "cached",
+          "ignoredSeries",
+          "items"
+        ]
+      }
+    GPUPage:
+      {
+        "type": "object",
+        "properties": {
+          "monitoring": {
+            "$ref": "#/components/schemas/GPUMonitoring"
+          },
+          "allocation": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "fetchedAt": {
+                "type": "string"
+              },
+              "cached": {
+                "type": "boolean"
+              },
+              "item": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/OverviewNodes"
+                  }
+                ],
+                "nullable": true
+              }
+            },
+            "required": [
+              "status",
+              "code",
+              "message",
+              "fetchedAt",
+              "cached",
+              "item"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GPUDevice"
+            }
+          },
+          "summary": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "perPage": {
+            "type": "integer"
+          },
+          "totalItems": {
+            "type": "integer"
+          },
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "monitoring",
+          "allocation",
+          "items",
+          "summary",
+          "page",
+          "perPage",
+          "totalItems",
+          "revision"
+        ]
+      }
+    GPUHistory:
+      {
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "range": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "end": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "step": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "series": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "time": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "value": {
+                    "type": "number",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "time",
+                  "value"
+                ]
+              }
+            }
+          },
+          "fetchedAt": {
+            "type": "string"
+          },
+          "cached": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "uuid",
+          "node",
+          "range",
+          "start",
+          "end",
+          "step",
+          "series",
+          "fetchedAt",
+          "cached"
         ]
       }
