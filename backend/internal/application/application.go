@@ -11,6 +11,7 @@ import (
 	"slurm-console/backend/internal/api"
 	"slurm-console/backend/internal/auth"
 	"slurm-console/backend/internal/backup"
+	"slurm-console/backend/internal/capacity"
 	"slurm-console/backend/internal/clusterconfig"
 	"slurm-console/backend/internal/gpumetrics"
 	"slurm-console/backend/internal/jobcontrol"
@@ -59,6 +60,7 @@ func New() (*pocketbase.PocketBase, error) {
 		api.Register(event.Router, publicDir)
 		go connections.CheckEnabled(connectionContext)
 		notifications.For(app).Start(connectionContext)
+		capacity.For(app).Start(connectionContext)
 		return event.Next()
 	})
 	return app, nil

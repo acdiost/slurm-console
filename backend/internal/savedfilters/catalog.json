@@ -647,5 +647,63 @@
         ]
       }
     }
+  },
+  "capacity": {
+    "label": "集群容量分析",
+    "scoped": true,
+    "permissions": [
+      [
+        "capacity.read",
+        "nodes.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 128
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "name",
+          "nodes",
+          "cpuTotal",
+          "cpuIdle",
+          "memoryTotal",
+          "gpuTotal"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      },
+      "perPage": {
+        "type": "enum",
+        "values": [
+          "20",
+          "50",
+          "100"
+        ]
+      },
+      "range": {
+        "type": "enum",
+        "values": [
+          "1h",
+          "24h",
+          "7d"
+        ]
+      },
+      "resource": {
+        "type": "enum",
+        "values": [
+          "cpu",
+          "memory",
+          "gpu"
+        ]
+      }
+    }
   }
 }

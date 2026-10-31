@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.23.0
+  version: 0.24.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -6379,7 +6379,8 @@ paths:
                 "gpu",
                 "history",
                 "fleet",
-                "audits"
+                "audits",
+                "capacity"
               ]
             }
           },
@@ -7348,6 +7349,222 @@ paths:
             "$ref": "#/components/responses/Error"
           },
           "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/capacity:
+    {
+      "get": {
+        "operationId": "getClusterCapacity",
+        "summary": "读取集群容量、节点余量和分页分区对比",
+        "description": "Requires active user and independent cluster capacity.read + nodes.read. Fresh RBAC and enabled configuration/profile digest before and after reads. Optional partition states additionally require partitions.read; absence never expands source access. Physical resources are deduplicated by node, overlapping partition rows cannot be summed. Allocated/idle/unavailable are scheduler counts, not actual CPU/memory/GPU utilization or a job placement guarantee. GPU unknown values remain null; no zero filling. q/sort/page affect only current partition table, not cluster totals/headroom or history. Native capacity_samples CRUD locked; no control or privileged audit writes. Unknown/repeated query parameters rejected.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "description": "Literal partition-name search; UTF-8 <=128 bytes, no controls."
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "nodes",
+                "cpuTotal",
+                "cpuIdle",
+                "memoryTotal",
+                "gpuTotal"
+              ],
+              "default": "name"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "asc"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized selected-cluster capacity data only.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CapacityView"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/capacity/history:
+    {
+      "get": {
+        "operationId": "getClusterCapacityHistory",
+        "summary": "读取当前连接版本的完整五分钟窗口汇总采样",
+        "description": "Requires active user and independent cluster capacity.read + nodes.read. Fresh RBAC and enabled configuration/profile digest before and after reads. Optional partition states additionally require partitions.read; absence never expands source access. Physical resources are deduplicated by node, overlapping partition rows cannot be summed. Allocated/idle/unavailable are scheduler counts, not actual CPU/memory/GPU utilization or a job placement guarantee. GPU unknown values remain null; no zero filling. q/sort/page affect only current partition table, not cluster totals/headroom or history. Native capacity_samples CRUD locked; no control or privileged audit writes. Unknown/repeated query parameters rejected. History is read from the application DB, with no Slurm RPC. UTC start/end cover complete five-minute windows, current partial window excluded. Missing slots have frame=null and observedAt empty; never interpolate or backfill. Weighted rate is sum allocated / sum configured among valid capacity samples; zero denominators return null. Snapshot aggregate only, no node/job/user identifiers. Server collector scans up to 20 enabled reviewed clusters per minute, two workers, 50s sweep budget; at most one row per cluster/profile digest/five-minute bucket. Seven complete days retained, max 2200 rows/cluster and 100000 total; gaps/old revisions may reduce coverage. Profile/configuration changes start a separate series. Strict frame validation rejects corrupt history with 503.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "range",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "24h",
+                "7d"
+              ],
+              "default": "24h"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized selected-cluster capacity data only.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CapacityHistoryView"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
             "$ref": "#/components/responses/Error"
           },
           "503": {
@@ -11085,7 +11302,8 @@ components:
               "gpu",
               "history",
               "fleet",
-              "audits"
+              "audits",
+              "capacity"
             ]
           },
           "clusterId": {
@@ -11145,7 +11363,8 @@ components:
               "gpu",
               "history",
               "fleet",
-              "audits"
+              "audits",
+              "capacity"
             ]
           },
           "clusterId": {
@@ -11711,4 +11930,402 @@ components:
           }
         },
         "additionalProperties": false
+      }
+    CapacityResource:
+      {
+        "type": "object",
+        "required": [
+          "total",
+          "allocated",
+          "idle",
+          "unavailable"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "allocated": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "idle": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unavailable": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    CapacityGPU:
+      {
+        "type": "object",
+        "required": [
+          "total",
+          "allocated",
+          "idle",
+          "unavailable",
+          "unknownNodes"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "allocated": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "idle": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "unavailable": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "unknownNodes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    CapacityFrame:
+      {
+        "type": "object",
+        "required": [
+          "version",
+          "nodes",
+          "unavailableNodes",
+          "cpus",
+          "memoryMiB",
+          "gpus"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "nodes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unavailableNodes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cpus": {
+            "$ref": "#/components/schemas/CapacityResource"
+          },
+          "memoryMiB": {
+            "$ref": "#/components/schemas/CapacityResource"
+          },
+          "gpus": {
+            "$ref": "#/components/schemas/CapacityGPU"
+          }
+        }
+      }
+    CapacityReport:
+      {
+        "type": "object",
+        "required": [
+          "totals",
+          "headroom",
+          "partitions",
+          "page",
+          "perPage",
+          "totalItems"
+        ],
+        "properties": {
+          "totals": {
+            "$ref": "#/components/schemas/CapacityFrame"
+          },
+          "headroom": {
+            "type": "object",
+            "required": [
+              "stateAvailableNodes",
+              "largestCpuIdle",
+              "largestMemoryIdleMiB",
+              "cpuIdleBuckets"
+            ],
+            "properties": {
+              "stateAvailableNodes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "largestCpuIdle": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "largestMemoryIdleMiB": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cpuIdleBuckets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "label",
+                    "nodes"
+                  ],
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "nodes": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "maxItems": 5
+              }
+            }
+          },
+          "partitions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "states",
+                "frame"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "states": {
+                  "type": "array",
+                  "nullable": true,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "frame": {
+                  "$ref": "#/components/schemas/CapacityFrame"
+                }
+              }
+            },
+            "maxItems": 100
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "perPage": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalItems": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    CapacityStatistic:
+      {
+        "type": "object",
+        "required": [
+          "knownSamples",
+          "weightedAllocatedPercent",
+          "peakAllocatedPercent",
+          "minimumIdle"
+        ],
+        "properties": {
+          "knownSamples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "weightedAllocatedPercent": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100
+          },
+          "peakAllocatedPercent": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100
+          },
+          "minimumIdle": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          }
+        }
+      }
+    CapacityHistory:
+      {
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "stepSeconds",
+          "expectedSamples",
+          "availableSamples",
+          "points",
+          "cpus",
+          "memoryMiB",
+          "gpus"
+        ],
+        "properties": {
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stepSeconds": {
+            "type": "integer",
+            "enum": [
+              300
+            ]
+          },
+          "expectedSamples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "availableSamples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "bucket",
+                "observedAt",
+                "frame"
+              ],
+              "properties": {
+                "bucket": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "observedAt": {
+                  "type": "string"
+                },
+                "frame": {
+                  "nullable": true,
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/CapacityFrame"
+                    }
+                  ]
+                }
+              }
+            },
+            "maxItems": 2016
+          },
+          "cpus": {
+            "$ref": "#/components/schemas/CapacityStatistic"
+          },
+          "memoryMiB": {
+            "$ref": "#/components/schemas/CapacityStatistic"
+          },
+          "gpus": {
+            "$ref": "#/components/schemas/CapacityStatistic"
+          }
+        }
+      }
+    CapacityView:
+      {
+        "type": "object",
+        "required": [
+          "cluster",
+          "revision",
+          "generatedAt",
+          "source",
+          "report",
+          "partitionSource"
+        ],
+        "properties": {
+          "cluster": {
+            "$ref": "#/components/schemas/Cluster"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "generatedAt": {
+            "type": "string"
+          },
+          "source": {
+            "type": "object",
+            "required": [
+              "fetchedAt",
+              "cached"
+            ],
+            "properties": {
+              "fetchedAt": {
+                "type": "string"
+              },
+              "cached": {
+                "type": "boolean"
+              }
+            }
+          },
+          "report": {
+            "$ref": "#/components/schemas/CapacityReport"
+          },
+          "partitionSource": {
+            "type": "object",
+            "required": [
+              "status",
+              "code",
+              "message"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "error",
+                  "forbidden"
+                ]
+              },
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    CapacityHistoryView:
+      {
+        "type": "object",
+        "required": [
+          "cluster",
+          "revision",
+          "history"
+        ],
+        "properties": {
+          "cluster": {
+            "$ref": "#/components/schemas/Cluster"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "history": {
+            "$ref": "#/components/schemas/CapacityHistory"
+          }
+        }
       }

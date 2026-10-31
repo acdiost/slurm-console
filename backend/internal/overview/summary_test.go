@@ -97,3 +97,12 @@ func TestJobBucketsAreExclusiveAndFailuresIncludeTerminations(t *testing.T) {
 		t.Fatalf("job buckets: %+v", result)
 	}
 }
+
+func TestNodeSummaryDoesNotCountNonRespondingOrMaintenanceAliasesAsIdle(t *testing.T) {
+	for _, flag := range []string{"NOT_RESPONDING", "NO_RESPOND", "MAINTENANCE", "MAINT"} {
+		v, e := NodeSummary([]models.Node{{Name: "node1", States: []string{"IDLE", flag}, CPUs: 8, EffectiveCPUs: 8, MemoryMiB: 1000}})
+		if e != nil || v.CPUs.Idle != 0 || v.CPUs.Unavailable != 8 || v.MemoryMiB.Idle != 0 || v.Unavailable != 1 {
+			t.Fatal(flag, v, e)
+		}
+	}
+}

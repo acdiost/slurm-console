@@ -39,3 +39,5 @@ GPU 监控接入 `/clusters/{clusterId}/metrics/gpu` 和 `/{uuid}/history`，契
 筛选偏好接口为 `GET/POST /api/v1/saved-filters`、`PATCH/DELETE /api/v1/saved-filters/{filterId}`，仅操作当前用户，范围由模块和可选集群确定。版本冲突返回 409，原生 Collection 规则锁定；无 Slurm 控制副作用。见 [筛选方案](saved-filters.md) 与 OpenAPI 0.22.0。
 
 告警通知新增 `/api/v1/notification-rules`、`/{id}/check`、`/notifications`、`/{id}/read`、`/read-all` 和 `/stream`。配置按版本更新，通知按当前来源权限过滤后统计分页；SSE 使用 Authorization 头且只携带变更提示，成功流不使用 JSON envelope。见 [告警通知](notifications.md) 和 OpenAPI 0.23.0。
+
+容量 API 为 `GET /clusters/{id}/capacity` 及 `/capacity/history?range=1h|24h|7d`，要求 capacity.read+nodes.read；分区配置独立授权。固定完整五分钟历史窗口，缺口为 null，历史只读数据库，不发送 Slurm RPC。见 [容量分析](capacity.md) 和 OpenAPI 0.24.0。

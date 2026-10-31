@@ -2,6 +2,7 @@ import type { ComponentProps } from "react"
 import { NavLink, useLocation } from "react-router"
 const operational = new Set([
   "/overview",
+  "/capacity",
   "/jobs",
   "/nodes",
   "/partitions",

@@ -70,3 +70,5 @@ Slurm `auth/local` 取 Unix socket 对端身份，部分部署拒绝 root。因�
 GPU 实际监控使用管理员既有 Prometheus/DCGM；应用只读取受保护的 metrics-profiles.json，安装器不安装第三方监控组件。配置见 [GPU 监控](gpu-monitoring.md)。
 
 告警通知随应用迁移自动启用，无新增配置或第三方告警服务；用户创建规则后才开始监控。反向代理应允许 text/event-stream、关闭响应缓冲，并使读取超时大于 30 秒；实时连接不可用时浏览器继续轮询。规则和通知随应用数据库备份，详见 [告警通知](notifications.md)。
+
+容量采样随应用启动，使用现有已启用集群及可信连接方式，无需新增参数或第三方组件。历史从上线后积累，SQLite 汇总记录受时间和数量限制，并随已有数据库备份。详见 [容量分析](capacity.md)。

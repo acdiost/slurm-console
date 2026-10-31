@@ -3,6 +3,7 @@ package overview
 
 import (
 	"fmt"
+	"iter"
 	"math"
 	"slices"
 	"sort"
@@ -106,8 +107,8 @@ func JobSummary(jobs []models.Job) Jobs {
 	result.States = counts(states)
 	return result
 }
-func blocked(states []string) bool {
-	return !flags(states, "IDLE", "MIXED", "ALLOCATED") || flags(states, "DOWN", "DRAIN", "FAIL", "FAILING", "NO_RESPOND", "UNKNOWN", "INVALID", "FUTURE", "MAINT", "RESERVED", "REBOOT_REQUESTED", "REBOOT_ISSUED", "POWER_DOWN", "POWERED_DOWN", "POWERING_DOWN", "POWERING_UP", "COMPLETING")
+func NodeUnavailable(states []string) bool {
+	return !flags(states, "IDLE", "MIXED", "ALLOCATED") || flags(states, "DOWN", "DRAIN", "FAIL", "FAILING", "NO_RESPOND", "NOT_RESPONDING", "MAINTENANCE", "UNKNOWN", "INVALID", "FUTURE", "MAINT", "RESERVED", "REBOOT_REQUESTED", "REBOOT_ISSUED", "POWER_DOWN", "POWERED_DOWN", "POWERING_DOWN", "POWERING_UP", "COMPLETING")
 }
 func add(target *int64, value int64) error {
 	if value < 0 || *target > math.MaxInt64-value {
@@ -196,13 +197,17 @@ func gpuCount(raw string, missing bool) (int64, bool) {
 	}
 	return total, true
 }
-func NodeSummary(nodes []models.Node) (Nodes, error) {
-	result := Nodes{Total: len(nodes), Issues: []NodeIssue{}}
+func NodeSummary(nodes []models.Node) (Nodes, error) { return NodeSummaryFrom(slices.Values(nodes)) }
+
+// NodeSummaryFrom permits partition subsets without copying full node DTOs.
+func NodeSummaryFrom(nodes iter.Seq[models.Node]) (Nodes, error) {
+	result := Nodes{Issues: []NodeIssue{}}
 	states := map[string]int{}
 	gpuResource := Resource{}
 	gpuTotalKnown, gpuAllocationKnown := true, true
-	for _, node := range nodes {
-		down := blocked(node.States)
+	for node := range nodes {
+		result.Total++
+		down := NodeUnavailable(node.States)
 		for _, state := range slices.Compact(slices.Sorted(slices.Values(node.States))) {
 			states[state]++
 		}
