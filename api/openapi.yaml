@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.21.0
+  version: 0.22.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -6298,6 +6298,339 @@ paths:
         }
       }
     }
+  /api/v1/saved-filters:
+    {
+      "get": {
+        "operationId": "listSavedFilters",
+        "summary": "读取本人当前模块和集群的筛选方案",
+        "description": "Active platform user, owner is always the authenticated user; even platform Super Admin cannot access another owner. Native Collection API locked. GET/POST/PATCH require current module and optional cluster read access; no additional business write permission. DELETE permits own preference removal after read permission is revoked. Immutable scope on PATCH; revision conflict or duplicate name/count limit returns 409. At most 10 per owner/module/cluster and 100 per owner; choosing a default atomically clears old default and increments affected revisions. Preferences do not execute resource operations. Unknown fields, query parameters and duplicate query keys rejected; body <=16KiB.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own saved list preferences only.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SavedFilterList"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "module",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "jobs",
+                "nodes",
+                "partitions",
+                "linux-users",
+                "accounts",
+                "policies",
+                "tres",
+                "reservations",
+                "gpu",
+                "history",
+                "fleet",
+                "audits"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "clusterId",
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Existing authorized cluster ID for scoped modules; empty for fleet/audits."
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createSavedFilter",
+        "summary": "保存本人筛选方案及可选默认设置",
+        "description": "Active platform user, owner is always the authenticated user; even platform Super Admin cannot access another owner. Native Collection API locked. GET/POST/PATCH require current module and optional cluster read access; no additional business write permission. DELETE permits own preference removal after read permission is revoked. Immutable scope on PATCH; revision conflict or duplicate name/count limit returns 409. At most 10 per owner/module/cluster and 100 per owner; choosing a default atomically clears old default and increments affected revisions. Preferences do not execute resource operations. Unknown fields, query parameters and duplicate query keys rejected; body <=16KiB.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own saved list preferences only.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SavedFilter"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedFilterCreate"
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/saved-filters/{filterId}:
+    {
+      "patch": {
+        "operationId": "updateSavedFilter",
+        "summary": "按版本更新本人的完整方案",
+        "description": "Active platform user, owner is always the authenticated user; even platform Super Admin cannot access another owner. Native Collection API locked. GET/POST/PATCH require current module and optional cluster read access; no additional business write permission. DELETE permits own preference removal after read permission is revoked. Immutable scope on PATCH; revision conflict or duplicate name/count limit returns 409. At most 10 per owner/module/cluster and 100 per owner; choosing a default atomically clears old default and increments affected revisions. Preferences do not execute resource operations. Unknown fields, query parameters and duplicate query keys rejected; body <=16KiB.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own saved list preferences only.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SavedFilter"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "filterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedFilterUpdate"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteSavedFilter",
+        "summary": "按版本删除本人的方案",
+        "description": "Active platform user, owner is always the authenticated user; even platform Super Admin cannot access another owner. Native Collection API locked. GET/POST/PATCH require current module and optional cluster read access; no additional business write permission. DELETE permits own preference removal after read permission is revoked. Immutable scope on PATCH; revision conflict or duplicate name/count limit returns 409. At most 10 per owner/module/cluster and 100 per owner; choosing a default atomically clears old default and increments affected revisions. Preferences do not execute resource operations. Unknown fields, query parameters and duplicate query keys rejected; body <=16KiB.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own saved list preferences only.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SavedFilterDeleted"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "filterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedFilterDelete"
+              }
+            }
+          }
+        }
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -9981,6 +10314,221 @@ components:
             "minLength": 2,
             "maxLength": 300,
             "description": "Single-line reason; immutable after first execution"
+          }
+        },
+        "additionalProperties": false
+      }
+    SavedFilterConditions:
+      {
+        "type": "object",
+        "maxProperties": 20,
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "Reviewed read-only fields per module, canonical contract: backend/internal/savedfilters/catalog.json. Normalized JSON <=4096 bytes; empty object allowed. Unknown keys, page/detail/edit/control/confirmation fields, credentials and control characters rejected. History requires paired canonical positive UNIX seconds, end>start and <=31 days; audit ISO timestamps must have millisecond precision. Tab-specific keys and sorts must match active tab."
+      }
+    SavedFilter:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "module",
+          "clusterId",
+          "name",
+          "conditions",
+          "isDefault",
+          "revision",
+          "usable",
+          "compatible",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "module": {
+            "type": "string",
+            "enum": [
+              "jobs",
+              "nodes",
+              "partitions",
+              "linux-users",
+              "accounts",
+              "policies",
+              "tres",
+              "reservations",
+              "gpu",
+              "history",
+              "fleet",
+              "audits"
+            ]
+          },
+          "clusterId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "conditions": {
+            "$ref": "#/components/schemas/SavedFilterConditions"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "usable": {
+            "type": "boolean",
+            "description": "False when current read permission does not permit selected sub-list or saved data is incompatible."
+          },
+          "compatible": {
+            "type": "boolean",
+            "description": "Incompatible conditions are returned as an empty object and cannot be applied; owner may replace or delete."
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    SavedFilterCreate:
+      {
+        "type": "object",
+        "required": [
+          "module",
+          "clusterId",
+          "name",
+          "conditions",
+          "isDefault"
+        ],
+        "properties": {
+          "module": {
+            "type": "string",
+            "enum": [
+              "jobs",
+              "nodes",
+              "partitions",
+              "linux-users",
+              "accounts",
+              "policies",
+              "tres",
+              "reservations",
+              "gpu",
+              "history",
+              "fleet",
+              "audits"
+            ]
+          },
+          "clusterId": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Existing authorized cluster ID for scoped modules; empty for fleet/audits."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "Trimmed; unique case-insensitively within owner/module/cluster; no controls."
+          },
+          "conditions": {
+            "$ref": "#/components/schemas/SavedFilterConditions"
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    SavedFilterUpdate:
+      {
+        "type": "object",
+        "required": [
+          "name",
+          "conditions",
+          "isDefault",
+          "revision"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "Trimmed; unique case-insensitively within owner/module/cluster; no controls."
+          },
+          "conditions": {
+            "$ref": "#/components/schemas/SavedFilterConditions"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    SavedFilterDelete:
+      {
+        "type": "object",
+        "required": [
+          "revision"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    SavedFilterDeleted:
+      {
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "properties": {
+          "deleted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    SavedFilterList:
+      {
+        "type": "object",
+        "required": [
+          "items",
+          "maxPerScope",
+          "maxPerUser"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/SavedFilter"
+            }
+          },
+          "maxPerScope": {
+            "type": "integer",
+            "enum": [
+              10
+            ]
+          },
+          "maxPerUser": {
+            "type": "integer",
+            "enum": [
+              100
+            ]
           }
         },
         "additionalProperties": false

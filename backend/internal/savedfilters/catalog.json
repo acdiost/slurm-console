@@ -1,0 +1,651 @@
+{
+  "jobs": {
+    "label": "作业",
+    "scoped": true,
+    "permissions": [
+      [
+        "jobs.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 128
+      },
+      "user": {
+        "type": "text",
+        "max": 128
+      },
+      "account": {
+        "type": "text",
+        "max": 128
+      },
+      "partition": {
+        "type": "text",
+        "max": 255
+      },
+      "qos": {
+        "type": "text",
+        "max": 128
+      },
+      "state": {
+        "type": "state",
+        "max": 64
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "id",
+          "submitTime",
+          "cpus"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      },
+      "perPage": {
+        "type": "enum",
+        "values": [
+          "20",
+          "50",
+          "100"
+        ]
+      }
+    }
+  },
+  "nodes": {
+    "label": "节点",
+    "scoped": true,
+    "permissions": [
+      [
+        "nodes.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 128
+      },
+      "partition": {
+        "type": "text",
+        "max": 255
+      },
+      "state": {
+        "type": "state",
+        "max": 64
+      },
+      "view": {
+        "type": "enum",
+        "values": [
+          "matrix",
+          "table"
+        ]
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "name",
+          "cpus",
+          "memory"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      },
+      "perPage": {
+        "type": "enum",
+        "values": [
+          "20",
+          "50",
+          "100"
+        ]
+      }
+    }
+  },
+  "partitions": {
+    "label": "分区",
+    "scoped": true,
+    "permissions": [
+      [
+        "partitions.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 128
+      },
+      "state": {
+        "type": "state",
+        "max": 64
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "name",
+          "nodes",
+          "cpus",
+          "maxTime"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      },
+      "perPage": {
+        "type": "enum",
+        "values": [
+          "20",
+          "50",
+          "100"
+        ]
+      }
+    }
+  },
+  "linux-users": {
+    "label": "Linux 用户",
+    "scoped": true,
+    "permissions": [
+      [
+        "linux_users.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 128
+      },
+      "source": {
+        "type": "enum",
+        "values": [
+          "local",
+          "nss",
+          "unknown"
+        ]
+      },
+      "kind": {
+        "type": "enum",
+        "values": [
+          "privileged",
+          "system",
+          "regular",
+          "unknown"
+        ]
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "name",
+          "uid",
+          "gid"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      },
+      "perPage": {
+        "type": "enum",
+        "values": [
+          "20",
+          "50",
+          "100"
+        ]
+      }
+    }
+  },
+  "accounts": {
+    "label": "账户与关联",
+    "scoped": true,
+    "permissions": [
+      [
+        "accounts.read"
+      ],
+      [
+        "slurm_users.read"
+      ],
+      [
+        "associations.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 128
+      },
+      "tab": {
+        "type": "enum",
+        "values": [
+          "accounts",
+          "slurm-users",
+          "associations"
+        ]
+      },
+      "account": {
+        "type": "text",
+        "max": 128
+      },
+      "user": {
+        "type": "text",
+        "max": 128
+      },
+      "partition": {
+        "type": "text",
+        "max": 255
+      },
+      "kind": {
+        "type": "enum",
+        "values": [
+          "account",
+          "user"
+        ]
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "name",
+          "id",
+          "account",
+          "user",
+          "partition"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      }
+    }
+  },
+  "policies": {
+    "label": "QOS 与 Fairshare",
+    "scoped": true,
+    "permissions": [
+      [
+        "qos.read",
+        "associations.read"
+      ],
+      [
+        "fairshare.read",
+        "associations.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 128
+      },
+      "tab": {
+        "type": "enum",
+        "values": [
+          "qos",
+          "fairshare"
+        ]
+      },
+      "account": {
+        "type": "text",
+        "max": 128
+      },
+      "user": {
+        "type": "text",
+        "max": 128
+      },
+      "kind": {
+        "type": "enum",
+        "values": [
+          "account",
+          "user"
+        ]
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "name",
+          "priority",
+          "account",
+          "user",
+          "factor",
+          "id"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      }
+    }
+  },
+  "tres": {
+    "label": "TRES 限额",
+    "scoped": true,
+    "permissions": [
+      [
+        "tres.read",
+        "associations.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 128
+      },
+      "target": {
+        "type": "enum",
+        "values": [
+          "association",
+          "qos"
+        ]
+      },
+      "account": {
+        "type": "text",
+        "max": 128
+      },
+      "user": {
+        "type": "text",
+        "max": 128
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "id",
+          "name",
+          "account",
+          "user"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      }
+    }
+  },
+  "reservations": {
+    "label": "资源预留",
+    "scoped": true,
+    "permissions": [
+      [
+        "reservations.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 128
+      },
+      "state": {
+        "type": "enum",
+        "values": [
+          "scheduled",
+          "active",
+          "ended",
+          "unknown"
+        ]
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "name",
+          "startTime",
+          "endTime"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      }
+    }
+  },
+  "gpu": {
+    "label": "GPU 监控",
+    "scoped": true,
+    "permissions": [
+      [
+        "metrics.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 128
+      },
+      "status": {
+        "type": "enum",
+        "values": [
+          "fresh",
+          "partial",
+          "stale",
+          "ambiguous"
+        ]
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "node",
+          "utilization",
+          "temperature"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      }
+    }
+  },
+  "history": {
+    "label": "历史作业",
+    "scoped": true,
+    "permissions": [
+      [
+        "job_history.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 128
+      },
+      "start": {
+        "type": "unix"
+      },
+      "end": {
+        "type": "unix"
+      },
+      "user": {
+        "type": "name",
+        "max": 64
+      },
+      "account": {
+        "type": "name",
+        "max": 64
+      },
+      "partition": {
+        "type": "name",
+        "max": 64
+      },
+      "qos": {
+        "type": "name",
+        "max": 64
+      },
+      "state": {
+        "type": "enum",
+        "values": [
+          "PENDING",
+          "RUNNING",
+          "SUSPENDED",
+          "COMPLETED",
+          "CANCELLED",
+          "FAILED",
+          "TIMEOUT",
+          "NODE_FAIL",
+          "PREEMPTED",
+          "BOOT_FAIL",
+          "DEADLINE",
+          "OUT_OF_MEMORY",
+          "REQUEUED",
+          "REVOKED"
+        ]
+      },
+      "jobId": {
+        "type": "jobId"
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "submitTime",
+          "startTime",
+          "endTime",
+          "elapsedSeconds",
+          "id"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      }
+    }
+  },
+  "fleet": {
+    "label": "集群工作台",
+    "scoped": false,
+    "permissions": [
+      [
+        "clusters.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 512,
+        "maxRunes": 128
+      },
+      "configuration": {
+        "type": "enum",
+        "values": [
+          "enabled",
+          "disabled",
+          "unconfigured"
+        ]
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "name",
+          "slug"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      },
+      "perPage": {
+        "type": "enum",
+        "values": [
+          "6",
+          "12",
+          "24"
+        ]
+      }
+    }
+  },
+  "audits": {
+    "label": "操作审计",
+    "scoped": false,
+    "permissions": [
+      [
+        "platform.audit.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 255
+      },
+      "cluster": {
+        "type": "text",
+        "max": 32
+      },
+      "actor": {
+        "type": "text",
+        "max": 32
+      },
+      "action": {
+        "type": "text",
+        "max": 64
+      },
+      "status": {
+        "type": "enum",
+        "values": [
+          "succeeded",
+          "confirmed",
+          "accepted",
+          "failed",
+          "unknown",
+          "processing"
+        ]
+      },
+      "from": {
+        "type": "date",
+        "max": 40
+      },
+      "to": {
+        "type": "date",
+        "max": 40
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "created",
+          "updated"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      },
+      "perPage": {
+        "type": "enum",
+        "values": [
+          "20",
+          "50",
+          "100"
+        ]
+      }
+    }
+  }
+}

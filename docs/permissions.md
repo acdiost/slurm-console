@@ -52,3 +52,5 @@ GPU 监控与趋势需要集群 `metrics.read`；Slurm 节点分配汇总独立�
 历史作业与记账使用独立集群动作 `job_history.read`，四类内置角色显式获得读取，自定义角色不隐式继承。来源前后复查实时授权、用户活动状态和连接修订；控制器作业或账户读取权限不授予历史数据。见 [历史作业](job-history.md)。
 
 批量操作不新增控制特权：准备/执行要求相应集群的 jobs.read+jobs.cancel 或 nodes.read+nodes.drain/resume，排队后仍逐项复查。进度仅限本人及相应读取权限；持久操作查询沿用本人/平台审计的原有边界。见 [批量操作](bulk-operations.md)。
+
+筛选方案只需对应模块和集群的读取权限，按 owner/module/cluster 隔离，即使平台 Super Admin 也不能访问他人方案。选定子列表额外检查其读取权限；本人撤权后仍可删除偏好。方案不包含控制信息，不授予任何资源权限；原生 saved_filters Collection API 锁定。见 [筛选方案](saved-filters.md)。

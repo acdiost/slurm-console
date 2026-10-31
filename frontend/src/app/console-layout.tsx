@@ -1,6 +1,7 @@
+import { SavedFiltersOutlet } from "@/features/saved-filters/outlet"
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Outlet, useLocation } from "react-router"
+import { useLocation } from "react-router"
 import {
   Activity,
   ScrollText,
@@ -503,7 +504,7 @@ export function ConsoleLayout() {
           </div>
         </header>
         <main id="main-content" tabIndex={-1}>
-          <Outlet />
+          <SavedFiltersOutlet />
         </main>
       </div>
     </div>
