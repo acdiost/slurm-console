@@ -51,3 +51,5 @@ SLURM_CONSOLE_METRICS_PROFILES=/etc/slurm-console/metrics-profiles.json
 - `GET /api/v1/clusters/{clusterId}/metrics/gpu/{uuid}/history?node=...&range=1h|6h|24h`：固定窗口趋势；身份不在当前快照时 404，来源失败 503。
 
 完整结构见 OpenAPI 0.19.0。当前缓存 15 秒，趋势缓存 30 秒；单次响应最多 4 MiB、4096 条序列、512 个物理 GPU，趋势单卡有界查询。超限或不完整警告返回来源不可用，不展示被静默截断的统计。缓存总量 8 MiB、最多 64 条、并发查询最多四个，无凭据透传、任意查询或重定向。
+
+窗口效率与采样覆盖另见 [GPU 资源效率分析](gpu-efficiency.md)，使用相同来源配置，无需新增第三方组件。

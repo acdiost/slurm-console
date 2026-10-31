@@ -65,6 +65,14 @@ func (s *Service) read(ctx context.Context, id, kind, node, uuid, window string)
 	}
 	p, configured := s.registry.Clusters[id]
 	if !configured {
+		if kind == "efficiency" {
+			v, e := efficiencyWindow(window, time.Now())
+			if e != nil {
+				return nil, false, e
+			}
+			b, e := json.Marshal(v)
+			return b, false, e
+		}
 		if kind != "snapshot" {
 			return nil, false, client.Failure("not_found", "未配置 GPU 监控源。")
 		}
@@ -100,13 +108,20 @@ func (s *Service) read(ctx context.Context, id, kind, node, uuid, window string)
 }
 func (s *Service) load(id, key, kind, node, uuid, window string, rev int, p Profile, f *flight) {
 	defer func() { <-s.slots }()
-	ctx, cancel := context.WithTimeout(s.ctx, 8*time.Second)
+	budget := 8 * time.Second
+	if kind == "efficiency" {
+		budget = 20 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(s.ctx, budget)
 	defer cancel()
 	var v any
 	var e error
 	ttl := 15 * time.Second
 	if kind == "snapshot" {
 		v, e = LoadSnapshot(ctx, p, time.Now())
+	} else if kind == "efficiency" {
+		v, e = LoadEfficiency(ctx, p, window, time.Now())
+		ttl = 30 * time.Second
 	} else {
 		v, e = LoadHistory(ctx, p, node, uuid, window, time.Now())
 		ttl = 30 * time.Second

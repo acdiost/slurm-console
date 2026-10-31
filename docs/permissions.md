@@ -58,3 +58,5 @@ GPU 监控与趋势需要集群 `metrics.read`；Slurm 节点分配汇总独立�
 站内告警仅限本人，按集群和规则来源分别复用 clusters.read/nodes.read/jobs.read/metrics.read，不授予控制权限。后台也复查活动状态、PAM/LDAP 资格、RBAC 和配置修订；通知在计数、分页前按当前权限过滤。撤权后规则证据隐藏，允许本人删除配置；平台 Super Admin 不能访问他人通知。原生两个 Collection 均锁定，见 [告警通知](notifications.md)。
 
 集群容量分析新增 capacity.read，显式绑定四类内置角色；当前与历史都额外要求 nodes.read，自定义角色不继承。分区状态独立要求 partitions.read，撤权后清除该信息；历史原生 Collection 锁定，按当前集群/连接摘要隔离。后台仅通过管理员已批准的启用连接采集无身份明细的数值汇总，详见 [容量分析](capacity.md)。
+
+GPU 资源效率分析沿用集群 `metrics.read`，无新增写权限或 `nodes.read` 依赖；返回前复查活动用户、授权和集群配置修订，见 [GPU 效率](gpu-efficiency.md)。

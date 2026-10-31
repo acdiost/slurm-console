@@ -18,6 +18,11 @@ import {
   SessionLifecycle,
   RequireSession,
 } from "@/features/auth/session-boundary"
+const GPUEfficiencyPage = lazy(() =>
+  import("@/pages/gpu-efficiency-page").then((m) => ({
+    default: m.GPUEfficiencyPage,
+  }))
+)
 const CapacityPage = lazy(() =>
   import("@/pages/capacity-page").then((m) => ({ default: m.CapacityPage }))
 )
@@ -122,6 +127,10 @@ export function App() {
                   <Route path="fleet" element={<FleetPage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route path="capacity" element={<CapacityPage />} />
+                  <Route
+                    path="gpu-efficiency"
+                    element={<GPUEfficiencyPage />}
+                  />
                   <Route path="linux-users" element={<LinuxUsersPage />} />
                   <Route path="accounts" element={<AccountingPage />} />
                   <Route path="policies" element={<PoliciesPage />} />
@@ -169,43 +178,45 @@ function RouteTitle() {
   const { pathname } = useLocation()
   useEffect(() => {
     const title =
-      pathname === "/capacity"
-        ? "集群容量分析"
-        : pathname === "/notifications"
-          ? "告警通知"
-          : pathname === "/history"
-            ? "历史作业与记账"
-            : pathname === "/gpu"
-              ? "GPU 监控"
-              : pathname === "/reservations"
-                ? "Reservation 资源预留"
-                : pathname === "/tres"
-                  ? "TRES 限额"
-                  : pathname === "/policies"
-                    ? "QOS 与 Fairshare"
-                    : pathname === "/accounts"
-                      ? "账户与 Association"
-                      : pathname === "/linux-users"
-                        ? "Linux 系统用户"
-                        : pathname === "/fleet"
-                          ? "集群工作台"
-                          : pathname === "/audits"
-                            ? "操作审计"
-                            : pathname === "/login"
-                              ? "登录"
-                              : pathname === "/partitions"
-                                ? "分区查询"
-                                : pathname === "/nodes"
-                                  ? "节点管理"
-                                  : pathname === "/jobs"
-                                    ? "作业管理"
-                                    : pathname === "/overview"
-                                      ? "集群总览"
-                                      : pathname === "/clusters"
-                                        ? "集群配置"
-                                        : pathname === "/access"
-                                          ? "我的权限"
-                                          : "设计系统"
+      pathname === "/gpu-efficiency"
+        ? "GPU 资源效率分析"
+        : pathname === "/capacity"
+          ? "集群容量分析"
+          : pathname === "/notifications"
+            ? "告警通知"
+            : pathname === "/history"
+              ? "历史作业与记账"
+              : pathname === "/gpu"
+                ? "GPU 监控"
+                : pathname === "/reservations"
+                  ? "Reservation 资源预留"
+                  : pathname === "/tres"
+                    ? "TRES 限额"
+                    : pathname === "/policies"
+                      ? "QOS 与 Fairshare"
+                      : pathname === "/accounts"
+                        ? "账户与 Association"
+                        : pathname === "/linux-users"
+                          ? "Linux 系统用户"
+                          : pathname === "/fleet"
+                            ? "集群工作台"
+                            : pathname === "/audits"
+                              ? "操作审计"
+                              : pathname === "/login"
+                                ? "登录"
+                                : pathname === "/partitions"
+                                  ? "分区查询"
+                                  : pathname === "/nodes"
+                                    ? "节点管理"
+                                    : pathname === "/jobs"
+                                      ? "作业管理"
+                                      : pathname === "/overview"
+                                        ? "集群总览"
+                                        : pathname === "/clusters"
+                                          ? "集群配置"
+                                          : pathname === "/access"
+                                            ? "我的权限"
+                                            : "设计系统"
     document.title = `${title} · Slurm Console`
   }, [pathname])
   return null

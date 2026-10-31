@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.24.0
+  version: 0.25.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -6380,7 +6380,8 @@ paths:
                 "history",
                 "fleet",
                 "audits",
-                "capacity"
+                "capacity",
+                "gpu-efficiency"
               ]
             }
           },
@@ -7565,6 +7566,154 @@ paths:
             "$ref": "#/components/responses/Error"
           },
           "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/metrics/gpu/efficiency:
+    {
+      "get": {
+        "operationId": "getGPUEfficiency",
+        "summary": "读取物理 GPU 窗口效率、采样覆盖及低利用率线索",
+        "description": "Requires active user and cluster metrics.read; no Slurm RPC or node/job data. Same administrator-owned Prometheus/DCGM profile as GPU monitoring. Five fixed query_range requests (utilization, FB_USED/FREE/TOTAL, power), exact cluster matcher and last_over_time(...[60s]); 1h/6h/24h step 60/300/600s. Evaluations are start+step through end, max144 points/device; not continuous time coverage or productivity/energy. Up to512 physical devices; MIG/unmapped ignored, identity/duplicate conflicts invalidate the full device. Missing/NaN/invalid/zero-denominator remain null, valid zero retained. Per-device valid-sample mean/nearest-rank P95/peak and independent memory/power coverage. Low evidence requires utilization sample coverage >=80% and >=80% of valid utilization samples <20%; other adequate devices are active (no low evidence), inadequate are insufficient. Summary and trend over all observed devices, unaffected by table filters/pagination. Fleet mean is equal-weight across valid GPU samples, not inventory/time weighted; trend includes participating count. Memory ratios pair same evaluation point; TOTAL fallback to USED+FREE only when TOTAL series entirely absent. Unknown sort values always last. 30s cache shared with existing four-flight/8MiB/64-entry limits; 20s total budget, each upstream response <=4MiB/4096series/120000points; fail closed on scope errors/warnings/limits. Final active RBAC and enabled cluster revision rechecked, cache never bypasses authorization. No source URL, token, arbitrary PromQL, controls, persistent samples or external notifications. Unknown/repeated params rejected. Unconfigured/no-data explicitly distinguished.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "range",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "6h",
+                "24h"
+              ],
+              "default": "1h"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "low",
+                "active",
+                "insufficient",
+                "ambiguous"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "node",
+                "mean",
+                "coverage",
+                "low",
+                "memory",
+                "power"
+              ],
+              "default": "node"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "asc"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "description": "Literal node/UUID/model search, UTF-8 <=128 bytes; table only."
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized window analysis and paginated device rows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GPUEfficiencyView"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
             "$ref": "#/components/responses/Error"
           },
           "503": {
@@ -11303,7 +11452,8 @@ components:
               "history",
               "fleet",
               "audits",
-              "capacity"
+              "capacity",
+              "gpu-efficiency"
             ]
           },
           "clusterId": {
@@ -11364,7 +11514,8 @@ components:
               "history",
               "fleet",
               "audits",
-              "capacity"
+              "capacity",
+              "gpu-efficiency"
             ]
           },
           "clusterId": {
@@ -12326,6 +12477,290 @@ components:
           },
           "history": {
             "$ref": "#/components/schemas/CapacityHistory"
+          }
+        }
+      }
+    GPUEfficiencyStats:
+      {
+        "type": "object",
+        "required": [
+          "samples",
+          "coveragePercent",
+          "mean",
+          "p95",
+          "peak"
+        ],
+        "properties": {
+          "samples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "coveragePercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "mean": {
+            "type": "number",
+            "nullable": true
+          },
+          "p95": {
+            "type": "number",
+            "nullable": true
+          },
+          "peak": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      }
+    GPUEfficiencyDevice:
+      {
+        "type": "object",
+        "required": [
+          "uuid",
+          "node",
+          "index",
+          "model",
+          "status",
+          "utilization",
+          "memoryPercent",
+          "powerW",
+          "lowSamples",
+          "lowSamplePercent"
+        ],
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "index": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "low",
+              "active",
+              "insufficient",
+              "ambiguous"
+            ]
+          },
+          "utilization": {
+            "$ref": "#/components/schemas/GPUEfficiencyStats"
+          },
+          "memoryPercent": {
+            "$ref": "#/components/schemas/GPUEfficiencyStats"
+          },
+          "powerW": {
+            "$ref": "#/components/schemas/GPUEfficiencyStats"
+          },
+          "lowSamples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lowSamplePercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "nullable": true
+          }
+        }
+      }
+    GPUEfficiencyAnalysis:
+      {
+        "type": "object",
+        "required": [
+          "status",
+          "source",
+          "range",
+          "start",
+          "end",
+          "step",
+          "expectedSamples",
+          "lowThresholdPercent",
+          "minimumCoveragePercent",
+          "minimumLowSamplePercent",
+          "ignoredSeries",
+          "fetchedAt",
+          "cached",
+          "summary",
+          "points",
+          "items"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "not_configured"
+            ]
+          },
+          "source": {
+            "type": "string"
+          },
+          "range": {
+            "type": "string",
+            "enum": [
+              "1h",
+              "6h",
+              "24h"
+            ]
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expectedSamples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lowThresholdPercent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minimumCoveragePercent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minimumLowSamplePercent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "ignoredSeries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "fetchedAt": {
+            "type": "string"
+          },
+          "cached": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "object",
+            "required": [
+              "observedDevices",
+              "low",
+              "active",
+              "insufficient",
+              "ambiguous",
+              "validSamples",
+              "meanUtilization"
+            ],
+            "properties": {
+              "observedDevices": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "low": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "active": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "insufficient": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ambiguous": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "validSamples": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "meanUtilization": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "nullable": true
+              }
+            }
+          },
+          "points": {
+            "type": "array",
+            "maxItems": 144,
+            "items": {
+              "type": "object",
+              "required": [
+                "time",
+                "meanUtilization",
+                "devices"
+              ],
+              "properties": {
+                "time": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "meanUtilization": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "nullable": true
+                },
+                "devices": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/GPUEfficiencyDevice"
+            }
+          }
+        }
+      }
+    GPUEfficiencyView:
+      {
+        "type": "object",
+        "required": [
+          "revision",
+          "page",
+          "perPage",
+          "totalItems",
+          "analysis"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "perPage": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalItems": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "analysis": {
+            "$ref": "#/components/schemas/GPUEfficiencyAnalysis"
           }
         }
       }

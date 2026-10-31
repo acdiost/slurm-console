@@ -18,6 +18,7 @@ func registerGPURoutes(group *router.RouterGroup[*core.RequestEvent]) {
 	r := group.Group("/clusters/{clusterId}/metrics/gpu")
 	r.Bind(apis.RequireAuth("users")).BindFunc(auth.RequireActiveUser).BindFunc(rbac.Require("metrics.read", true))
 	r.GET("", listGPU)
+	r.GET("/efficiency", gpuEfficiency)
 	r.GET("/{uuid}/history", func(e *core.RequestEvent) error {
 		if err := slurmQuery(e, "node", "range"); err != nil {
 			return err

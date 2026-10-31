@@ -705,5 +705,55 @@
         ]
       }
     }
+  },
+  "gpu-efficiency": {
+    "label": "GPU 资源效率分析",
+    "scoped": true,
+    "permissions": [
+      [
+        "metrics.read"
+      ]
+    ],
+    "fields": {
+      "q": {
+        "type": "text",
+        "max": 128
+      },
+      "range": {
+        "type": "enum",
+        "values": [
+          "1h",
+          "6h",
+          "24h"
+        ]
+      },
+      "status": {
+        "type": "enum",
+        "values": [
+          "low",
+          "active",
+          "insufficient",
+          "ambiguous"
+        ]
+      },
+      "sort": {
+        "type": "enum",
+        "values": [
+          "node",
+          "mean",
+          "coverage",
+          "low",
+          "memory",
+          "power"
+        ]
+      },
+      "order": {
+        "type": "enum",
+        "values": [
+          "asc",
+          "desc"
+        ]
+      }
+    }
   }
 }
