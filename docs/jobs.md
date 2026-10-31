@@ -55,3 +55,5 @@ sudo /opt/slurm-console/slurm-console slurm-identity unlink \
 平台审计查询可通过 `platform.audit.read` 检索跨集群历史，不改变原有本人操作查询边界，详见 [操作审计](audits.md)。
 
 作业页已支持本页最多十个明确作业的批量取消，共用相同身份、状态和逐项审计规则，不开放 Slurm 批量选择器。见 [批量操作](bulk-operations.md)。
+
+详情新增“诊断作业”，按需解释当前状态和原因，保留证据与下一步核查；见 [作业异常诊断](job-diagnostics.md)。

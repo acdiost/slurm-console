@@ -43,3 +43,5 @@ GPU 监控接入 `/clusters/{clusterId}/metrics/gpu` 和 `/{uuid}/history`，契
 容量 API 为 `GET /clusters/{id}/capacity` 及 `/capacity/history?range=1h|24h|7d`，要求 capacity.read+nodes.read；分区配置独立授权。固定完整五分钟历史窗口，缺口为 null，历史只读数据库，不发送 Slurm RPC。见 [容量分析](capacity.md) 和 OpenAPI 0.24.0。
 
 GPU 效率分析新增 `GET /api/v1/clusters/{clusterId}/metrics/gpu/efficiency`，独立固定窗口和全窗口汇总、分页逐卡统计，使用 `metrics.read`，不查询 Slurm，见 [GPU 效率说明](gpu-efficiency.md)及 OpenAPI 0.25.0。
+
+作业诊断增加当前与历史详情的 `/diagnosis` 只读接口，分别要求 `jobs.read` / `job_history.read`，历史强制精确记录和提交窗口。见 [作业诊断](job-diagnostics.md)及 OpenAPI 0.26.0。

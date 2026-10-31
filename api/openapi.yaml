@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.25.0
+  version: 0.26.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -7722,6 +7722,239 @@ paths:
         }
       }
     }
+  /api/v1/clusters/{clusterId}/jobs/{jobId}/diagnosis:
+    {
+      "get": {
+        "operationId": "diagnoseCurrentJob",
+        "summary": "诊断所选当前控制器作业",
+        "description": "Read-only deterministic rule v1 for exactly one source record. Active user and corresponding cluster source read permission before and after upstream/cache/analysis; enabled configuration revision rechecked. Controller only requires jobs.read and performs one targeted job read. Accounting only requires job_history.read; exact recordKey + jobId + bounded submission window, actual Slurm cluster resolved by existing Adapter; no controller/current-record fallback, no merging duplicate JobIDs/attempts/array elements or step timelines. Inherited approved connection identity, adapter limits, four-flight/8MiB cache (controller5s/history30s), no new background task or persistent diagnostic collection. Evidence IDs link findings to normalized allowlisted fields; scripts/environments/log files/raw wire not exposed. Facts distinguished from interpretations, confidence describes statement not unique root cause. States and flags separate; pending forecast timestamps never treated as actual execution. Abnormal steps all scanned (max512/source record); first20 abnormal evidence rows with explicit coverage. TotalCPU never added to step CPU. CPU approximation only for completed, nonarray/nonhet, nonresizing/nonrequeued, explicitly unsuspended records with valid CPU/time inputs; 0 preserved, missing invalid denominator null, >100% rejected rather than clamped. Low CPU clue only positive <20%, elapsed>=60s, no abnormal exits/steps, low confidence; not a productivity, instantaneous utilization or waste score. No Slurm writes, permissions expansion, arbitrary commands/URLs, log reads or external notifications. Unknown/repeated query params rejected.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "jobId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,9}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Evidence-linked explanation of this record only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "report",
+                        "revision",
+                        "cached"
+                      ],
+                      "properties": {
+                        "report": {
+                          "$ref": "#/components/schemas/JobDiagnosticReport"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "408": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/job-history/{recordKey}/diagnosis:
+    {
+      "get": {
+        "operationId": "diagnoseHistoricalJob",
+        "summary": "诊断所选独立历史作业记录",
+        "description": "Read-only deterministic rule v1 for exactly one source record. Active user and corresponding cluster source read permission before and after upstream/cache/analysis; enabled configuration revision rechecked. Controller only requires jobs.read and performs one targeted job read. Accounting only requires job_history.read; exact recordKey + jobId + bounded submission window, actual Slurm cluster resolved by existing Adapter; no controller/current-record fallback, no merging duplicate JobIDs/attempts/array elements or step timelines. Inherited approved connection identity, adapter limits, four-flight/8MiB cache (controller5s/history30s), no new background task or persistent diagnostic collection. Evidence IDs link findings to normalized allowlisted fields; scripts/environments/log files/raw wire not exposed. Facts distinguished from interpretations, confidence describes statement not unique root cause. States and flags separate; pending forecast timestamps never treated as actual execution. Abnormal steps all scanned (max512/source record); first20 abnormal evidence rows with explicit coverage. TotalCPU never added to step CPU. CPU approximation only for completed, nonarray/nonhet, nonresizing/nonrequeued, explicitly unsuspended records with valid CPU/time inputs; 0 preserved, missing invalid denominator null, >100% rejected rather than clamped. Low CPU clue only positive <20%, elapsed>=60s, no abnormal exits/steps, low confidence; not a productivity, instantaneous utilization or waste score. No Slurm writes, permissions expansion, arbitrary commands/URLs, log reads or external notifications. Unknown/repeated query params rejected.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "recordKey",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{64}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "jobId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,9}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Submission [start,end), end>start, at most31 days."
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Submission [start,end), end>start, at most31 days."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Evidence-linked explanation of this record only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "report",
+                        "revision",
+                        "cached",
+                        "start",
+                        "end"
+                      ],
+                      "properties": {
+                        "report": {
+                          "$ref": "#/components/schemas/JobDiagnosticReport"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        },
+                        "start": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "end": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "408": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -12761,6 +12994,365 @@ components:
           },
           "analysis": {
             "$ref": "#/components/schemas/GPUEfficiencyAnalysis"
+          }
+        }
+      }
+    JobDiagnosticFinding:
+      {
+        "type": "object",
+        "required": [
+          "code",
+          "category",
+          "severity",
+          "confidence",
+          "kind",
+          "title",
+          "explanation",
+          "evidenceIds",
+          "checks"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning"
+            ]
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fact",
+              "inference"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          },
+          "evidenceIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "audience",
+                "text"
+              ],
+              "properties": {
+                "audience": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "admin"
+                  ]
+                },
+                "text": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    JobDiagnosticReport:
+      {
+        "type": "object",
+        "required": [
+          "version",
+          "source",
+          "observedAt",
+          "generatedAt",
+          "identity",
+          "category",
+          "headline",
+          "timeline",
+          "metrics",
+          "coverage",
+          "evidence",
+          "findings",
+          "limitations"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "controller",
+              "accounting"
+            ]
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string"
+          },
+          "identity": {
+            "type": "object",
+            "required": [
+              "jobId",
+              "recordKey",
+              "name",
+              "user",
+              "account",
+              "partition",
+              "qos",
+              "nodes",
+              "states",
+              "arrayJobId",
+              "arrayTaskId",
+              "hetJobId",
+              "hetJobOffset"
+            ],
+            "properties": {
+              "jobId": {
+                "type": "string"
+              },
+              "recordKey": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "user": {
+                "type": "string"
+              },
+              "account": {
+                "type": "string"
+              },
+              "partition": {
+                "type": "string"
+              },
+              "qos": {
+                "type": "string"
+              },
+              "nodes": {
+                "type": "string"
+              },
+              "states": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "arrayJobId": {
+                "type": "object",
+                "required": [
+                  "value",
+                  "infinite"
+                ],
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "infinite": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "arrayTaskId": {
+                "type": "object",
+                "required": [
+                  "value",
+                  "infinite"
+                ],
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "infinite": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "hetJobId": {
+                "type": "object",
+                "required": [
+                  "value",
+                  "infinite"
+                ],
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "infinite": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "hetJobOffset": {
+                "type": "object",
+                "required": [
+                  "value",
+                  "infinite"
+                ],
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "infinite": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          "category": {
+            "type": "string"
+          },
+          "headline": {
+            "type": "string"
+          },
+          "timeline": {
+            "type": "object",
+            "required": [
+              "sinceSubmitSeconds",
+              "submitToStartSeconds",
+              "observedRunSeconds",
+              "reportedElapsedSeconds"
+            ],
+            "properties": {
+              "sinceSubmitSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "nullable": true
+              },
+              "submitToStartSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "nullable": true
+              },
+              "observedRunSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "nullable": true
+              },
+              "reportedElapsedSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "nullable": true
+              }
+            }
+          },
+          "metrics": {
+            "type": "object",
+            "required": [
+              "allocatedCpus",
+              "totalCpuSeconds",
+              "cpuAccountingPercent"
+            ],
+            "properties": {
+              "allocatedCpus": {
+                "type": "number",
+                "nullable": true,
+                "minimum": 0
+              },
+              "totalCpuSeconds": {
+                "type": "number",
+                "nullable": true,
+                "minimum": 0
+              },
+              "cpuAccountingPercent": {
+                "type": "number",
+                "nullable": true,
+                "minimum": 0
+              }
+            }
+          },
+          "coverage": {
+            "type": "object",
+            "required": [
+              "totalSteps",
+              "abnormalSteps",
+              "displayedSteps"
+            ],
+            "properties": {
+              "totalSteps": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "abnormalSteps": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "displayedSteps": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "field",
+                "label",
+                "value"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "field": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              }
+            },
+            "maxItems": 64
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobDiagnosticFinding"
+            },
+            "maxItems": 32
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16
           }
         }
       }

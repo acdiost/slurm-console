@@ -32,3 +32,5 @@ Job ID 不是唯一键。每条记录保留 SHA-256 标识，依据实际集群�
 本机 root 服务经受限子进程以专用 Slurm socket 身份读取。子进程仅接受固定条件的规范序列化，不能读取任意记账端点或升级为脚本/环境查询。本功能全部只读。
 
 契约依据测试环境安装版本的 `/openapi/v3`，参考 [Slurm REST API](https://slurm.schedmd.com/rest_api.html)、[sacct](https://slurm.schedmd.com/sacct.html) 与[记账采集配置](https://slurm.schedmd.com/accounting.html)。
+
+详情新增“诊断作业”，绑定该记录标识、Job ID 和提交窗口；异常步骤与主/派生退出记录独立核对，不合并重复 Job ID，见 [作业异常诊断](job-diagnostics.md)。

@@ -55,3 +55,5 @@ GPU 实际指标通过独立 gpumetrics 模块接入受保护的 Prometheus 配�
 capacity 在 OnServe 启动有界轮转采样，复用 Slurm 节点来源，按集群/连接摘要/五分钟桶持久保存单条数值汇总。趋势查询仅访问 SQLite，固定窗口和数量预算，缺口与未知资源保持为空；当前分区对比通过节点迭代去重，配置状态独立授权。见 [容量分析](capacity.md)。
 
 GPU 效率分析复用 gpumetrics 的固定来源、传输、并发和缓存边界，通过五次有界固定指标范围查询生成物理卡统计；不持久化或归因作业。见 [GPU 效率](gpu-efficiency.md)。
+
+diagnostics 规则层只消费现有规范化的单条作业 DTO，输出带证据 ID、来源时间、置信度和缺口的解释。无新后台任务、日志读取、持久化或控制；见 [作业诊断](job-diagnostics.md)。

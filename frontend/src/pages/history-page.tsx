@@ -1,3 +1,4 @@
+import { DiagnosticPanel } from "@/features/diagnostics/panel"
 import { useState } from "react"
 import { useSearchParams } from "react-router"
 import { useQuery } from "@tanstack/react-query"
@@ -172,7 +173,17 @@ function Filters({
     </form>
   )
 }
-function Detail({ job }: { job: HistoryJob }) {
+function Detail({
+  job,
+  clusterId,
+  start,
+  end,
+}: {
+  job: HistoryJob
+  clusterId: string
+  start: number
+  end: number
+}) {
   const details = [
     ["Slurm 集群", job.cluster],
     ["用户 / 账户", `${job.user} / ${job.account}`],
@@ -189,6 +200,15 @@ function Detail({ job }: { job: HistoryJob }) {
   ]
   return (
     <div className="space-y-6 px-5 pb-6">
+      <DiagnosticPanel
+        key={`${clusterId}:${job.key}:${start}:${end}`}
+        clusterId={clusterId}
+        jobId={job.id}
+        source="accounting"
+        recordKey={job.key}
+        start={start}
+        end={end}
+      />
       <div className="flex flex-wrap gap-2">
         {job.states.map((s) => (
           <SlurmStatusBadge key={s} state={s} />
@@ -606,7 +626,14 @@ export function HistoryPage() {
               {errorMessage(detail.error)}
             </p>
           ) : (
-            detail.data && <Detail job={detail.data.item} />
+            detail.data && (
+              <Detail
+                job={detail.data.item}
+                clusterId={cid}
+                start={detail.data.start}
+                end={detail.data.end}
+              />
+            )
           )}
         </SheetContent>
       </Sheet>

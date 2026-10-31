@@ -1,3 +1,4 @@
+import { DiagnosticPanel } from "@/features/diagnostics/panel"
 import { useQuery } from "@tanstack/react-query"
 import { ClientResponseError } from "pocketbase"
 import { RefreshCw, ShieldAlert } from "lucide-react"
@@ -136,6 +137,12 @@ export function JobDetail({
           )}
           {job && (
             <>
+              <DiagnosticPanel
+                key={`${clusterId}:${jobId}`}
+                clusterId={clusterId}
+                jobId={jobId}
+                source="controller"
+              />
               <section className="space-y-3 rounded-md border bg-muted/20 p-4">
                 <h2 className="text-base font-semibold break-all">
                   {job.name || "未命名作业"}
