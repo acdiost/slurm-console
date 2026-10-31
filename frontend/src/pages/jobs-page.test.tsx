@@ -186,3 +186,38 @@ it("列表直接取消时只打开一个确认层，关闭后展示详情及持�
   expect(await screen.findByRole("heading", { name: "作业 #42" })).toBeVisible()
   expect(await screen.findByText("取消操作记录")).toBeVisible()
 })
+
+it("批量选择仅限当前页，翻页和切换集群后清空", async () => {
+  useAuth.setState({
+    user: {
+      id: "actor",
+      email: "actor@example.test",
+      name: "Actor",
+      username: "alice",
+      authSource: "local",
+      access: {
+        platformRoles: [],
+        platformPermissions: [],
+        clusters: [
+          { cluster, roles: [], permissions: ["jobs.read", "jobs.cancel"] },
+        ],
+      },
+    },
+  })
+  mock()
+  show()
+  await screen.findByText("console-qa")
+  const select = screen.getByRole("checkbox", { name: "选择作业 #42" })
+  await userEvent.click(select)
+  expect(screen.getByText("已选 1 / 10 · 仅本页选择")).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "批量取消作业" })).toBeEnabled()
+  await userEvent.click(screen.getByRole("button", { name: "下一页作业" }))
+  expect(screen.getByText("已选 0 / 10 · 仅本页选择")).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "批量取消作业" })).toBeDisabled()
+  await userEvent.click(screen.getByRole("button", { name: "上一页作业" }))
+  expect(screen.getByText("已选 0 / 10 · 仅本页选择")).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("button", { name: "切换测试集群" }))
+  expect(
+    screen.queryByRole("checkbox", { name: "选择作业 #42" })
+  ).not.toBeInTheDocument()
+})

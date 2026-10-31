@@ -33,3 +33,5 @@ Reservation 独立接入 `/clusters/{clusterId}/reservations`、`/reservation-co
 GPU 监控接入 `/clusters/{clusterId}/metrics/gpu` 和 `/{uuid}/history`，契约更新至 OpenAPI 0.19.0，详见 [GPU 监控](gpu-monitoring.md)。
 
 历史作业新增 `GET /api/v1/clusters/{clusterId}/job-history` 及 `/{recordKey}`，独立要求 `job_history.read`。最多 31 天提交时间窗口、精确条件、分页排序和重复 Job ID 独立记录；详情含步骤，全部只读。见 [历史记账契约](job-history.md) 和 OpenAPI 0.20.0。
+
+批量协调接口位于 `/api/v1/clusters/{clusterId}/bulk-control`，支持 prepare、execute、内存进度和逐项持久操作的只读恢复。复用 jobs/nodes 读取与动作授权，每批 1–10 个明确目标，拒绝额外字段和隐式扩展；细节见 [批量操作](bulk-operations.md) 和 OpenAPI 0.21.0。

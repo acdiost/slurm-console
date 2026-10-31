@@ -53,3 +53,5 @@ sudo /opt/slurm-console/slurm-console slurm-identity unlink \
 审计确认的是“当前作业已为 CANCELLED”，不能证明该状态仅由本次操作造成。作业退出控制器保留范围、配置改指其他集群或读取失败时不会凭空推断成功。完整平台审计检索、保留策略和历史 SlurmDB 记账在后续阶段扩展。
 
 平台审计查询可通过 `platform.audit.read` 检索跨集群历史，不改变原有本人操作查询边界，详见 [操作审计](audits.md)。
+
+作业页已支持本页最多十个明确作业的批量取消，共用相同身份、状态和逐项审计规则，不开放 Slurm 批量选择器。见 [批量操作](bulk-operations.md)。

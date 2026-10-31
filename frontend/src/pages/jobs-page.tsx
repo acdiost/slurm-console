@@ -1,3 +1,7 @@
+import { Checkbox } from "@/components/ui/checkbox"
+import { BulkControlDialog } from "@/features/bulk/control-dialog"
+import { BulkOperations } from "@/features/bulk/operations-panel"
+import { validOperations } from "@/features/bulk/schema"
 import { useCallback, useMemo, useState } from "react"
 import { ClientResponseError } from "pocketbase"
 import { Link, useSearchParams } from "react-router"
@@ -71,6 +75,14 @@ export function JobsPage() {
     clusterId: string
     jobId: string
   }>()
+  const [selection, setSelection] = useState<{ scope: string; ids: string[] }>({
+    scope: "",
+    ids: [],
+  })
+  const [bulkTarget, setBulkTarget] = useState<{
+    scope: string
+    ids: string[]
+  }>()
   const client = useQueryClient()
   const access = useAuth((state) => state.user?.access)
   const page = integer(params.get("page"), 1, 1000000),
@@ -106,7 +118,8 @@ export function JobsPage() {
   })
   for (const [key, value] of Object.entries(filters))
     if (value) listQuery.set(key, value)
-  const queryString = listQuery.toString()
+  const queryString = listQuery.toString(),
+    scope = `${clusterId}:${listQuery.toString()}`
   const jobs = useQuery({
     queryKey: ["jobs", clusterId, queryString],
     enabled: !!clusterId,
@@ -131,6 +144,33 @@ export function JobsPage() {
   })
   const data = jobs.isError ? undefined : jobs.data,
     rows = data?.items ?? EMPTY
+  const selected =
+    canCancel && selection.scope === scope
+      ? selection.ids.filter((id) => rows.some((j) => j.id === id && active(j)))
+      : []
+  // Drop stale choices permanently, including browser back/forward navigation.
+  if (
+    selection.ids.length &&
+    (selection.scope !== scope ||
+      !canCancel ||
+      jobs.isError ||
+      (!!data && selected.length !== selection.ids.length))
+  )
+    setSelection({ scope, ids: selected })
+  if (bulkTarget && (bulkTarget.scope !== scope || !canCancel))
+    setBulkTarget(undefined)
+  const activeBulk =
+    bulkTarget?.scope === scope && canCancel ? bulkTarget : undefined
+  const operationIds = (params.get("operations") || "")
+    .split(",")
+    .filter(Boolean)
+  const toggle = (id: string, checked: boolean) =>
+    setSelection({
+      scope,
+      ids: checked
+        ? [...selected, id].slice(0, 10)
+        : selected.filter((v) => v !== id),
+    })
   const update = useCallback(
     (changes: Record<string, string | null>) => {
       setParams((previous) => {
@@ -414,10 +454,40 @@ export function JobsPage() {
               {jobs.isFetching && " · 正在刷新…"}
             </span>
           </div>
+          {canCancel && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3">
+              <span className="text-xs text-muted-foreground">
+                已选 {selected.length} / 10 · 仅本页选择
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!selected.length}
+                  onClick={() => setSelection({ scope, ids: [] })}
+                >
+                  清空作业选择
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={!selected.length || jobs.isFetching}
+                  onClick={() => {
+                    update({ job: null, operation: null })
+                    setCancelTarget(undefined)
+                    setBulkTarget({ scope, ids: [...selected] })
+                  }}
+                >
+                  批量取消作业
+                </Button>
+              </div>
+            </div>
+          )}
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((group) => (
                 <TableRow key={group.id}>
+                  {canCancel && <TableHead className="w-10">选择</TableHead>}
                   {group.headers.map((header) => (
                     <TableHead key={header.id} className={hidden(header.id)}>
                       {flexRender(
@@ -433,6 +503,21 @@ export function JobsPage() {
             <TableBody>
               {table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
+                  {canCancel && (
+                    <TableCell className="py-4 align-top">
+                      <Checkbox
+                        aria-label={`选择作业 #${row.id}`}
+                        checked={selected.includes(row.id)}
+                        disabled={
+                          !active(row.original) ||
+                          (selected.length >= 10 && !selected.includes(row.id))
+                        }
+                        onCheckedChange={(checked) =>
+                          toggle(row.id, checked === true)
+                        }
+                      />
+                    </TableCell>
+                  )}
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
@@ -536,6 +621,46 @@ export function JobsPage() {
             </div>
           </div>
         </section>
+      )}
+      {clusterId &&
+        operationIds.length > 0 &&
+        (validOperations(operationIds) ? (
+          <BulkOperations
+            key={`${clusterId}:${operationIds.join(",")}`}
+            clusterId={clusterId}
+            resource="job"
+            batchId={params.get("batch")}
+            ids={operationIds}
+            automatic={automatic}
+          />
+        ) : (
+          <p role="alert" className="panel p-4 text-sm text-destructive">
+            操作记录链接不合法，每次最多 10 条。
+          </p>
+        ))}
+      {activeBulk && (
+        <BulkControlDialog
+          key={`${scope}:${activeBulk.ids.join(",")}`}
+          clusterId={clusterId}
+          action="jobs.cancel"
+          targets={activeBulk.ids}
+          onClose={() => {
+            setBulkTarget(undefined)
+            setSelection({ scope, ids: [] })
+          }}
+          onStart={(ids, batchId) =>
+            update({ operations: ids.join(","), batch: batchId })
+          }
+          onResult={() => {
+            for (const key of [
+              ["jobs", clusterId],
+              ["job", clusterId],
+              ["cluster-overview", clusterId],
+              ["bulk-operations", clusterId],
+            ])
+              void client.invalidateQueries({ queryKey: key })
+          }}
+        />
       )}
       <p className="text-2xs leading-6 text-muted-foreground">
         作业数据来自当前控制器，已结束记录可能随保留策略移除。取消需要集群动作权限、显式

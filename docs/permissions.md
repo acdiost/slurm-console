@@ -50,3 +50,5 @@ Reservation 使用集群 `reservations.read/create/update/delete`：四类内置
 GPU 监控与趋势需要集群 `metrics.read`；Slurm 节点分配汇总独立检查 `nodes.read`，缺权不查询来源。监控源绑定配置由部署管理员维护，平台 API 不开放任意查询或地址输入。见 [GPU 监控](gpu-monitoring.md)。
 
 历史作业与记账使用独立集群动作 `job_history.read`，四类内置角色显式获得读取，自定义角色不隐式继承。来源前后复查实时授权、用户活动状态和连接修订；控制器作业或账户读取权限不授予历史数据。见 [历史作业](job-history.md)。
+
+批量操作不新增控制特权：准备/执行要求相应集群的 jobs.read+jobs.cancel 或 nodes.read+nodes.drain/resume，排队后仍逐项复查。进度仅限本人及相应读取权限；持久操作查询沿用本人/平台审计的原有边界。见 [批量操作](bulk-operations.md)。

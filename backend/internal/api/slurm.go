@@ -268,6 +268,9 @@ func getNode(e *core.RequestEvent, name string) error {
 }
 
 func queryLimit(key string) int {
+	if key == "ids" {
+		return 650
+	}
 	if key == "partition" {
 		return 255
 	}

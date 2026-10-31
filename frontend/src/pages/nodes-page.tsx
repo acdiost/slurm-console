@@ -1,3 +1,5 @@
+import { BulkControlDialog } from "@/features/bulk/control-dialog"
+import { BulkOperations } from "@/features/bulk/operations-panel"
 import { useCallback, useMemo, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -145,6 +147,26 @@ export function NodesPage() {
     selection.scope === scope
       ? selection.names.filter((name) => rows.some((row) => row.name === name))
       : []
+  if (
+    selection.names.length &&
+    (selection.scope !== scope ||
+      !canControl ||
+      nodes.isError ||
+      (!!data && names.length !== selection.names.length))
+  )
+    setSelection({
+      scope,
+      names:
+        selection.scope === scope && canControl && !nodes.isError ? names : [],
+    })
+  if (
+    target &&
+    (target.scope !== scope ||
+      target.clusterId !== clusterId ||
+      (target.action === "drain" ? !canDrain : !canResume) ||
+      (!!target.detail && target.detail !== nodeName))
+  )
+    setTarget(undefined)
   const activeTarget =
     target?.clusterId === clusterId &&
     target.scope === scope &&
@@ -730,12 +752,22 @@ export function NodesPage() {
       {clusterId &&
         operationIds.length > 0 &&
         (validOperations ? (
-          <NodeOperations
-            key={`${clusterId}:${operationIds.join(",")}`}
-            clusterId={clusterId}
-            ids={operationIds}
-            automatic={automatic}
-          />
+          params.has("batch") ? (
+            <BulkOperations
+              clusterId={clusterId}
+              ids={operationIds}
+              resource="node"
+              batchId={params.get("batch")}
+              automatic={automatic}
+            />
+          ) : (
+            <NodeOperations
+              key={`${clusterId}:${operationIds.join(",")}`}
+              clusterId={clusterId}
+              ids={operationIds}
+              automatic={automatic}
+            />
+          )
         ) : (
           <p role="alert" className="panel p-4 text-xs text-destructive">
             操作记录链接不合法，每次最多查询 10 条。
@@ -766,19 +798,40 @@ export function NodesPage() {
           onClose={() => update({ node: null })}
         />
       )}
-      {activeTarget && (
-        <NodeControlDialog
-          key={`${clusterId}:${activeTarget.action}:${activeTarget.names.join(",")}`}
-          clusterId={clusterId}
-          names={activeTarget.names}
-          action={activeTarget.action}
-          onClose={() => setTarget(undefined)}
-          onStart={(ids) =>
-            update({ cluster: clusterId, operations: ids.join(",") })
-          }
-          onResult={afterControl}
-        />
-      )}
+      {activeTarget &&
+        (activeTarget.names.length > 1 ? (
+          <BulkControlDialog
+            key={`${clusterId}:${activeTarget.action}:${activeTarget.names.join(",")}`}
+            clusterId={clusterId}
+            targets={activeTarget.names}
+            action={`nodes.${activeTarget.action}`}
+            onClose={() => setTarget(undefined)}
+            onStart={(ids, batchId) =>
+              update({
+                cluster: clusterId,
+                operations: ids.join(","),
+                batch: batchId,
+              })
+            }
+            onResult={afterControl}
+          />
+        ) : (
+          <NodeControlDialog
+            key={`${clusterId}:${activeTarget.action}:${activeTarget.names.join(",")}`}
+            clusterId={clusterId}
+            names={activeTarget.names}
+            action={activeTarget.action}
+            onClose={() => setTarget(undefined)}
+            onStart={(ids) =>
+              update({
+                cluster: clusterId,
+                operations: ids.join(","),
+                batch: null,
+              })
+            }
+            onResult={afterControl}
+          />
+        ))}
     </div>
   )
 }
