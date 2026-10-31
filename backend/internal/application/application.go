@@ -15,6 +15,7 @@ import (
 	"slurm-console/backend/internal/gpumetrics"
 	"slurm-console/backend/internal/jobcontrol"
 	"slurm-console/backend/internal/linuxusers"
+	"slurm-console/backend/internal/notifications"
 	"slurm-console/backend/internal/rbac"
 	_ "slurm-console/backend/migrations"
 )
@@ -57,6 +58,7 @@ func New() (*pocketbase.PocketBase, error) {
 		}
 		api.Register(event.Router, publicDir)
 		go connections.CheckEnabled(connectionContext)
+		notifications.For(app).Start(connectionContext)
 		return event.Next()
 	})
 	return app, nil

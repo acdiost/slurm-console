@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.22.0
+  version: 0.23.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -6631,6 +6631,731 @@ paths:
         }
       }
     }
+  /api/v1/notification-rules:
+    {
+      "get": {
+        "operationId": "listNotificationRules",
+        "summary": "读取本人规则（撤权后隐藏来源证据）",
+        "description": "Active owner only; even platform Super Admin cannot read/manage another owner. Source permissions: clusters.read / nodes.read / jobs.read / metrics.read per cluster. Private rule metadata remains visible for cleanup after revocation, but evidence/state is redacted. Notifications are filtered before pagination/counts by current source read access. Native Collection CRUD locked. Rules do not execute Slurm control or send external messages. At most 20 rules per user /100 platform, two evaluator slots, 30s best-effort polling with 25s sweep budget; lastChecked/stale exposes delayed sampling. Unknown observations break pending time and never recover active incidents. Durable transaction stores one notification per incident/phase. No repeated reminders. Edit/disable resets monitoring context without a recovery claim; deleting rules preserves notification history. Latest 200 notices per owner /10000 global, maximum 30 days. Unknown fields, repeated/unknown query parameters rejected; body <=16KiB.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own authorized monitoring data.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NotificationRuleList"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "clusterId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createNotificationRule",
+        "summary": "创建本人的站内告警规则",
+        "description": "Active owner only; even platform Super Admin cannot read/manage another owner. Source permissions: clusters.read / nodes.read / jobs.read / metrics.read per cluster. Private rule metadata remains visible for cleanup after revocation, but evidence/state is redacted. Notifications are filtered before pagination/counts by current source read access. Native Collection CRUD locked. Rules do not execute Slurm control or send external messages. At most 20 rules per user /100 platform, two evaluator slots, 30s best-effort polling with 25s sweep budget; lastChecked/stale exposes delayed sampling. Unknown observations break pending time and never recover active incidents. Durable transaction stores one notification per incident/phase. No repeated reminders. Edit/disable resets monitoring context without a recovery claim; deleting rules preserves notification history. Latest 200 notices per owner /10000 global, maximum 30 days. Unknown fields, repeated/unknown query parameters rejected; body <=16KiB.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own authorized monitoring data.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NotificationRule"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationRuleCreate"
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/notification-rules/{ruleId}:
+    {
+      "patch": {
+        "operationId": "updateNotificationRule",
+        "summary": "按版本完整更新规则并开始新评估",
+        "description": "Active owner only; even platform Super Admin cannot read/manage another owner. Source permissions: clusters.read / nodes.read / jobs.read / metrics.read per cluster. Private rule metadata remains visible for cleanup after revocation, but evidence/state is redacted. Notifications are filtered before pagination/counts by current source read access. Native Collection CRUD locked. Rules do not execute Slurm control or send external messages. At most 20 rules per user /100 platform, two evaluator slots, 30s best-effort polling with 25s sweep budget; lastChecked/stale exposes delayed sampling. Unknown observations break pending time and never recover active incidents. Durable transaction stores one notification per incident/phase. No repeated reminders. Edit/disable resets monitoring context without a recovery claim; deleting rules preserves notification history. Latest 200 notices per owner /10000 global, maximum 30 days. Unknown fields, repeated/unknown query parameters rejected; body <=16KiB.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own authorized monitoring data.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NotificationRule"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationRuleUpdate"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteNotificationRule",
+        "summary": "按版本删除本人规则并保留历史通知",
+        "description": "Active owner only; even platform Super Admin cannot read/manage another owner. Source permissions: clusters.read / nodes.read / jobs.read / metrics.read per cluster. Private rule metadata remains visible for cleanup after revocation, but evidence/state is redacted. Notifications are filtered before pagination/counts by current source read access. Native Collection CRUD locked. Rules do not execute Slurm control or send external messages. At most 20 rules per user /100 platform, two evaluator slots, 30s best-effort polling with 25s sweep budget; lastChecked/stale exposes delayed sampling. Unknown observations break pending time and never recover active incidents. Durable transaction stores one notification per incident/phase. No repeated reminders. Edit/disable resets monitoring context without a recovery claim; deleting rules preserves notification history. Latest 200 notices per owner /10000 global, maximum 30 days. Unknown fields, repeated/unknown query parameters rejected; body <=16KiB.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own authorized monitoring data.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NotificationRuleDeleted"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationRuleDelete"
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/notification-rules/{ruleId}/check:
+    {
+      "post": {
+        "operationId": "checkNotificationRule",
+        "summary": "立即只读采样本人已启用规则（共享并发限制）",
+        "description": "Active owner only; even platform Super Admin cannot read/manage another owner. Source permissions: clusters.read / nodes.read / jobs.read / metrics.read per cluster. Private rule metadata remains visible for cleanup after revocation, but evidence/state is redacted. Notifications are filtered before pagination/counts by current source read access. Native Collection CRUD locked. Rules do not execute Slurm control or send external messages. At most 20 rules per user /100 platform, two evaluator slots, 30s best-effort polling with 25s sweep budget; lastChecked/stale exposes delayed sampling. Unknown observations break pending time and never recover active incidents. Durable transaction stores one notification per incident/phase. No repeated reminders. Edit/disable resets monitoring context without a recovery claim; deleting rules preserves notification history. Latest 200 notices per owner /10000 global, maximum 30 days. Unknown fields, repeated/unknown query parameters rejected; body <=16KiB.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own authorized monitoring data.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NotificationRule"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationEmpty"
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/notifications:
+    {
+      "get": {
+        "operationId": "listNotifications",
+        "summary": "按当前来源权限过滤本人通知和未读数",
+        "description": "Active owner only; even platform Super Admin cannot read/manage another owner. Source permissions: clusters.read / nodes.read / jobs.read / metrics.read per cluster. Private rule metadata remains visible for cleanup after revocation, but evidence/state is redacted. Notifications are filtered before pagination/counts by current source read access. Native Collection CRUD locked. Rules do not execute Slurm control or send external messages. At most 20 rules per user /100 platform, two evaluator slots, 30s best-effort polling with 25s sweep budget; lastChecked/stale exposes delayed sampling. Unknown observations break pending time and never recover active incidents. Durable transaction stores one notification per incident/phase. No repeated reminders. Edit/disable resets monitoring context without a recovery claim; deleting rules preserves notification history. Latest 200 notices per owner /10000 global, maximum 30 days. Unknown fields, repeated/unknown query parameters rejected; body <=16KiB.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own authorized monitoring data.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NotificationPage"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "clusterId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "read",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "read",
+                "unread"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "phase",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "firing",
+                "recovered"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    }
+  /api/v1/notifications/{notificationId}/read:
+    {
+      "post": {
+        "operationId": "markNotificationRead",
+        "summary": "显式标记本人的通知已读或未读",
+        "description": "Active owner only; even platform Super Admin cannot read/manage another owner. Source permissions: clusters.read / nodes.read / jobs.read / metrics.read per cluster. Private rule metadata remains visible for cleanup after revocation, but evidence/state is redacted. Notifications are filtered before pagination/counts by current source read access. Native Collection CRUD locked. Rules do not execute Slurm control or send external messages. At most 20 rules per user /100 platform, two evaluator slots, 30s best-effort polling with 25s sweep budget; lastChecked/stale exposes delayed sampling. Unknown observations break pending time and never recover active incidents. Durable transaction stores one notification per incident/phase. No repeated reminders. Edit/disable resets monitoring context without a recovery claim; deleting rules preserves notification history. Latest 200 notices per owner /10000 global, maximum 30 days. Unknown fields, repeated/unknown query parameters rejected; body <=16KiB.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own authorized monitoring data.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NotificationRead"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notificationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationRead"
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/notifications/read-all:
+    {
+      "post": {
+        "operationId": "markAllNotificationsRead",
+        "summary": "将本人当前有权读取的通知标为已读",
+        "description": "Active owner only; even platform Super Admin cannot read/manage another owner. Source permissions: clusters.read / nodes.read / jobs.read / metrics.read per cluster. Private rule metadata remains visible for cleanup after revocation, but evidence/state is redacted. Notifications are filtered before pagination/counts by current source read access. Native Collection CRUD locked. Rules do not execute Slurm control or send external messages. At most 20 rules per user /100 platform, two evaluator slots, 30s best-effort polling with 25s sweep budget; lastChecked/stale exposes delayed sampling. Unknown observations break pending time and never recover active incidents. Durable transaction stores one notification per incident/phase. No repeated reminders. Edit/disable resets monitoring context without a recovery claim; deleting rules preserves notification history. Latest 200 notices per owner /10000 global, maximum 30 days. Unknown fields, repeated/unknown query parameters rejected; body <=16KiB.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own authorized monitoring data.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NotificationReadCount"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationEmpty"
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/notifications/stream:
+    {
+      "get": {
+        "operationId": "notificationStream",
+        "summary": "订阅本人通知变更提示（不携带资源内容）",
+        "description": "Active owner only; even platform Super Admin cannot read/manage another owner. Source permissions: clusters.read / nodes.read / jobs.read / metrics.read per cluster. Private rule metadata remains visible for cleanup after revocation, but evidence/state is redacted. Notifications are filtered before pagination/counts by current source read access. Native Collection CRUD locked. Rules do not execute Slurm control or send external messages. At most 20 rules per user /100 platform, two evaluator slots, 30s best-effort polling with 25s sweep budget; lastChecked/stale exposes delayed sampling. Unknown observations break pending time and never recover active incidents. Durable transaction stores one notification per incident/phase. No repeated reminders. Edit/disable resets monitoring context without a recovery claim; deleting rules preserves notification history. Latest 200 notices per owner /10000 global, maximum 30 days. Unknown fields, repeated/unknown query parameters rejected; body <=16KiB. SSE via fetch with Authorization header; no token query. ready/changed frames carry only {} and heartbeat comments every 15s. JWT/active/external account revalidated on heartbeat. At most 3 streams/user and 64 total; coalesced bounded hints, 5-minute lifetime, close on shutdown; reconnect and authorized REST reads/polling recover missed events. No durable event replay or delivery guarantee.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE invalidation hints only, successful stream is not a JSON envelope.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "event: changed\ndata: {}\n\n"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -10529,6 +11254,460 @@ components:
             "enum": [
               100
             ]
+          }
+        },
+        "additionalProperties": false
+      }
+    NotificationRuleCreate:
+      {
+        "type": "object",
+        "required": [
+          "clusterId",
+          "name",
+          "kind",
+          "severity",
+          "enabled",
+          "threshold",
+          "holdMinutes"
+        ],
+        "properties": {
+          "clusterId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cluster_health",
+              "node_unavailable",
+              "job_pending",
+              "gpu_temperature"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "critical"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "description": "cluster_health must be 1; node_unavailable counts DOWN/NOT_RESPONDING nodes; job_pending is minutes since submission; gpu_temperature is degrees C (30-120)."
+          },
+          "holdMinutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60,
+            "default": 2,
+            "description": "0 fires on first valid breach; >0 requires consecutive observations, with no >90s gap."
+          }
+        },
+        "additionalProperties": false
+      }
+    NotificationRuleUpdate:
+      {
+        "type": "object",
+        "required": [
+          "clusterId",
+          "name",
+          "kind",
+          "severity",
+          "enabled",
+          "threshold",
+          "holdMinutes",
+          "revision"
+        ],
+        "properties": {
+          "clusterId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cluster_health",
+              "node_unavailable",
+              "job_pending",
+              "gpu_temperature"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "critical"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "description": "cluster_health must be 1; node_unavailable counts DOWN/NOT_RESPONDING nodes; job_pending is minutes since submission; gpu_temperature is degrees C (30-120)."
+          },
+          "holdMinutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60,
+            "default": 2,
+            "description": "0 fires on first valid breach; >0 requires consecutive observations, with no >90s gap."
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    NotificationRuleDelete:
+      {
+        "type": "object",
+        "required": [
+          "revision"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    NotificationRuleDeleted:
+      {
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "properties": {
+          "deleted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    NotificationRule:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "clusterId",
+          "name",
+          "kind",
+          "severity",
+          "enabled",
+          "threshold",
+          "holdMinutes",
+          "revision",
+          "state",
+          "incidentActive",
+          "pendingSince",
+          "lastChecked",
+          "summary",
+          "affectedCount",
+          "samples",
+          "usable",
+          "stale"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clusterId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cluster_health",
+              "node_unavailable",
+              "job_pending",
+              "gpu_temperature"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "critical"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "description": "cluster_health must be 1; node_unavailable counts DOWN/NOT_RESPONDING nodes; job_pending is minutes since submission; gpu_temperature is degrees C (30-120)."
+          },
+          "holdMinutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60,
+            "default": 2,
+            "description": "0 fires on first valid breach; >0 requires consecutive observations, with no >90s gap."
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "unknown",
+              "ok",
+              "pending",
+              "firing",
+              "blocked"
+            ]
+          },
+          "incidentActive": {
+            "type": "boolean"
+          },
+          "pendingSince": {
+            "type": "string"
+          },
+          "lastChecked": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "affectedCount": {
+            "type": "integer"
+          },
+          "samples": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string"
+            }
+          },
+          "usable": {
+            "type": "boolean"
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    NotificationRuleList:
+      {
+        "type": "object",
+        "required": [
+          "items",
+          "maxPerUser",
+          "maxRules",
+          "intervalSeconds"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/NotificationRule"
+            }
+          },
+          "maxPerUser": {
+            "type": "integer",
+            "enum": [
+              20
+            ]
+          },
+          "maxRules": {
+            "type": "integer",
+            "enum": [
+              100
+            ]
+          },
+          "intervalSeconds": {
+            "type": "integer",
+            "enum": [
+              30
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    Notification:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "clusterId",
+          "ruleId",
+          "ruleName",
+          "kind",
+          "severity",
+          "phase",
+          "incidentId",
+          "message",
+          "affectedCount",
+          "samples",
+          "read",
+          "createdAt",
+          "href"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clusterId": {
+            "type": "string"
+          },
+          "ruleId": {
+            "type": "string"
+          },
+          "ruleName": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cluster_health",
+              "node_unavailable",
+              "job_pending",
+              "gpu_temperature"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "critical"
+            ]
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "firing",
+              "recovered"
+            ]
+          },
+          "incidentId": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "affectedCount": {
+            "type": "integer"
+          },
+          "samples": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string"
+            }
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string",
+            "description": "Server-derived relative resource link; never a configurable destination."
+          }
+        },
+        "additionalProperties": false
+      }
+    NotificationPage:
+      {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "perPage",
+          "totalItems",
+          "unreadCount"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/Notification"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "perPage": {
+            "type": "integer"
+          },
+          "totalItems": {
+            "type": "integer"
+          },
+          "unreadCount": {
+            "type": "integer",
+            "description": "Only current owner and currently authorized sources, across list filters; excludes expired history."
+          }
+        },
+        "additionalProperties": false
+      }
+    NotificationEmpty:
+      {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    NotificationRead:
+      {
+        "type": "object",
+        "required": [
+          "read"
+        ],
+        "properties": {
+          "read": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    NotificationReadCount:
+      {
+        "type": "object",
+        "required": [
+          "updated"
+        ],
+        "properties": {
+          "updated": {
+            "type": "integer"
           }
         },
         "additionalProperties": false

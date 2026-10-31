@@ -1,9 +1,11 @@
+import { NotificationBell } from "@/features/notifications/feed"
 import { SavedFiltersOutlet } from "@/features/saved-filters/outlet"
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useLocation } from "react-router"
 import {
   Activity,
+  Bell,
   ScrollText,
   ArrowUpRight,
   Boxes,
@@ -158,6 +160,18 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
         {sections.map((section) => (
           <div key={section.label}>
             <p className="nav-label">{section.label}</p>
+            {section.label === "平台管理" && (
+              <NavLink
+                to="/notifications"
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
+                }
+              >
+                <Bell />
+                <span>告警通知</span>
+              </NavLink>
+            )}
             {section.label === "平台管理" && canManage && (
               <NavLink
                 to="/clusters"
@@ -419,40 +433,43 @@ export function ConsoleLayout() {
             </span>
             <ChevronRight className="hidden size-3 text-muted-foreground sm:inline" />
             <span>
-              {pathname === "/history"
-                ? "历史作业与记账"
-                : pathname === "/gpu"
-                  ? "GPU 监控"
-                  : pathname === "/reservations"
-                    ? "Reservation 资源预留"
-                    : pathname === "/tres"
-                      ? "TRES 限额"
-                      : pathname === "/policies"
-                        ? "QOS 与 Fairshare"
-                        : pathname === "/accounts"
-                          ? "账户与 Association"
-                          : pathname === "/linux-users"
-                            ? "Linux 系统用户"
-                            : pathname === "/fleet"
-                              ? "集群工作台"
-                              : pathname === "/audits"
-                                ? "操作审计"
-                                : pathname === "/partitions"
-                                  ? "分区查询"
-                                  : pathname === "/nodes"
-                                    ? "节点管理"
-                                    : pathname === "/jobs"
-                                      ? "作业管理"
-                                      : pathname === "/overview"
-                                        ? "集群总览"
-                                        : pathname === "/clusters"
-                                          ? "集群配置"
-                                          : pathname === "/access"
-                                            ? "我的权限"
-                                            : "设计系统"}
+              {pathname === "/notifications"
+                ? "告警通知"
+                : pathname === "/history"
+                  ? "历史作业与记账"
+                  : pathname === "/gpu"
+                    ? "GPU 监控"
+                    : pathname === "/reservations"
+                      ? "Reservation 资源预留"
+                      : pathname === "/tres"
+                        ? "TRES 限额"
+                        : pathname === "/policies"
+                          ? "QOS 与 Fairshare"
+                          : pathname === "/accounts"
+                            ? "账户与 Association"
+                            : pathname === "/linux-users"
+                              ? "Linux 系统用户"
+                              : pathname === "/fleet"
+                                ? "集群工作台"
+                                : pathname === "/audits"
+                                  ? "操作审计"
+                                  : pathname === "/partitions"
+                                    ? "分区查询"
+                                    : pathname === "/nodes"
+                                      ? "节点管理"
+                                      : pathname === "/jobs"
+                                        ? "作业管理"
+                                        : pathname === "/overview"
+                                          ? "集群总览"
+                                          : pathname === "/clusters"
+                                            ? "集群配置"
+                                            : pathname === "/access"
+                                              ? "我的权限"
+                                              : "设计系统"}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <NotificationBell />
             <Badge
               variant="outline"
               className="hidden gap-1.5 font-normal sm:flex"

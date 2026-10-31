@@ -68,3 +68,5 @@ Slurm `auth/local` 取 Unix socket 对端身份，部分部署拒绝 root。因�
 2026-10-28 在现有 Rocky Linux 虚拟机完成 root 迁移验收：服务实际 UID/GID 均为 0；PAM 登录、LDAP TLS 查询、Slurm 健康/作业/节点/分区及本地账户创建、锁定、解锁与审计通过，临时账户已清理。重复安装及两个配置脚本保持运行 PID；独立挂载命名空间验证 root/旧版快照恢复，以及模拟升级失败后的程序、数据库和旧版数据权限回退。原有 Slurm、LDAP、PAM 配置内容及外部 Slurm 服务 PID 保持一致。
 
 GPU 实际监控使用管理员既有 Prometheus/DCGM；应用只读取受保护的 metrics-profiles.json，安装器不安装第三方监控组件。配置见 [GPU 监控](gpu-monitoring.md)。
+
+告警通知随应用迁移自动启用，无新增配置或第三方告警服务；用户创建规则后才开始监控。反向代理应允许 text/event-stream、关闭响应缓冲，并使读取超时大于 30 秒；实时连接不可用时浏览器继续轮询。规则和通知随应用数据库备份，详见 [告警通知](notifications.md)。
