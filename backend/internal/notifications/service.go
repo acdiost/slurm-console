@@ -171,6 +171,11 @@ func (s *Service) Delete(owner, id string, rev int) error {
 	return e
 }
 func (s *Service) Evaluate(ctx context.Context, owner, id string) (*core.Record, error) {
+	// Resolve ownership before reporting per-rule activity or taking shared capacity.
+	r, e := Own(s.app, owner, id)
+	if e != nil {
+		return nil, e
+	}
 	s.mu.Lock()
 	if s.checking[id] {
 		s.mu.Unlock()
@@ -185,10 +190,6 @@ func (s *Service) Evaluate(ctx context.Context, owner, id string) (*core.Record,
 	s.checking[id] = true
 	s.mu.Unlock()
 	defer func() { s.mu.Lock(); delete(s.checking, id); s.mu.Unlock(); <-s.slots }()
-	r, e := Own(s.app, owner, id)
-	if e != nil {
-		return nil, e
-	}
 	if !r.GetBool("enabled") {
 		return nil, ErrInvalid
 	}

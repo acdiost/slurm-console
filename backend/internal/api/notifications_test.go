@@ -401,3 +401,41 @@ func TestNotificationRealSourcesAndIncompleteTelemetry(t *testing.T) {
 		}
 	}
 }
+
+func TestNotificationOwnershipPrecedesInflightBusyState(t *testing.T) {
+	app, mux := setup(t)
+	u := user(t, app, "users")
+	c := cluster(t, app, "notice-private-busy")
+	c.Set("enabled", true)
+	_ = app.Save(c)
+	grant(t, app, u.Id, "viewer", c.Id)
+	token := login(t, mux)
+	other := core.NewRecord(u.Collection())
+	other.SetEmail("other-busy@example.test")
+	other.SetPassword(fixturePassword)
+	other.Set("active", true)
+	other.Set("auth_source", "local")
+	if e := app.Save(other); e != nil {
+		t.Fatal(e)
+	}
+	grant(t, app, other.Id, "super_admin", "")
+	otherToken, _ := other.NewAuthToken()
+	entered, finish := make(chan struct{}), make(chan struct{})
+	s := notices.Register(app, func(context.Context, string, string, int, time.Time) notices.Observation {
+		close(entered)
+		<-finish
+		return notices.Observation{Known: true, Summary: "healthy"}
+	})
+	rule := createRule(t, mux, token, c.Id)
+	done := make(chan error, 1)
+	go func() { _, e := s.Evaluate(context.Background(), u.Id, rule.ID); done <- e }()
+	<-entered
+	out := request(mux, "POST", "/api/v1/notification-rules/"+rule.ID+"/check", "{}", otherToken)
+	close(finish)
+	if e := <-done; e != nil {
+		t.Fatal(e)
+	}
+	if out.Code != 404 {
+		t.Fatal("another owner's in-flight state leaked", out.Code, out.Body.String())
+	}
+}
