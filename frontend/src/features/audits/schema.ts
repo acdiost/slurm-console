@@ -77,6 +77,7 @@ export const statuses: Record<string, string> = {
   unknown: "结果待核实",
 }
 export const fields: Record<string, string> = {
+  templateAction: "模板动作",
   reservationName: "预留名称",
   reservationStart: "开始时间（Unix 秒）",
   reservationEnd: "结束时间（Unix 秒）",
