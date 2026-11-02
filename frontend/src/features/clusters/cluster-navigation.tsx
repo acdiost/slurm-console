@@ -4,6 +4,7 @@ const operational = new Set([
   "/overview",
   "/capacity",
   "/reports",
+  "/configuration-history",
   "/operation-templates",
   "/gpu-efficiency",
   "/jobs",

@@ -14,6 +14,7 @@ import (
 	"slurm-console/backend/internal/audit"
 	"slurm-console/backend/internal/auth"
 	"slurm-console/backend/internal/clusterconfig"
+	"slurm-console/backend/internal/confighistory"
 	"slurm-console/backend/internal/rbac"
 	"strconv"
 )
@@ -132,6 +133,9 @@ func mutateConfiguration(e *core.RequestEvent, action, id string, input clusterc
 	var view clusterconfig.Configuration
 	requestID, _ := e.Get("requestId").(string)
 	err := audit.Mutate(e.App, audit.PlatformActor(e.Auth, requestID), func(tx core.App) (audit.Event, error) {
+		if err := configurationFresh(e, tx, false); err != nil {
+			return audit.Event{}, err
+		}
 		before := map[string]string{}
 		if id != "" {
 			record, err := tx.FindRecordById("clusters", id)
@@ -159,7 +163,7 @@ func mutateConfiguration(e *core.RequestEvent, action, id string, input clusterc
 		}
 		after := configurationSnapshot(record)
 		changes := []audit.Change{}
-		for _, key := range []string{"name", "slug", "enabled", "apiVersion", "connectionRef", "timeoutSeconds", "revision"} {
+		for _, key := range []string{"name", "slug", "description", "enabled", "apiVersion", "connectionRef", "timeoutSeconds", "revision"} {
 			if before[key] != after[key] {
 				changes = append(changes, audit.Change{Field: key, Before: before[key], After: after[key]})
 			}
@@ -169,5 +173,7 @@ func mutateConfiguration(e *core.RequestEvent, action, id string, input clusterc
 	return view, err
 }
 func configurationSnapshot(r *core.Record) map[string]string {
-	return map[string]string{"name": r.GetString("name"), "slug": r.GetString("slug"), "enabled": strconv.FormatBool(r.GetBool("enabled")), "apiVersion": r.GetString("api_version"), "connectionRef": r.GetString("connection_ref"), "timeoutSeconds": strconv.Itoa(r.GetInt("timeout_seconds")), "revision": strconv.Itoa(r.GetInt("revision"))}
+	values := confighistory.FromRecord(r).Values()
+	values["revision"] = strconv.Itoa(r.GetInt("revision"))
+	return values
 }

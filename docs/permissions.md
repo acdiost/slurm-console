@@ -66,3 +66,5 @@ GPU 资源效率分析沿用集群 `metrics.read`，无新增写权限或 `nodes
 运维模板不增加控制权限：本人每个动作同时要求对应读取和 jobs.cancel / nodes.drain / nodes.resume。列表过滤当前动作权限，编辑复查原、新动作，准备读取后再次复查；其他用户模板统一不可见，平台 Super Admin 不例外。原生 operation_templates Collection API 锁定，见 [运维操作模板](operation-templates.md)。
 
 资源报表要求集群 `reports.read` 与 `job_history.read` 同时成立；新权限显式授予四类内置角色，自定义角色需显式配置。来源读取和统计后复查当前授权及连接修订，CSV 重新请求受保护接口，不直接导出旧缓存。见 [资源报表](usage-reports.md)。
+
+连接草稿预览要求 platform.clusters.manage；完整历史快照和操作来源另外要求 platform.audit.read，两者必须同时存在。历史不依赖当前集群存在或 clusters.read，版本原生 CRUD 锁定，见 [配置变更对比](configuration-history.md)。

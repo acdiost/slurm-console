@@ -61,3 +61,5 @@ diagnostics 规则层只消费现有规范化的单条作业 DTO，输出带证�
 运维模板以锁定的 operation_templates Collection 保存个人元数据，事务内维护配额、名称唯一和版本并写平台审计。准备接口只组合既有 bulkcontrol.Prepare，复查模板修订后返回快照，执行仍走原协调器与逐项控制服务。无新后台任务或执行队列，见 [运维操作模板](operation-templates.md)。
 
 资源报表通过服务端选择的运行窗口复用有界历史读取，跳过步骤并保留原始时间；纯 usagereport 层计算可计量记录的窗口交集和精确整数资源秒。无新存储或后台任务，见 [资源使用报表](usage-reports.md)。
+
+confighistory 只保留七个明确平台连接字段。迁移记录当前基线，配置 API 与 CLI 登记由 audit 的事务写入入口追加版本；预览和保存共用草稿校验，历史查询不访问外部来源。见 [配置变更对比](configuration-history.md)。

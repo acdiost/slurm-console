@@ -39,3 +39,5 @@ Slurm Adapter 的版本、查询及缓存约束见 `../docs/slurm-adapter.md`；
 `backup init-key/create/verify/restore` 和 `healthcheck` 独立于 PocketBase 启动运行；`internal/backup` 负责 age 加密、清单及 SQLite 验证、范围受限恢复，`internal/maintenance` 提供部署/管理命令互斥。详见 `../docs/backups.md`。
 
 资源分配时长报表的纯统计层位于 `internal/usagereport`，运行窗口和既有历史提交窗口分别建模；权限、覆盖和 CSV 说明见 [资源报表](../docs/usage-reports.md)。
+
+`internal/confighistory` 保存字段白名单快照及版本来源。预览与连接保存共用草稿校验，版本与成功审计在同一事务提交；历史读取无外部请求，见 [配置变更对比](../docs/configuration-history.md)。

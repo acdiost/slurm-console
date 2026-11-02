@@ -25,7 +25,9 @@ export function ConnectionForm({
   error,
   onSave,
   onCancel,
+  submitLabel = "保存配置",
 }: {
+  submitLabel?: string
   config: ClusterConfiguration | null
   profiles: ConnectionProfile[]
   saving: boolean
@@ -230,7 +232,8 @@ export function ConnectionForm({
           取消
         </Button>
         <Button type="submit" disabled={saving || !profiles.length}>
-          {saving && <LoaderCircle className="animate-spin" />}保存配置
+          {saving && <LoaderCircle className="animate-spin" />}
+          {submitLabel}
         </Button>
       </div>
     </form>

@@ -49,3 +49,5 @@ GPU 效率分析新增 `GET /api/v1/clusters/{clusterId}/metrics/gpu/efficiency`
 运维模板新增集群范围的 `/operation-templates` 列表/创建、`/{templateId}` 修改/删除和 `/{templateId}/prepare`。按本人隔离，修改/删除/准备带 revision，准备返回模板快照和已有 BulkControlView；执行继续使用批量接口。见 [运维操作模板](operation-templates.md) 和 OpenAPI 0.27.0。
 
 新增 `GET /api/v1/clusters/{clusterId}/reports/usage`，要求明确运行窗口和两项读取授权，返回汇总、完整有界分组和逐指标覆盖；CSV 通过同一端点重新授权后在浏览器生成。见 [资源报表](usage-reports.md) 和 OpenAPI 0.28.0。
+
+连接配置新增只读 POST 预览（创建、修改、停用）与 GET 版本列表/双版本比较。预览复用真实保存校验；历史限定同一集群，要求配置管理和审计两项平台权限。见 [配置变更对比](configuration-history.md) 和 OpenAPI 0.29.0。

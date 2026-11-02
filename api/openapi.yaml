@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.28.0
+  version: 0.29.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -8549,6 +8549,463 @@ paths:
         }
       }
     }
+  /api/v1/cluster-configurations/preview:
+    {
+      "post": {
+        "operationId": "previewClusterConfigurationCreate",
+        "summary": "预览创建集群配置，不保存",
+        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints remain compatible and independently recheck management permission/revision. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. Preview requires platform.clusters.manage only and rejects unknown body/query fields. configuration is normalized input for create/update, null for disable. before/currentRevision are null for create. Legacy unconfigured snapshots may have timeout0; save input still requires1-30.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only preview or persisted evidence comparison.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ConfigHistoryPreview"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "408": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClusterConfigurationInput"
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/cluster-configurations/{clusterId}/preview:
+    {
+      "post": {
+        "operationId": "previewClusterConfigurationUpdate",
+        "summary": "预览修改集群配置，不保存",
+        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints remain compatible and independently recheck management permission/revision. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. Preview requires platform.clusters.manage only and rejects unknown body/query fields. configuration is normalized input for create/update, null for disable. before/currentRevision are null for create. Legacy unconfigured snapshots may have timeout0; save input still requires1-30.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only preview or persisted evidence comparison.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ConfigHistoryPreview"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "408": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClusterConfigurationInput"
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/cluster-configurations/{clusterId}/disable-preview:
+    {
+      "post": {
+        "operationId": "previewClusterConfigurationDisable",
+        "summary": "预览停用集群配置，不保存",
+        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints remain compatible and independently recheck management permission/revision. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. Preview requires platform.clusters.manage only and rejects unknown body/query fields. configuration is normalized input for create/update, null for disable. before/currentRevision are null for create. Legacy unconfigured snapshots may have timeout0; save input still requires1-30.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only preview or persisted evidence comparison.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ConfigHistoryPreview"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "408": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "revision"
+                ],
+                "properties": {
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/cluster-configurations/{clusterId}/versions:
+    {
+      "get": {
+        "operationId": "listClusterConfigurationVersions",
+        "summary": "读取集群连接配置版本元数据",
+        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints remain compatible and independently recheck management permission/revision. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. History requires BOTH platform.clusters.manage and platform.audit.read, with fresh authorization after reads. Metadata pagination max100 and indexed two-version reads; 5s database read budget, no external requests. Both selected IDs must belong to the given cluster, including deleted/disabled clusters; missing/cross-cluster versions return404. Unknown/duplicate query parameters rejected.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only preview or persisted evidence comparison.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ConfigHistoryList"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "408": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    }
+  /api/v1/cluster-configurations/{clusterId}/compare:
+    {
+      "get": {
+        "operationId": "compareClusterConfigurationVersions",
+        "summary": "只读比较同一集群两个已保存版本",
+        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints remain compatible and independently recheck management permission/revision. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. History requires BOTH platform.clusters.manage and platform.audit.read, with fresh authorization after reads. Metadata pagination max100 and indexed two-version reads; 5s database read budget, no external requests. Both selected IDs must belong to the given cluster, including deleted/disabled clusters; missing/cross-cluster versions return404. Unknown/duplicate query parameters rejected.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only preview or persisted evidence comparison.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ConfigHistoryComparison"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "408": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          }
+        ]
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -14380,6 +14837,386 @@ components:
           },
           "revision": {
             "type": "integer"
+          }
+        }
+      }
+    ConfigHistorySnapshot:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "slug",
+          "description",
+          "connectionRef",
+          "apiVersion",
+          "enabled",
+          "timeoutSeconds"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "connectionRef": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "apiVersion": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "timeoutSeconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 30
+          }
+        }
+      }
+    ConfigHistoryVersion:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "clusterId",
+          "revision",
+          "schemaVersion",
+          "kind",
+          "action",
+          "actorId",
+          "actorLabel",
+          "actorSource",
+          "operationId",
+          "requestId",
+          "recordedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]{15}$"
+          },
+          "clusterId": {
+            "type": "string",
+            "pattern": "^[a-z0-9]{15}$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "baseline",
+              "change"
+            ]
+          },
+          "action": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "actorLabel": {
+            "type": "string"
+          },
+          "actorSource": {
+            "type": "string"
+          },
+          "operationId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          }
+        }
+      }
+    ConfigHistoryDiffField:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "before",
+          "after",
+          "changed"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": [
+              "name",
+              "slug",
+              "description",
+              "connectionRef",
+              "apiVersion",
+              "enabled",
+              "timeoutSeconds"
+            ]
+          },
+          "before": {
+            "type": "string",
+            "nullable": true
+          },
+          "after": {
+            "type": "string",
+            "nullable": true
+          },
+          "changed": {
+            "type": "boolean"
+          }
+        }
+      }
+    ConfigHistoryPreview:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "clusterId",
+          "currentRevision",
+          "nextRevision",
+          "before",
+          "after",
+          "fields",
+          "configuration"
+        ],
+        "properties": {
+          "clusterId": {
+            "type": "string",
+            "description": "Empty for a new configuration; ID is assigned on save."
+          },
+          "currentRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "nextRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "before": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "slug",
+              "description",
+              "connectionRef",
+              "apiVersion",
+              "enabled",
+              "timeoutSeconds"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "slug": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 1000
+              },
+              "connectionRef": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "apiVersion": {
+                "type": "string",
+                "maxLength": 16
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "timeoutSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 30
+              }
+            },
+            "nullable": true
+          },
+          "after": {
+            "$ref": "#/components/schemas/ConfigHistorySnapshot"
+          },
+          "fields": {
+            "type": "array",
+            "minItems": 7,
+            "maxItems": 7,
+            "items": {
+              "$ref": "#/components/schemas/ConfigHistoryDiffField"
+            }
+          },
+          "configuration": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "slug",
+              "description",
+              "connectionRef",
+              "apiVersion",
+              "enabled",
+              "timeoutSeconds",
+              "revision"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "slug": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 1000
+              },
+              "connectionRef": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "apiVersion": {
+                "type": "string",
+                "maxLength": 16
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "timeoutSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 30
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "nullable": true
+          }
+        }
+      }
+    ConfigHistoryList:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "page",
+          "perPage",
+          "totalItems",
+          "clusterId",
+          "currentStatus",
+          "currentRevision",
+          "fetchedAt"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/ConfigHistoryVersion"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "perPage": {
+            "type": "integer"
+          },
+          "totalItems": {
+            "type": "integer"
+          },
+          "clusterId": {
+            "type": "string",
+            "pattern": "^[a-z0-9]{15}$"
+          },
+          "currentStatus": {
+            "type": "string",
+            "enum": [
+              "matched",
+              "different",
+              "missing",
+              "no_history"
+            ]
+          },
+          "currentRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "fetchedAt": {
+            "type": "string"
+          }
+        }
+      }
+    ConfigHistoryComparison:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "clusterId",
+          "from",
+          "to",
+          "before",
+          "after",
+          "fields",
+          "fetchedAt"
+        ],
+        "properties": {
+          "clusterId": {
+            "type": "string",
+            "pattern": "^[a-z0-9]{15}$"
+          },
+          "from": {
+            "$ref": "#/components/schemas/ConfigHistoryVersion"
+          },
+          "to": {
+            "$ref": "#/components/schemas/ConfigHistoryVersion"
+          },
+          "before": {
+            "$ref": "#/components/schemas/ConfigHistorySnapshot"
+          },
+          "after": {
+            "$ref": "#/components/schemas/ConfigHistorySnapshot"
+          },
+          "fields": {
+            "type": "array",
+            "minItems": 7,
+            "maxItems": 7,
+            "items": {
+              "$ref": "#/components/schemas/ConfigHistoryDiffField"
+            }
+          },
+          "fetchedAt": {
+            "type": "string"
           }
         }
       }

@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 
 	"github.com/pocketbase/pocketbase/core"
+	"slurm-console/backend/internal/confighistory"
 )
 
 type Actor struct{ ID, Label, Source, RequestID string }
@@ -49,6 +51,9 @@ func Stamp(app core.App, record *core.Record, actor Actor, cluster, typeName, ta
 	return nil
 }
 func Write(app core.App, actor Actor, event Event) error {
+	if !app.IsTransactional() {
+		return app.RunInTransaction(func(tx core.App) error { return Write(tx, actor, event) })
+	}
 	c, err := app.FindCollectionByNameOrId("operation_audits")
 	if err != nil {
 		return err
@@ -70,7 +75,17 @@ func Write(app core.App, actor Actor, event Event) error {
 		}
 		r.Set("cluster_revision", cluster.GetInt("revision"))
 	}
-	return app.Save(r)
+	if err := app.Save(r); err != nil {
+		return err
+	}
+	if event.TargetType == "cluster" && event.ClusterID == event.TargetID && slices.Contains([]string{"clusters.create", "clusters.update", "clusters.disable", "clusters.register"}, event.Action) {
+		cluster, err := app.FindRecordById("clusters", event.ClusterID)
+		if err != nil {
+			return err
+		}
+		return confighistory.Capture(app, cluster, r)
+	}
+	return nil
 }
 
 // Mutate commits the platform change and its audit row in one transaction.

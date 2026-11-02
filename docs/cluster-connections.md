@@ -39,3 +39,5 @@
 多集群工作台见[多集群管理](multi-cluster.md)。普通授权列表 `GET /api/v1/clusters` 支持 `page/perPage/q`；`q` 对名称、标识、描述做字面匹配，最多 128 个 Unicode 字符且 512 字节，不支持通配符，查询前按 `clusters.read` 隔离范围。不接受重复或未知参数。
 
 记账功能要求连接同时启用 slurmctld、slurmdbd 内容插件，管理身份及其权限由系统管理员配置，见 [Account 与 Association](accounting.md)。
+
+新建、编辑和停用前可预览服务端生成的七字段差异，确认后保存；实际写入仍独立复查权限和 revision。列表的“版本对比”进入上线基线与历史快照，只读比较，不恢复配置或记录凭据文件，见 [配置变更对比](configuration-history.md)。

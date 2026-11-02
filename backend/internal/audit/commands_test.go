@@ -40,6 +40,10 @@ func TestAdministrativeCommandsPersistSelectedEvidence(t *testing.T) {
 	if err != nil || len(rows) != 6 {
 		t.Fatalf("audit count %d %v", len(rows), err)
 	}
+	versions, e := app.FindRecordsByFilter("cluster_config_versions", "", "", 10, 0)
+	if e != nil || len(versions) != 1 || versions[0].GetInt("revision") != 0 || versions[0].GetString("kind") != "change" || versions[0].GetString("actor_source") != "local" {
+		t.Fatal("CLI registration version missing", e, len(versions))
+	}
 	actions := map[string]bool{}
 	keys := map[string]bool{}
 	for _, r := range rows {

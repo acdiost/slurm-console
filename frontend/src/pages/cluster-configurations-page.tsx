@@ -1,4 +1,13 @@
 import { useMemo, useState } from "react"
+import { Link } from "react-router"
+import { ConfigurationReview } from "@/features/config-history/review-dialog"
+import { ConfigurationDiff } from "@/features/config-history/diff-table"
+import {
+  previewSchema,
+  canHistory,
+  labels,
+  type Preview,
+} from "@/features/config-history/schema"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   flexRender,
@@ -78,6 +87,9 @@ export function ClusterConfigurationsPage() {
         "platform.clusters.manage"
       ) ?? false
   )
+  const user = useAuth((s) => s.user)
+  const canReadHistory = canHistory(user?.access.platformPermissions || [])
+  const [reviewed, setReviewed] = useState<{ id?: string; preview: Preview }>()
   const [page, setPage] = useState(1)
   const [editor, setEditor] = useState<
     ClusterConfiguration | null | undefined
@@ -85,7 +97,7 @@ export function ClusterConfigurationsPage() {
   const [disabling, setDisabling] = useState<ClusterConfiguration | null>(null)
   const client = useQueryClient()
   const configs = useQuery({
-    queryKey: ["cluster-configurations", page],
+    queryKey: ["cluster-configurations", user?.id, page],
     enabled: canManage,
     retry: false,
     queryFn: async ({ signal }) =>
@@ -94,7 +106,7 @@ export function ClusterConfigurationsPage() {
       ),
   })
   const profiles = useQuery({
-    queryKey: ["cluster-connection-profiles"],
+    queryKey: ["cluster-connection-profiles", user?.id],
     enabled: canManage,
     retry: false,
     queryFn: async ({ signal }) =>
@@ -108,9 +120,64 @@ export function ClusterConfigurationsPage() {
       client.invalidateQueries({ queryKey: ["cluster-inventory"] }),
       client.invalidateQueries({ queryKey: ["accessible-clusters"] }),
       client.invalidateQueries({ queryKey: ["cluster-metadata"] }),
+      client.invalidateQueries({ queryKey: ["configuration-versions"] }),
     ])
   }
+  const prepare = useMutation({
+    retry: false,
+    mutationFn: async ({
+      id,
+      values,
+    }: {
+      id?: string
+      values: ConnectionValues
+      owner: string | undefined
+    }) => {
+      const v = previewSchema.parse(
+        await api(`/cluster-configurations${id ? `/${id}` : ""}/preview`, {
+          method: "POST",
+          body: values,
+        })
+      )
+      if (
+        v.clusterId !== (id || "") ||
+        v.currentRevision !== (id ? values.revision : null) ||
+        v.nextRevision !== values.revision + 1 ||
+        !v.configuration ||
+        v.configuration.revision !== values.revision ||
+        (Object.keys(labels) as (keyof typeof labels)[]).some(
+          (k) => v.after[k] !== v.configuration![k]
+        )
+      )
+        throw new Error("Configuration preview changed")
+      return v
+    },
+    onSuccess: (preview, v) => {
+      if (useAuth.getState().user?.id === v.owner)
+        setReviewed({ id: v.id, preview })
+    },
+  })
+  const disablePreview = useMutation({
+    retry: false,
+    mutationFn: async (config: ClusterConfiguration) => {
+      const v = previewSchema.parse(
+        await api(`/cluster-configurations/${config.id}/disable-preview`, {
+          method: "POST",
+          body: { revision: config.revision },
+        })
+      )
+      if (
+        v.clusterId !== config.id ||
+        v.currentRevision !== config.revision ||
+        v.nextRevision !== config.revision + 1 ||
+        v.after.enabled
+      )
+        throw new Error("Disable preview changed")
+      return v
+    },
+  })
   const save = useMutation({
+    retry: false,
     mutationFn: ({ id, values }: { id?: string; values: ConnectionValues }) =>
       api(`/cluster-configurations${id ? `/${id}` : ""}`, {
         method: id ? "PATCH" : "POST",
@@ -118,6 +185,7 @@ export function ClusterConfigurationsPage() {
       }),
     onSuccess: async () => {
       setEditor(undefined)
+      setReviewed(undefined)
       await refresh()
       toast.success("集群配置已保存")
     },
@@ -155,7 +223,7 @@ export function ClusterConfigurationsPage() {
       toast.error(errorMessage(error))
     },
   })
-  const rows = configs.data?.items ?? EMPTY
+  const rows = !configs.isError ? (configs.data?.items ?? EMPTY) : EMPTY
   const columns = useMemo<ColumnDef<ClusterConfiguration>[]>(
     () => [
       {
@@ -268,7 +336,17 @@ export function ClusterConfigurationsPage() {
     manualPagination: true,
     getRowId: (row) => row.id,
   })
-  if (!canManage)
+  const denied = [
+    configs.error,
+    profiles.error,
+    prepare.error,
+    save.error,
+    disablePreview.error,
+    disable.error,
+  ].some(
+    (e) => e instanceof ClientResponseError && [401, 403].includes(e.status)
+  )
+  if (!canManage || denied)
     return (
       <div className="mx-auto max-w-4xl p-8">
         <div className="panel flex items-start gap-3 p-6">
@@ -310,6 +388,8 @@ export function ClusterConfigurationsPage() {
             disabled={!profiles.data?.length}
             onClick={() => {
               save.reset()
+              prepare.reset()
+              setReviewed(undefined)
               setEditor(null)
             }}
           >
@@ -413,7 +493,7 @@ export function ClusterConfigurationsPage() {
                     </TableCell>
                   ))}
                   <TableCell className="py-4 align-top">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex flex-wrap justify-end gap-1">
                       <Button
                         size="sm"
                         variant="outline"
@@ -431,12 +511,23 @@ export function ClusterConfigurationsPage() {
                         )}
                         检测
                       </Button>
+                      {canReadHistory && (
+                        <Button size="sm" variant="outline" asChild>
+                          <Link
+                            to={`/configuration-history?${new URLSearchParams({ cluster: row.original.id })}`}
+                          >
+                            版本对比
+                          </Link>
+                        </Button>
+                      )}
                       <Button
                         size="icon"
                         variant="ghost"
                         aria-label={`编辑 ${row.original.name}`}
                         onClick={() => {
                           save.reset()
+                          prepare.reset()
+                          setReviewed(undefined)
                           setEditor(row.original)
                         }}
                       >
@@ -447,7 +538,12 @@ export function ClusterConfigurationsPage() {
                         variant="ghost"
                         aria-label={`停用 ${row.original.name}`}
                         disabled={!row.original.enabled || disable.isPending}
-                        onClick={() => setDisabling(row.original)}
+                        onClick={() => {
+                          disable.reset()
+                          disablePreview.reset()
+                          setDisabling(row.original)
+                          disablePreview.mutate(row.original)
+                        }}
                       >
                         <Power />
                       </Button>
@@ -497,20 +593,22 @@ export function ClusterConfigurationsPage() {
         </section>
       )}
       <p className="text-2xs leading-6 text-muted-foreground">
-        检测结果反映上次请求时的状态。检测仅查询 REST
-        服务与控制器，作业和节点管理将在后续阶段接入。
+        检测结果反映上次读取时的连通性。保存前可预览字段变更，已保存版本可从列表的版本对比入口查看。
       </p>
       <Sheet
         open={editor !== undefined}
         onOpenChange={(open) => {
-          if (!open && !save.isPending) setEditor(undefined)
+          if (!open && !save.isPending && !prepare.isPending) {
+            setEditor(undefined)
+            setReviewed(undefined)
+          }
         }}
       >
         <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
           <SheetHeader>
             <SheetTitle>{editor ? "编辑集群连接" : "新建集群"}</SheetTitle>
             <SheetDescription>
-              选择连接方式并设置 REST API 参数。
+              选择连接方式并设置 REST API 参数，预览差异后确认保存。
             </SheetDescription>
           </SheetHeader>
           {editor !== undefined && (
@@ -518,21 +616,47 @@ export function ClusterConfigurationsPage() {
               key={editor?.id ?? "new"}
               config={editor}
               profiles={profiles.data ?? []}
-              saving={save.isPending}
-              error={save.isError ? errorMessage(save.error) : ""}
+              saving={save.isPending || prepare.isPending}
+              error={
+                save.isError
+                  ? errorMessage(save.error)
+                  : prepare.isError
+                    ? errorMessage(prepare.error)
+                    : ""
+              }
               onCancel={() => setEditor(undefined)}
-              onSave={(values) => save.mutate({ id: editor?.id, values })}
+              submitLabel="预览变更"
+              onSave={(values) => {
+                setReviewed(undefined)
+                save.reset()
+                prepare.mutate({ id: editor?.id, values, owner: user?.id })
+              }}
             />
           )}
         </SheetContent>
       </Sheet>
+      {reviewed && reviewed.preview.configuration && editor !== undefined && (
+        <ConfigurationReview
+          preview={reviewed.preview}
+          pending={save.isPending}
+          error={save.isError ? errorMessage(save.error) : ""}
+          onCancel={() => setReviewed(undefined)}
+          onConfirm={() => {
+            if (reviewed.preview.configuration)
+              save.mutate({
+                id: reviewed.id,
+                values: reviewed.preview.configuration,
+              })
+          }}
+        />
+      )}
       <AlertDialog
         open={!!disabling}
         onOpenChange={(open) => {
           if (!open && !disable.isPending) setDisabling(null)
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[85vh] overflow-y-auto data-[size=default]:max-w-[calc(100vw-2rem)] data-[size=default]:sm:max-w-4xl">
           <AlertDialogHeader>
             <AlertDialogTitle>
               停用 {disabling?.name} 的平台连接？
@@ -541,12 +665,33 @@ export function ClusterConfigurationsPage() {
               停用后将暂停该连接的检测。集群标识和现有授权会保留，可通过编辑重新启用。
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {disablePreview.isPending && (
+            <p role="status">正在读取当前配置并预览停用差异…</p>
+          )}
+          {disablePreview.data &&
+            disablePreview.variables?.id === disabling?.id && (
+              <ConfigurationDiff
+                key={disabling?.id}
+                fields={disablePreview.data.fields}
+              />
+            )}
+          {(disablePreview.isError || disable.isError) && (
+            <p role="alert" className="text-sm text-destructive">
+              {errorMessage(disablePreview.error || disable.error)}
+            </p>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={disable.isPending}>
               取消
             </AlertDialogCancel>
             <AlertDialogAction
-              disabled={disable.isPending}
+              disabled={
+                disable.isPending ||
+                disablePreview.isPending ||
+                disablePreview.isError ||
+                !disablePreview.data ||
+                disablePreview.variables?.id !== disabling?.id
+              }
               onClick={(event) => {
                 event.preventDefault()
                 if (disabling) disable.mutate(disabling)

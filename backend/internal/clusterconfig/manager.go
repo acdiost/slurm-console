@@ -15,6 +15,7 @@ import (
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
+	"slurm-console/backend/internal/confighistory"
 )
 
 const storeKey = "platform.clusterConnections"
@@ -98,56 +99,91 @@ func (m *Manager) validate(input *Input) error {
 	return nil
 }
 
-func (m *Manager) Save(id string, input Input) (Configuration, error) {
+type Preview struct {
+	ClusterID       string                  `json:"clusterId"`
+	CurrentRevision *int                    `json:"currentRevision"`
+	NextRevision    int                     `json:"nextRevision"`
+	Before          *confighistory.Snapshot `json:"before"`
+	After           confighistory.Snapshot  `json:"after"`
+	Fields          []confighistory.Field   `json:"fields"`
+	Configuration   *Input                  `json:"configuration"`
+}
+
+// draft is shared by preview and save; it never saves or probes the connection.
+func (m *Manager) draft(tx core.App, id string, input Input) (*core.Record, Preview, error) {
 	if err := m.validate(&input); err != nil {
-		return Configuration{}, err
+		return nil, Preview{}, err
 	}
 	if id == "" && input.Revision != 0 || id != "" && input.Revision < 0 {
-		return Configuration{}, ErrInvalid
+		return nil, Preview{}, ErrInvalid
 	}
+	var record *core.Record
+	if id == "" {
+		collection, err := tx.FindCollectionByNameOrId("clusters")
+		if err != nil {
+			return nil, Preview{}, err
+		}
+		record = core.NewRecord(collection)
+	} else {
+		var err error
+		record, err = tx.FindRecordById("clusters", id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, Preview{}, ErrNotFound
+		}
+		if err != nil {
+			return nil, Preview{}, err
+		}
+		if record.GetInt("revision") != input.Revision {
+			return nil, Preview{}, ErrConflict
+		}
+		if record.GetString("slug") != input.Slug {
+			return nil, Preview{}, ErrInvalid
+		}
+	}
+	var before *confighistory.Snapshot
+	if id != "" {
+		s := confighistory.FromRecord(record)
+		before = &s
+	}
+	if existing, err := tx.FindFirstRecordByData("clusters", "slug", input.Slug); err == nil && existing.Id != record.Id {
+		return nil, Preview{}, ErrConflict
+	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, Preview{}, err
+	}
+	record.Set("name", input.Name)
+	record.Set("slug", input.Slug)
+	record.Set("description", input.Description)
+	record.Set("connection_ref", input.ConnectionRef)
+	record.Set("api_version", input.APIVersion)
+	record.Set("enabled", input.Enabled)
+	record.Set("timeout_seconds", input.TimeoutSeconds)
+	record.Set("revision", input.Revision+1)
+	record.Set("last_probe", ProbeResult{Status: "not_tested", Message: "配置已更新，请检测连接。", Controllers: []Controller{}})
+
+	after := confighistory.FromRecord(record)
+	var revision *int
+	if id != "" {
+		r := input.Revision
+		revision = &r
+	}
+	return record, Preview{id, revision, input.Revision + 1, before, after, confighistory.Diff(before, after), &input}, nil
+}
+func (m *Manager) Preview(id string, input Input) (Preview, error) {
+	var p Preview
+	err := m.App.RunInTransaction(func(tx core.App) error { _, v, e := m.draft(tx, id, input); p = v; return e })
+	return p, err
+}
+func (m *Manager) Save(id string, input Input) (Configuration, error) {
 	var saved *core.Record
 	err := m.App.RunInTransaction(func(tx core.App) error {
-		var record *core.Record
-		if id == "" {
-			collection, err := tx.FindCollectionByNameOrId("clusters")
-			if err != nil {
-				return err
-			}
-			record = core.NewRecord(collection)
-		} else {
-			var err error
-			record, err = tx.FindRecordById("clusters", id)
-			if errors.Is(err, sql.ErrNoRows) {
-				return ErrNotFound
-			}
-			if err != nil {
-				return err
-			}
-			if record.GetInt("revision") != input.Revision {
-				return ErrConflict
-			}
-			if record.GetString("slug") != input.Slug {
-				return ErrInvalid
-			}
+		r, _, e := m.draft(tx, id, input)
+		if e != nil {
+			return e
 		}
-		if existing, err := tx.FindFirstRecordByData("clusters", "slug", input.Slug); err == nil && existing.Id != record.Id {
-			return ErrConflict
-		} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
+		if e = tx.Save(r); e != nil {
+			return e
 		}
-		record.Set("name", input.Name)
-		record.Set("slug", input.Slug)
-		record.Set("description", input.Description)
-		record.Set("connection_ref", input.ConnectionRef)
-		record.Set("api_version", input.APIVersion)
-		record.Set("enabled", input.Enabled)
-		record.Set("timeout_seconds", input.TimeoutSeconds)
-		record.Set("revision", input.Revision+1)
-		record.Set("last_probe", ProbeResult{Status: "not_tested", Message: "配置已更新，请检测连接。", Controllers: []Controller{}})
-		if err := tx.Save(record); err != nil {
-			return err
-		}
-		saved = record
+		saved = r
 		return nil
 	})
 	if err != nil {
@@ -210,26 +246,40 @@ func (m *Manager) Test(ctx context.Context, id string, revision int) (Configurat
 	return m.View(record), nil
 }
 
+func (m *Manager) disableDraft(tx core.App, id string, revision int) (*core.Record, Preview, error) {
+	r, err := tx.FindRecordById("clusters", id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, Preview{}, ErrNotFound
+	}
+	if err != nil {
+		return nil, Preview{}, err
+	}
+	if r.GetInt("revision") != revision {
+		return nil, Preview{}, ErrConflict
+	}
+	before := confighistory.FromRecord(r)
+	r.Set("enabled", false)
+	r.Set("revision", revision+1)
+	r.Set("last_probe", ProbeResult{Status: "not_tested", Message: "连接已停用。", Controllers: []Controller{}})
+	after := confighistory.FromRecord(r)
+	return r, Preview{id, &revision, revision + 1, &before, after, confighistory.Diff(&before, after), nil}, nil
+}
+func (m *Manager) PreviewDisable(id string, revision int) (Preview, error) {
+	var p Preview
+	err := m.App.RunInTransaction(func(tx core.App) error { _, v, e := m.disableDraft(tx, id, revision); p = v; return e })
+	return p, err
+}
 func (m *Manager) Disable(id string, revision int) (Configuration, error) {
 	var saved *core.Record
 	err := m.App.RunInTransaction(func(tx core.App) error {
-		record, err := tx.FindRecordById("clusters", id)
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNotFound
+		r, _, e := m.disableDraft(tx, id, revision)
+		if e != nil {
+			return e
 		}
-		if err != nil {
-			return err
+		if e = tx.Save(r); e != nil {
+			return e
 		}
-		if record.GetInt("revision") != revision {
-			return ErrConflict
-		}
-		record.Set("enabled", false)
-		record.Set("revision", revision+1)
-		record.Set("last_probe", ProbeResult{Status: "not_tested", Message: "连接已停用。", Controllers: []Controller{}})
-		if err := tx.Save(record); err != nil {
-			return err
-		}
-		saved = record
+		saved = r
 		return nil
 	})
 	if err != nil {
