@@ -34,6 +34,10 @@ export function BulkControlDialog({
   onClose,
   onStart,
   onResult,
+  initialReason = "",
+  prepare,
+  prepareKey = "",
+  templateLabel,
 }: {
   clusterId: string
   action: BulkAction
@@ -41,22 +45,34 @@ export function BulkControlDialog({
   onClose: () => void
   onStart: (ids: string[], batchId: string) => void
   onResult: () => void
+  initialReason?: string
+  prepare?: (signal: AbortSignal) => Promise<BulkView>
+  prepareKey?: string
+  templateLabel?: string
 }) {
-  const [reason, setReason] = useState(""),
+  const [reason, setReason] = useState(initialReason),
     [confirmation, setConfirmation] = useState(""),
     [submitted, setSubmitted] = useState(false),
     [error, setError] = useState("")
   const base = `/clusters/${encodeURIComponent(clusterId)}/bulk-control`
   const prepared = useQuery({
-    queryKey: ["bulk-prepare", clusterId, action, targets.join(",")],
+    queryKey: [
+      "bulk-prepare",
+      clusterId,
+      action,
+      targets.join(","),
+      prepareKey,
+    ],
     queryFn: async ({ signal }) =>
-      viewSchema.parse(
-        await api(`${base}/prepare`, {
-          method: "POST",
-          body: { action, targets },
-          signal,
-        })
-      ),
+      prepare
+        ? prepare(signal)
+        : viewSchema.parse(
+            await api(`${base}/prepare`, {
+              method: "POST",
+              body: { action, targets },
+              signal,
+            })
+          ),
     retry: false,
     gcTime: 0,
     staleTime: 0,
@@ -146,6 +162,12 @@ export function BulkControlDialog({
             各目标独立复查、执行和审计，部分失败不会回滚其他目标。
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {templateLabel && (
+          <p className="rounded-md border p-3 text-sm">
+            使用模板快照：{templateLabel}
+            。本次确认只针对下方明确目标和操作；模板后续编辑不会改写已准备的动作。
+          </p>
+        )}
         {prepared.isPending && (
           <p role="status" className="text-sm">
             正在逐项读取最新状态并校验…

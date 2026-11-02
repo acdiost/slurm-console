@@ -45,3 +45,5 @@
 所有请求拒绝额外字段及未知/重复查询参数。跨集群、跨用户和跨资源读取不能借批量接口绕过原有权限。原生审计 Collection 继续锁定。准备、执行和结果协议见 OpenAPI 0.21.0；原有边界见 [作业取消](jobs.md)、[节点控制](nodes.md) 与[操作审计](audits.md)。
 
 行为参考 [SchedMD scancel](https://slurm.schedmd.com/scancel.html) 与 [scontrol](https://slurm.schedmd.com/scontrol.html)。本项目始终发送明确的单个目标，不调用 Slurm 的批量选择器。
+
+[运维操作模板](operation-templates.md) 可预置本人动作说明、默认原因及临时核查清单；目标仍每次明确填写。准备返回模板版本快照和同一种 BulkControlView，最终手工确认、执行、逐项审计和只读恢复均沿用本流程。清单不持久化，控制审计不附加模板来源。

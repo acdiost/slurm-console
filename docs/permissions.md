@@ -62,3 +62,5 @@ GPU 监控与趋势需要集群 `metrics.read`；Slurm 节点分配汇总独立�
 GPU 资源效率分析沿用集群 `metrics.read`，无新增写权限或 `nodes.read` 依赖；返回前复查活动用户、授权和集群配置修订，见 [GPU 效率](gpu-efficiency.md)。
 
 作业诊断沿用当前作业 `jobs.read`、历史记账 `job_history.read`，不扩权、不要求节点或监控权限；两类来源不相互兜底，返回前复核活动用户与当前授权。
+
+运维模板不增加控制权限：本人每个动作同时要求对应读取和 jobs.cancel / nodes.drain / nodes.resume。列表过滤当前动作权限，编辑复查原、新动作，准备读取后再次复查；其他用户模板统一不可见，平台 Super Admin 不例外。原生 operation_templates Collection API 锁定，见 [运维操作模板](operation-templates.md)。

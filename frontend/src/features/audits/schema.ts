@@ -37,6 +37,9 @@ export const auditDetailSchema = z.object({
   fetchedAt: z.string(),
 })
 export const actions: Record<string, string> = {
+  "operation_templates.create": "创建运维模板",
+  "operation_templates.update": "修改运维模板",
+  "operation_templates.delete": "删除运维模板",
   "reservations.create": "创建资源预留",
   "reservations.update": "调整预留结束时间",
   "reservations.delete": "删除资源预留",

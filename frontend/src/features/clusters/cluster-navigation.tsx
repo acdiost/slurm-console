@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router"
 const operational = new Set([
   "/overview",
   "/capacity",
+  "/operation-templates",
   "/gpu-efficiency",
   "/jobs",
   "/nodes",

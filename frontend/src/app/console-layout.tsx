@@ -169,6 +169,18 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                 <span>集群容量分析</span>
               </NavLink>
             )}
+            {section.label === "资源与调度" && (
+              <NavLink
+                to="/operation-templates"
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
+                }
+              >
+                <Activity />
+                <span>运维操作模板</span>
+              </NavLink>
+            )}
             {section.label === "平台管理" && (
               <NavLink
                 to="/notifications"
@@ -454,43 +466,45 @@ export function ConsoleLayout() {
             </span>
             <ChevronRight className="hidden size-3 text-muted-foreground sm:inline" />
             <span>
-              {pathname === "/gpu-efficiency"
-                ? "GPU 资源效率分析"
-                : pathname === "/capacity"
-                  ? "集群容量分析"
-                  : pathname === "/notifications"
-                    ? "告警通知"
-                    : pathname === "/history"
-                      ? "历史作业与记账"
-                      : pathname === "/gpu"
-                        ? "GPU 监控"
-                        : pathname === "/reservations"
-                          ? "Reservation 资源预留"
-                          : pathname === "/tres"
-                            ? "TRES 限额"
-                            : pathname === "/policies"
-                              ? "QOS 与 Fairshare"
-                              : pathname === "/accounts"
-                                ? "账户与 Association"
-                                : pathname === "/linux-users"
-                                  ? "Linux 系统用户"
-                                  : pathname === "/fleet"
-                                    ? "集群工作台"
-                                    : pathname === "/audits"
-                                      ? "操作审计"
-                                      : pathname === "/partitions"
-                                        ? "分区查询"
-                                        : pathname === "/nodes"
-                                          ? "节点管理"
-                                          : pathname === "/jobs"
-                                            ? "作业管理"
-                                            : pathname === "/overview"
-                                              ? "集群总览"
-                                              : pathname === "/clusters"
-                                                ? "集群配置"
-                                                : pathname === "/access"
-                                                  ? "我的权限"
-                                                  : "设计系统"}
+              {pathname === "/operation-templates"
+                ? "运维操作模板"
+                : pathname === "/gpu-efficiency"
+                  ? "GPU 资源效率分析"
+                  : pathname === "/capacity"
+                    ? "集群容量分析"
+                    : pathname === "/notifications"
+                      ? "告警通知"
+                      : pathname === "/history"
+                        ? "历史作业与记账"
+                        : pathname === "/gpu"
+                          ? "GPU 监控"
+                          : pathname === "/reservations"
+                            ? "Reservation 资源预留"
+                            : pathname === "/tres"
+                              ? "TRES 限额"
+                              : pathname === "/policies"
+                                ? "QOS 与 Fairshare"
+                                : pathname === "/accounts"
+                                  ? "账户与 Association"
+                                  : pathname === "/linux-users"
+                                    ? "Linux 系统用户"
+                                    : pathname === "/fleet"
+                                      ? "集群工作台"
+                                      : pathname === "/audits"
+                                        ? "操作审计"
+                                        : pathname === "/partitions"
+                                          ? "分区查询"
+                                          : pathname === "/nodes"
+                                            ? "节点管理"
+                                            : pathname === "/jobs"
+                                              ? "作业管理"
+                                              : pathname === "/overview"
+                                                ? "集群总览"
+                                                : pathname === "/clusters"
+                                                  ? "集群配置"
+                                                  : pathname === "/access"
+                                                    ? "我的权限"
+                                                    : "设计系统"}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">

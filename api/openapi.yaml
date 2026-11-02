@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.26.0
+  version: 0.27.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -7955,6 +7955,461 @@ paths:
         }
       }
     }
+  /api/v1/clusters/{clusterId}/operation-templates:
+    {
+      "get": {
+        "operationId": "listOperationTemplates",
+        "summary": "列出本人当前有权使用的运维模板",
+        "description": "Personal templates scoped to actor and cluster, including Super Admin. Requires resource read plus matching control permission. Only three typed actions, never saved targets, URLs, credentials, proofs or scripts. At most 20 per cluster / 100 per user; normalized name unique. Unknown body fields and unknown/repeated query parameters rejected. Metadata mutations are transactional with audit, revision conflicts return 409. Prepare reads resources only and rechecks revision/authorization after reads; no control is sent. Successful preparation is an immutable snapshot; later template changes do not rewrite it. Execute through existing bulk-control confirmation and per-target audit, with unchanged permissions and resource safeguards. Checklist is transient UI guidance, not persisted compliance evidence; control audits do not attach template provenance.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; metadata and preparation do not execute controls.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OperationTemplateList"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createOperationTemplate",
+        "summary": "保存本人运维模板",
+        "description": "Personal templates scoped to actor and cluster, including Super Admin. Requires resource read plus matching control permission. Only three typed actions, never saved targets, URLs, credentials, proofs or scripts. At most 20 per cluster / 100 per user; normalized name unique. Unknown body fields and unknown/repeated query parameters rejected. Metadata mutations are transactional with audit, revision conflicts return 409. Prepare reads resources only and rechecks revision/authorization after reads; no control is sent. Successful preparation is an immutable snapshot; later template changes do not rewrite it. Execute through existing bulk-control confirmation and per-target audit, with unchanged permissions and resource safeguards. Checklist is transient UI guidance, not persisted compliance evidence; control audits do not attach template provenance.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; metadata and preparation do not execute controls.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OperationTemplate"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationTemplateCreate"
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/operation-templates/{templateId}:
+    {
+      "patch": {
+        "operationId": "updateOperationTemplate",
+        "summary": "按版本修改本人运维模板",
+        "description": "Personal templates scoped to actor and cluster, including Super Admin. Requires resource read plus matching control permission. Only three typed actions, never saved targets, URLs, credentials, proofs or scripts. At most 20 per cluster / 100 per user; normalized name unique. Unknown body fields and unknown/repeated query parameters rejected. Metadata mutations are transactional with audit, revision conflicts return 409. Prepare reads resources only and rechecks revision/authorization after reads; no control is sent. Successful preparation is an immutable snapshot; later template changes do not rewrite it. Execute through existing bulk-control confirmation and per-target audit, with unchanged permissions and resource safeguards. Checklist is transient UI guidance, not persisted compliance evidence; control audits do not attach template provenance.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "templateId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; metadata and preparation do not execute controls.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OperationTemplate"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationTemplateUpdate"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteOperationTemplate",
+        "summary": "按版本删除本人运维模板",
+        "description": "Personal templates scoped to actor and cluster, including Super Admin. Requires resource read plus matching control permission. Only three typed actions, never saved targets, URLs, credentials, proofs or scripts. At most 20 per cluster / 100 per user; normalized name unique. Unknown body fields and unknown/repeated query parameters rejected. Metadata mutations are transactional with audit, revision conflicts return 409. Prepare reads resources only and rechecks revision/authorization after reads; no control is sent. Successful preparation is an immutable snapshot; later template changes do not rewrite it. Execute through existing bulk-control confirmation and per-target audit, with unchanged permissions and resource safeguards. Checklist is transient UI guidance, not persisted compliance evidence; control audits do not attach template provenance.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "templateId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; metadata and preparation do not execute controls.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "deleted"
+                      ],
+                      "properties": {
+                        "deleted": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationTemplateRevision"
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/operation-templates/{templateId}/prepare:
+    {
+      "post": {
+        "operationId": "prepareOperationTemplate",
+        "summary": "校验模板快照和本次明确目标，不发送控制",
+        "description": "Personal templates scoped to actor and cluster, including Super Admin. Requires resource read plus matching control permission. Only three typed actions, never saved targets, URLs, credentials, proofs or scripts. At most 20 per cluster / 100 per user; normalized name unique. Unknown body fields and unknown/repeated query parameters rejected. Metadata mutations are transactional with audit, revision conflicts return 409. Prepare reads resources only and rechecks revision/authorization after reads; no control is sent. Successful preparation is an immutable snapshot; later template changes do not rewrite it. Execute through existing bulk-control confirmation and per-target audit, with unchanged permissions and resource safeguards. Checklist is transient UI guidance, not persisted compliance evidence; control audits do not attach template provenance.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "templateId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; metadata and preparation do not execute controls.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OperationTemplatePreparation"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationTemplatePrepare"
+              }
+            }
+          }
+        }
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -13353,6 +13808,246 @@ components:
               "type": "string"
             },
             "maxItems": 16
+          }
+        }
+      }
+    OperationTemplate:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "clusterId",
+          "name",
+          "action",
+          "description",
+          "defaultReason",
+          "checklist",
+          "revision",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clusterId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "jobs.cancel",
+              "nodes.drain",
+              "nodes.resume"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "defaultReason": {
+            "type": "string",
+            "maxLength": 220,
+            "description": "Empty or 2–220 Unicode characters; single line, trimmed."
+          },
+          "checklist": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      }
+    OperationTemplateCreate:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "action",
+          "checklist"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "jobs.cancel",
+              "nodes.drain",
+              "nodes.resume"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "defaultReason": {
+            "type": "string",
+            "maxLength": 220,
+            "description": "Empty or 2–220 Unicode characters; single line, trimmed."
+          },
+          "checklist": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        }
+      }
+    OperationTemplateUpdate:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "action",
+          "checklist",
+          "revision"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "jobs.cancel",
+              "nodes.drain",
+              "nodes.resume"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "defaultReason": {
+            "type": "string",
+            "maxLength": 220,
+            "description": "Empty or 2–220 Unicode characters; single line, trimmed."
+          },
+          "checklist": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    OperationTemplateRevision:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    OperationTemplatePrepare:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "targets"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Explicit numeric Job IDs or single node names, no ALL or expressions. Existing resource identity safeguards apply."
+          }
+        }
+      }
+    OperationTemplateList:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "maxPerCluster",
+          "maxPerUser"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/OperationTemplate"
+            }
+          },
+          "maxPerCluster": {
+            "type": "integer",
+            "enum": [
+              20
+            ]
+          },
+          "maxPerUser": {
+            "type": "integer",
+            "enum": [
+              100
+            ]
+          }
+        }
+      }
+    OperationTemplatePreparation:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "template",
+          "prepared"
+        ],
+        "properties": {
+          "template": {
+            "$ref": "#/components/schemas/OperationTemplate"
+          },
+          "prepared": {
+            "$ref": "#/components/schemas/BulkControlView"
           }
         }
       }

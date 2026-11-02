@@ -57,3 +57,5 @@ capacity 在 OnServe 启动有界轮转采样，复用 Slurm 节点来源，按�
 GPU 效率分析复用 gpumetrics 的固定来源、传输、并发和缓存边界，通过五次有界固定指标范围查询生成物理卡统计；不持久化或归因作业。见 [GPU 效率](gpu-efficiency.md)。
 
 diagnostics 规则层只消费现有规范化的单条作业 DTO，输出带证据 ID、来源时间、置信度和缺口的解释。无新后台任务、日志读取、持久化或控制；见 [作业诊断](job-diagnostics.md)。
+
+运维模板以锁定的 operation_templates Collection 保存个人元数据，事务内维护配额、名称唯一和版本并写平台审计。准备接口只组合既有 bulkcontrol.Prepare，复查模板修订后返回快照，执行仍走原协调器与逐项控制服务。无新后台任务或执行队列，见 [运维操作模板](operation-templates.md)。
