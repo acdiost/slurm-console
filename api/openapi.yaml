@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.27.0
+  version: 0.28.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -8410,6 +8410,145 @@ paths:
         }
       }
     }
+  /api/v1/clusters/{clusterId}/reports/usage:
+    {
+      "get": {
+        "operationId": "getUsageReport",
+        "summary": "按运行窗口生成资源分配时长估算与覆盖报表",
+        "description": "Requires both per-cluster reports.read and job_history.read. Server resolves the actual controller cluster, omits submission-time mode and skips steps; existing history UI keeps submission semantics. Bounded 31-day window, 5000 source records/groups, 8MiB upstream response, shared four read slots and 30s source cache. Fresh account, permissions and enabled configuration revision checks after reads/analysis, including cache hits. Uses ended records with consistent start/end/elapsed and explicit zero suspension; clips [start,end) and multiplies by final generic AllocTRES, assuming constant allocation. Not utilization, actual TotalCPU, physical CPU/GPU count, billing or native sreport rollups. Generic GPU only, never adds typed GPUs/steps/requested/consumed values. Ambiguous intervals/states, active/heterogeneous/array-parent records and overlapping reused identities are unmeasured; explicit array tasks may qualify. Per-resource known/unknown record counts distinguish partial subtotal/null/zero; empty visible result does not prove cluster-wide zero. Full groups returned for local pagination; CSV re-requests this same endpoint for fresh authorization, exports all groups plus a distinct summary row with exact integers and metadata. No new persistence, background sampling or controls. Unknown/duplicate query parameters rejected.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            },
+            "description": "UNIX seconds; execution window [start,end), end <= now, at most 31 days."
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            },
+            "description": "UNIX seconds; execution window [start,end), end <= now, at most 31 days."
+          },
+          {
+            "in": "query",
+            "name": "user",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "One exact value; no CSV or selector expressions."
+          },
+          {
+            "in": "query",
+            "name": "account",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "One exact value; no CSV or selector expressions."
+          },
+          {
+            "in": "query",
+            "name": "partition",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "One exact value; no CSV or selector expressions."
+          },
+          {
+            "in": "query",
+            "name": "groupBy",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "user",
+                "account",
+                "partition"
+              ],
+              "default": "user"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Visible accounting candidates, qualified allocation estimates and per-metric coverage.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/UsageReportResponse"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -14048,6 +14187,199 @@ components:
           },
           "prepared": {
             "$ref": "#/components/schemas/BulkControlView"
+          }
+        }
+      }
+    UsageMetric:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resourceSeconds",
+          "knownRecords",
+          "unknownRecords"
+        ],
+        "properties": {
+          "resourceSeconds": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^(0|[1-9][0-9]{0,39})$",
+            "description": "Known subtotal, null when all records are unknown. CPU/GPU unit-seconds; memory MiB-seconds. Exact decimal integer, not telemetry."
+          },
+          "knownRecords": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000
+          },
+          "unknownRecords": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000
+          }
+        }
+      }
+    UsageRow:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "records",
+          "countedRecords",
+          "excluded",
+          "cpu",
+          "memory",
+          "gpu"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "records": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000
+          },
+          "countedRecords": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000
+          },
+          "excluded": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "active",
+              "complex",
+              "uncertain",
+              "overlapping"
+            ],
+            "properties": {
+              "active": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5000
+              },
+              "complex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5000
+              },
+              "uncertain": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5000
+              },
+              "overlapping": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5000
+              }
+            }
+          },
+          "cpu": {
+            "$ref": "#/components/schemas/UsageMetric"
+          },
+          "memory": {
+            "$ref": "#/components/schemas/UsageMetric"
+          },
+          "gpu": {
+            "$ref": "#/components/schemas/UsageMetric"
+          }
+        }
+      }
+    UsageReport:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "basis",
+          "cluster",
+          "start",
+          "end",
+          "groupBy",
+          "sourceRecords",
+          "outsideRecords",
+          "summary",
+          "groups"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "execution_overlap_estimate"
+            ]
+          },
+          "cluster": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "end": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "groupBy": {
+            "type": "string",
+            "enum": [
+              "user",
+              "account",
+              "partition"
+            ]
+          },
+          "sourceRecords": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000
+          },
+          "outsideRecords": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000
+          },
+          "summary": {
+            "$ref": "#/components/schemas/UsageRow"
+          },
+          "groups": {
+            "type": "array",
+            "maxItems": 5000,
+            "items": {
+              "$ref": "#/components/schemas/UsageRow"
+            }
+          }
+        }
+      }
+    UsageReportResponse:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "report",
+          "fetchedAt",
+          "cached",
+          "revision"
+        ],
+        "properties": {
+          "report": {
+            "$ref": "#/components/schemas/UsageReport"
+          },
+          "fetchedAt": {
+            "type": "string"
+          },
+          "cached": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer"
           }
         }
       }

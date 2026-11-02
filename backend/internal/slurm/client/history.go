@@ -9,17 +9,19 @@ import (
 )
 
 // HistoryQuery is deliberately narrower than slurmdbd's job conditions. A
-// bounded submission window is mandatory; scripts/environments are never requested.
+// bounded time window is mandatory; scripts/environments are never requested.
+// ExecutionWindow is server-selected only and does not alter the history UI default.
 type HistoryQuery struct {
-	Cluster   string `json:"cluster"`
-	Start     int64  `json:"start"`
-	End       int64  `json:"end"`
-	User      string `json:"user"`
-	Account   string `json:"account"`
-	Partition string `json:"partition"`
-	QOS       string `json:"qos"`
-	State     string `json:"state"`
-	JobID     string `json:"jobId"`
+	ExecutionWindow bool   `json:"executionWindow,omitempty"`
+	Cluster         string `json:"cluster"`
+	Start           int64  `json:"start"`
+	End             int64  `json:"end"`
+	User            string `json:"user"`
+	Account         string `json:"account"`
+	Partition       string `json:"partition"`
+	QOS             string `json:"qos"`
+	State           string `json:"state"`
+	JobID           string `json:"jobId"`
 }
 
 var HistoryStates = []string{"PENDING", "RUNNING", "SUSPENDED", "COMPLETED", "CANCELLED", "FAILED", "TIMEOUT", "NODE_FAIL", "PREEMPTED", "BOOT_FAIL", "DEADLINE", "OUT_OF_MEMORY", "REQUEUED", "REVOKED"}
@@ -40,7 +42,10 @@ func historyPath(version string, q HistoryQuery) (string, bool) {
 	if !q.Valid() {
 		return "", false
 	}
-	v := url.Values{"cluster": {q.Cluster}, "start_time": {strconv.FormatInt(q.Start, 10)}, "end_time": {strconv.FormatInt(q.End, 10)}, "usage_time_as_submit_time": {"true"}, "show_duplicates": {"true"}, "skip_steps": {"false"}, "disable_truncate_usage_time": {"true"}, "disable_whole_hetjob": {"true"}}
+	v := url.Values{"cluster": {q.Cluster}, "start_time": {strconv.FormatInt(q.Start, 10)}, "end_time": {strconv.FormatInt(q.End, 10)}, "show_duplicates": {"true"}, "skip_steps": {strconv.FormatBool(q.ExecutionWindow)}, "disable_truncate_usage_time": {"true"}, "disable_whole_hetjob": {"true"}}
+	if !q.ExecutionWindow {
+		v.Set("usage_time_as_submit_time", "true")
+	}
 	for k, val := range map[string]string{"users": q.User, "account": q.Account, "partition": q.Partition, "qos": q.QOS, "state": q.State, "step": q.JobID} {
 		if val != "" {
 			v.Set(k, val)
@@ -64,7 +69,7 @@ func validHistoryWire(r localRequest) bool {
 	}
 	start, e1 := strconv.ParseInt(v.Get("start_time"), 10, 64)
 	end, e2 := strconv.ParseInt(v.Get("end_time"), 10, 64)
-	q := HistoryQuery{Cluster: v.Get("cluster"), Start: start, End: end, User: v.Get("users"), Account: v.Get("account"), Partition: v.Get("partition"), QOS: v.Get("qos"), State: v.Get("state"), JobID: v.Get("step")}
+	q := HistoryQuery{ExecutionWindow: !v.Has("usage_time_as_submit_time"), Cluster: v.Get("cluster"), Start: start, End: end, User: v.Get("users"), Account: v.Get("account"), Partition: v.Get("partition"), QOS: v.Get("qos"), State: v.Get("state"), JobID: v.Get("step")}
 	expected, ok := historyPath(r.Version, q)
 	return e1 == nil && e2 == nil && ok && strings.EqualFold(r.Method, "GET") && !r.Write && len(r.Body) == 0 && expected == r.Path
 }

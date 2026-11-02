@@ -47,3 +47,5 @@ GPU 效率分析新增 `GET /api/v1/clusters/{clusterId}/metrics/gpu/efficiency`
 作业诊断增加当前与历史详情的 `/diagnosis` 只读接口，分别要求 `jobs.read` / `job_history.read`，历史强制精确记录和提交窗口。见 [作业诊断](job-diagnostics.md)及 OpenAPI 0.26.0。
 
 运维模板新增集群范围的 `/operation-templates` 列表/创建、`/{templateId}` 修改/删除和 `/{templateId}/prepare`。按本人隔离，修改/删除/准备带 revision，准备返回模板快照和已有 BulkControlView；执行继续使用批量接口。见 [运维操作模板](operation-templates.md) 和 OpenAPI 0.27.0。
+
+新增 `GET /api/v1/clusters/{clusterId}/reports/usage`，要求明确运行窗口和两项读取授权，返回汇总、完整有界分组和逐指标覆盖；CSV 通过同一端点重新授权后在浏览器生成。见 [资源报表](usage-reports.md) 和 OpenAPI 0.28.0。

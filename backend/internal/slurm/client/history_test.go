@@ -81,3 +81,16 @@ func TestHistoryEmptyResultWarningIsNotAServiceFailure(t *testing.T) {
 		t.Fatal("missing jobs interpreted as empty")
 	}
 }
+
+func TestExecutionWindowHasSeparateCanonicalReadOnlyWire(t *testing.T) {
+	q := HistoryQuery{Cluster: "alpha", Start: 1700000000, End: 1700086400, ExecutionWindow: true}
+	path, ok := historyPath("v0.0.43", q)
+	if !ok || strings.Contains(path, "usage_time_as_submit_time") || !strings.Contains(path, "skip_steps=true") || !validLocalRequest(localRequest{Version: "v0.0.43", Method: "GET", Path: path}) {
+		t.Fatal("invalid runtime query", path)
+	}
+	q.ExecutionWindow = false
+	other, _ := historyPath("v0.0.43", q)
+	if other == path || !strings.Contains(other, "usage_time_as_submit_time=true") || !strings.Contains(other, "skip_steps=false") {
+		t.Fatal("submission semantics changed")
+	}
+}

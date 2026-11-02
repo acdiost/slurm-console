@@ -76,3 +76,18 @@ func TestHistoryEnforcesClusterWindowAndSentinelTimes(t *testing.T) {
 		t.Fatal("source ignoring exact filter leaked rows")
 	}
 }
+
+func TestExecutionWindowKeepsJobsSubmittedBeforeWindow(t *testing.T) {
+	r := &historyReader{raw: "[" + strings.Replace(historyWire, `"submission":1700000010`, `"submission":1699000000`, 1) + "]"}
+	a, _ := New(r, Version)
+	q := client.HistoryQuery{Start: 1700000000, End: 1700086400, ExecutionWindow: true}
+	s, e := a.History(context.Background(), q.Key())
+	if e != nil || len(s.Items) != 1 || !r.queries[0].ExecutionWindow {
+		t.Fatal(e, s)
+	}
+	q.ExecutionWindow = false
+	s, e = a.History(context.Background(), q.Key())
+	if e != nil || len(s.Items) != 0 {
+		t.Fatal("submission window changed", e, s)
+	}
+}

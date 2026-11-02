@@ -34,3 +34,5 @@ Job ID 不是唯一键。每条记录保留 SHA-256 标识，依据实际集群�
 契约依据测试环境安装版本的 `/openapi/v3`，参考 [Slurm REST API](https://slurm.schedmd.com/rest_api.html)、[sacct](https://slurm.schedmd.com/sacct.html) 与[记账采集配置](https://slurm.schedmd.com/accounting.html)。
 
 详情新增“诊断作业”，绑定该记录标识、Job ID 和提交窗口；异常步骤与主/派生退出记录独立核对，不合并重复 Job ID，见 [作业异常诊断](job-diagnostics.md)。
+
+[资源使用报表](usage-reports.md) 使用独立的运行时间窗口查询及分配时长估算。历史作业页的提交时间口径保持不变，两个查询模式的来源缓存分开；报表跳过步骤，不把 TotalCPU 或步骤记账按时间比例摊入窗口。

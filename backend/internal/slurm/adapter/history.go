@@ -148,7 +148,7 @@ func (a *Adapter) History(ctx context.Context, key string) (models.HistorySnapsh
 			return out, invalid()
 		}
 		// Defend against a source ignoring exact selectors or expanding hetjobs.
-		if *v.Time.Submission < q.Start || *v.Time.Submission >= q.End || q.JobID != "" && strconv.FormatInt(*v.ID, 10) != q.JobID || q.User != "" && v.User != q.User || q.Account != "" && v.Account != q.Account || q.Partition != "" && v.Partition != q.Partition || q.QOS != "" && v.QOS != q.QOS {
+		if !q.ExecutionWindow && (*v.Time.Submission < q.Start || *v.Time.Submission >= q.End) || q.JobID != "" && strconv.FormatInt(*v.ID, 10) != q.JobID || q.User != "" && v.User != q.User || q.Account != "" && v.Account != q.Account || q.Partition != "" && v.Partition != q.Partition || q.QOS != "" && v.QOS != q.QOS {
 			continue
 		}
 		if q.State != "" {
