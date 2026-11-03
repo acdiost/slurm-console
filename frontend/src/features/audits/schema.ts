@@ -37,6 +37,9 @@ export const auditDetailSchema = z.object({
   fetchedAt: z.string(),
 })
 export const actions: Record<string, string> = {
+  "platform.settings.update": "修改平台基础设置",
+  "platform.ai.update": "配置 AI 接入",
+  "users.update": "更新平台用户",
   "ai.explain": "AI 作业解释",
   "operation_templates.create": "创建运维模板",
   "operation_templates.update": "修改运维模板",
@@ -78,6 +81,13 @@ export const statuses: Record<string, string> = {
   unknown: "结果待核实",
 }
 export const fields: Record<string, string> = {
+  platformName: "平台名称",
+  platformDescription: "平台说明",
+  loginNotice: "登录公告",
+  supportContact: "管理员联系方式",
+  aiConfiguration: "AI 非敏感配置",
+  active: "允许登录",
+  userName: "用户显示名称",
   aiProvider: "AI 服务",
   aiModel: "AI 模型",
   aiPayloadDigest: "发送内容摘要",

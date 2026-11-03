@@ -66,24 +66,51 @@ func ReadFile(path string, limit int64, secret bool) ([]byte, error) {
 	}
 	return b, nil
 }
-func Load(path string) (*Profile, error) {
+func LoadConfig(path string) (Config, error) {
 	if path == "" {
-		return nil, nil
+		return Config{}, nil
 	}
 	b, e := ReadFile(path, 32768, false)
 	if e != nil {
-		return nil, e
+		return Config{}, e
 	}
 	var c Config
 	if decode(b, &c) != nil {
-		return nil, errors.New("invalid AI configuration JSON")
+		return Config{}, errors.New("invalid AI configuration JSON")
 	}
-
+	return c, nil
+}
+func Load(path string) (*Profile, error) {
+	c, e := LoadConfig(path)
+	if e != nil {
+		return nil, e
+	}
 	return NewProfile(c)
 }
+
 func text(s string, max int) bool {
 	return utf8.ValidString(s) && utf8.RuneCountInString(s) > 0 && utf8.RuneCountInString(s) <= max && !strings.ContainsFunc(s, unicode.IsControl)
 }
+func parseEndpoint(endpoint string, privateConfig bool) (*url.URL, error) {
+	u, e := url.Parse(endpoint)
+	if e != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.RawPath != "" || u.Opaque != "" || !strings.HasSuffix(u.Path, "/chat/completions") || len(endpoint) > 2048 {
+		return nil, errors.New("AI endpoint must be a fixed chat/completions URL without credentials or parameters")
+	}
+	if u.Scheme != "https" && (u.Scheme != "http" || net.ParseIP(u.Hostname()) == nil || !net.ParseIP(u.Hostname()).IsLoopback()) {
+		return nil, errors.New("AI requires HTTPS or literal loopback HTTP")
+	}
+	if u.Scheme == "http" && privateConfig {
+		return nil, errors.New("loopback AI HTTP must not carry credentials or custom CA")
+	}
+	return u, nil
+}
+
+// ValidateEndpoint also applies to disabled drafts: credential-bearing URLs are never metadata.
+func ValidateEndpoint(endpoint string, privateConfig bool) error {
+	_, e := parseEndpoint(endpoint, privateConfig)
+	return e
+}
+
 func NewProfile(c Config) (*Profile, error) {
 	if !c.Enabled {
 		return nil, nil
@@ -98,16 +125,11 @@ func NewProfile(c Config) (*Profile, error) {
 		}
 		seen[id] = true
 	}
-	u, e := url.Parse(c.Endpoint)
-	if e != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.RawPath != "" || !strings.HasSuffix(u.Path, "/chat/completions") || len(c.Endpoint) > 2048 {
-		return nil, errors.New("AI endpoint must be a fixed chat/completions URL")
+	u, e := parseEndpoint(c.Endpoint, c.APIKeyFile != "" || c.CAFile != "")
+	if e != nil {
+		return nil, e
 	}
-	if u.Scheme != "https" && (u.Scheme != "http" || net.ParseIP(u.Hostname()) == nil || !net.ParseIP(u.Hostname()).IsLoopback()) {
-		return nil, errors.New("AI requires HTTPS or literal loopback HTTP")
-	}
-	if u.Scheme == "http" && (c.APIKeyFile != "" || c.CAFile != "") {
-		return nil, errors.New("loopback AI HTTP must not carry credentials")
-	}
+
 	if c.TimeoutSeconds == 0 {
 		c.TimeoutSeconds = 30
 	}

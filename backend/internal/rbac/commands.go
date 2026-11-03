@@ -96,6 +96,14 @@ func Commands(app core.App) *cobra.Command {
 						return audit.Event{}, err
 					}
 				}
+				target, err := tx.FindRecordById("users", user.Id)
+				if err != nil {
+					return audit.Event{}, err
+				}
+				target.Set("management_revision", target.GetInt("management_revision")+1)
+				if err = tx.Save(target); err != nil {
+					return audit.Event{}, err
+				}
 				return audit.Event{Action: "access." + action, ClusterID: clusterID, TargetType: "user", TargetID: user.Id, Message: "本地角色授权命令完成。", Changes: []audit.Change{{Field: "role", Before: beforeRole, After: map[bool]string{true: roleCode}[action == "grant"]}}}, nil
 			})
 			if err != nil {

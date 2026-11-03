@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.30.0
+  version: 0.31.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -9442,6 +9442,1084 @@ paths:
         }
       }
     }
+  /api/v1/platform-info:
+    {
+      "get": {
+        "operationId": "getPublicPlatformIdentity",
+        "summary": "读取公开平台名称、公告和联系方式",
+        "description": "Unauthenticated fixed four-field public identity projection. Name2-64/description240/notice1000/contact160; plain text. No version/revision, runtime, auth settings, endpoint, credential references, file paths, environment or private user data. Metadata failure does not block frontend login form; fallback branding/no stale notice. No external probes.",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformIdentity"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/platform-settings:
+    {
+      "get": {
+        "operationId": "getPlatformSettings",
+        "summary": "读取平台基础设置",
+        "description": "Active platform users only; permissions freshly resolved from database. Native collection APIs remain locked. No arbitrary settings/credential/collection editing. Unknown/repeated query parameters rejected. Requires platform.settings.read. New permission seeded only to Super Admin.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformSettings"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updatePlatformSettings",
+        "summary": "修改平台基础信息和登录公告",
+        "description": "Active platform users only; permissions freshly resolved from database. Native collection APIs remain locked. No arbitrary settings/credential/collection editing. Unknown/repeated query parameters rejected. Revision required; stale conflicts409. Mutation and audit persist atomically; audit failure rolls back and returns503. Requires platform.settings.read+manage. Four identity fields are public BEFORE login and rendered as text. Shared singleton revision with AI settings. No-op rejected400. Changes visible in current frontend after success; public refresh updates other clients. Fixed field whitelist/control-character validation.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformSettings"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "Complete JSON, maximum16KiB; no unknown/duplicate keys, null/missing required fields or trailing JSON.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "description",
+                  "loginNotice",
+                  "supportContact",
+                  "revision"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 64
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 240
+                  },
+                  "loginNotice": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "supportContact": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/platform-settings/ai:
+    {
+      "get": {
+        "operationId": "getPlatformAISettings",
+        "summary": "读取 AI 非敏感设置及凭据引用状态",
+        "description": "Active platform users only; permissions freshly resolved from database. Native collection APIs remain locked. No arbitrary settings/credential/collection editing. Unknown/repeated query parameters rejected. Requires platform.settings.read. Database override wins for non-secret fields; protected server JSON supplies key/CA references only. keyConfigured/caConfigured indicate references, not remote health; never returns paths, key or CA bytes.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformAISettings"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updatePlatformAISettings",
+        "summary": "确认保存并热更新 AI 非敏感配置",
+        "description": "Active platform users only; permissions freshly resolved from database. Native collection APIs remain locked. No arbitrary settings/credential/collection editing. Unknown/repeated query parameters rejected. Revision required; stale conflicts409. Mutation and audit persist atomically; audit failure rolls back and returns503. Requires platform.settings.read+manage and exact APPLY AI confirmation. No model request. Existing cluster IDs only, max100 unique, no wildcard; enabled profile reuses HTTPS/TLS, literal tokenless loopback HTTP, fixed endpoint, protected credential and budget validation. Browser cannot supply key/CA paths or content. Persist metadata and audit first, then serialized runtime service replacement; invalidates old previews, cancels old requests, rejects old answers. Already sent content cannot be recalled. Disabled drafts can omit endpoint/model/allowed clusters; any nonempty endpoint still rejects credentials, query parameters and fragments. Server config file credential references stay immutable in HTTP API. No credentials/prompt/answer persisted in setting audit.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformAISettings"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "Complete JSON, maximum16KiB; no unknown/duplicate keys, null/missing required fields or trailing JSON.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "config",
+                  "revision",
+                  "confirmation"
+                ],
+                "properties": {
+                  "config": {
+                    "$ref": "#/components/schemas/PlatformAIConfig"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "confirmation": {
+                    "type": "string",
+                    "enum": [
+                      "APPLY AI"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/platform-settings/runtime:
+    {
+      "get": {
+        "operationId": "getPlatformRuntime",
+        "summary": "读取运行版本和集成配置状态",
+        "description": "Active platform users only; permissions freshly resolved from database. Native collection APIs remain locked. No arbitrary settings/credential/collection editing. Unknown/repeated query parameters rejected. Requires platform.settings.read. OS/arch/Go/build revision/dirty/start time/root execution/SQLite only, plus fixed integration counts/loaded flags. Loaded is NOT connected/healthy. No external calls, subprocesses, environment dumps, hostnames, addresses, credential contents/paths, backup-key reads or maintenance actions.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformRuntime"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/platform-users:
+    {
+      "get": {
+        "operationId": "listManagedPlatformUsers",
+        "summary": "分页查询平台用户",
+        "description": "Active platform users only; permissions freshly resolved from database. Native collection APIs remain locked. No arbitrary settings/credential/collection editing. Unknown/repeated query parameters rejected. Requires platform.users.manage. Server-side literal search, source/active filters and stable email/id order. Only reviewed user DTO; no hashes/token keys/directory unique IDs.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "description": "Literal case-insensitive substring of email/name/username."
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "local",
+                "pam",
+                "ldap"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "active",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "items",
+                        "page",
+                        "perPage",
+                        "totalItems"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ManagedPlatformUser"
+                          }
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "perPage": {
+                          "type": "integer"
+                        },
+                        "totalItems": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createManagedPlatformUser",
+        "summary": "创建本地账户或关联已有系统/目录身份",
+        "description": "Active platform users only; permissions freshly resolved from database. Native collection APIs remain locked. No arbitrary settings/credential/collection editing. Unknown/repeated query parameters rejected. Revision required; stale conflicts409. Mutation and audit persist atomically; audit failure rolls back and returns503. Requires platform.users.manage. No implicit role/Slurm identity grant. Local: email login, username empty; password>=12 Unicode characters and<=71UTF8 bytes. Password never returned/audited/logged. PAM/LDAP: password empty, existing eligible exact username; PAM account check and root forbidden, LDAP lookup pins unique ID server-side. Provider lookup before transaction, permissions rechecked inside transaction. No directory/system user creation or account deletion. Management revision starts1.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ManagedPlatformUser"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "Complete JSON, maximum16KiB; no unknown/duplicate keys, null/missing required fields or trailing JSON.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "email",
+                  "name",
+                  "authSource",
+                  "username",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "maxLength": 255
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "authSource": {
+                    "type": "string",
+                    "enum": [
+                      "local",
+                      "pam",
+                      "ldap"
+                    ]
+                  },
+                  "username": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "maxLength": 255
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/platform-users/{userId}:
+    {
+      "patch": {
+        "operationId": "updateManagedPlatformUser",
+        "summary": "修改显示名称或停用/启用平台用户",
+        "description": "Active platform users only; permissions freshly resolved from database. Native collection APIs remain locked. No arbitrary settings/credential/collection editing. Unknown/repeated query parameters rejected. Revision required; stale conflicts409. Mutation and audit persist atomically; audit failure rolls back and returns503. Requires platform.users.manage and UPDATE USER. Exact user management revision. Cannot deactivate caller or last active Super Admin. Active transitions rotate token key, so old sessions never revive after reactivation. No password reset, email/source switch, deletion, external password or Slurm mutation.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ManagedPlatformUser"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "Complete JSON, maximum16KiB; no unknown/duplicate keys, null/missing required fields or trailing JSON.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "active",
+                  "revision",
+                  "confirmation"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "confirmation": {
+                    "type": "string",
+                    "enum": [
+                      "UPDATE USER"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/platform-users/{userId}/roles:
+    {
+      "get": {
+        "operationId": "getManagedPlatformUserRoles",
+        "summary": "读取用户的平台及集群角色",
+        "description": "Active platform users only; permissions freshly resolved from database. Native collection APIs remain locked. No arbitrary settings/credential/collection editing. Unknown/repeated query parameters rejected. Requires platform.users.manage+platform.roles.manage. Maximum1000 bindings per user per collection; no silent truncation. Current user metadata/revision included.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformUserRoles"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "grantManagedPlatformUserRole",
+        "summary": "确认授予已有平台或集群角色",
+        "description": "Active platform users only; permissions freshly resolved from database. Native collection APIs remain locked. No arbitrary settings/credential/collection editing. Unknown/repeated query parameters rejected. Revision required; stale conflicts409. Mutation and audit persist atomically; audit failure rolls back and returns503. Requires platform.users.manage+platform.roles.manage. Existing role catalog only. Platform role MUST have empty clusterId; cluster role MUST have one existing cluster. Exact CHANGE ACCESS confirmation and target user revision, shared with name/active edits and local management commands. Never changes Slurm native identity/privileges. Last active Super Admin revoke prohibited inside same transaction; concurrent administrative changes retain an active administrator. Caller access refreshed in UI after own changes; no stale session resurrection. Existing identical grant returns409; per-user per-scope quota1000.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ManagedPlatformUser"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "Complete JSON, maximum16KiB; no unknown/duplicate keys, null/missing required fields or trailing JSON.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "roleCode",
+                  "clusterId",
+                  "revision",
+                  "confirmation"
+                ],
+                "properties": {
+                  "roleCode": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "clusterId": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "confirmation": {
+                    "type": "string",
+                    "enum": [
+                      "CHANGE ACCESS"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/platform-users/{userId}/roles/remove:
+    {
+      "post": {
+        "operationId": "revokeManagedPlatformUserRole",
+        "summary": "确认撤销已有平台或集群角色",
+        "description": "Active platform users only; permissions freshly resolved from database. Native collection APIs remain locked. No arbitrary settings/credential/collection editing. Unknown/repeated query parameters rejected. Revision required; stale conflicts409. Mutation and audit persist atomically; audit failure rolls back and returns503. Requires platform.users.manage+platform.roles.manage. Existing role catalog only. Platform role MUST have empty clusterId; cluster role MUST have one existing cluster. Exact CHANGE ACCESS confirmation and target user revision, shared with name/active edits and local management commands. Never changes Slurm native identity/privileges. Last active Super Admin revoke prohibited inside same transaction; concurrent administrative changes retain an active administrator. Caller access refreshed in UI after own changes; no stale session resurrection. Missing binding404; user and audit history retained.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ManagedPlatformUser"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "Complete JSON, maximum16KiB; no unknown/duplicate keys, null/missing required fields or trailing JSON.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "roleCode",
+                  "clusterId",
+                  "revision",
+                  "confirmation"
+                ],
+                "properties": {
+                  "roleCode": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "clusterId": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "confirmation": {
+                    "type": "string",
+                    "enum": [
+                      "CHANGE ACCESS"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/platform-role-catalog:
+    {
+      "get": {
+        "operationId": "getPlatformRoleCatalog",
+        "summary": "读取已有角色、权限及授权集群目录",
+        "description": "Active platform users only; permissions freshly resolved from database. Native collection APIs remain locked. No arbitrary settings/credential/collection editing. Unknown/repeated query parameters rejected. Requires platform.roles.manage. Read-only definitions, no role/permission CRUD. Limit200roles/1000permissions per role/1000clusters; exceeds fail503, not truncate. Cluster DTO id/name only; no connection credentials/endpoints.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response; Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformRoleCatalog"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -15920,6 +16998,475 @@ components:
           },
           "destination": {
             "$ref": "#/components/schemas/AIDestination"
+          }
+        }
+      }
+    PlatformIdentity:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description",
+          "loginNotice",
+          "supportContact"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 64
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "loginNotice": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "supportContact": {
+            "type": "string",
+            "maxLength": 160
+          }
+        }
+      }
+    PlatformSettings:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description",
+          "loginNotice",
+          "supportContact",
+          "revision",
+          "updatedAt"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 64
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "loginNotice": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "supportContact": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      }
+    PlatformAIConfig:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enabled",
+          "label",
+          "endpoint",
+          "model",
+          "clusterIds",
+          "timeoutSeconds",
+          "maxOutputTokens",
+          "tokenParameter"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "endpoint": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "clusterIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            },
+            "maxItems": 100,
+            "uniqueItems": true
+          },
+          "timeoutSeconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 60
+          },
+          "maxOutputTokens": {
+            "type": "integer",
+            "minimum": 512,
+            "maximum": 4096
+          },
+          "tokenParameter": {
+            "type": "string",
+            "enum": [
+              "max_completion_tokens",
+              "max_tokens"
+            ]
+          }
+        }
+      }
+    PlatformAISettings:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enabled",
+          "label",
+          "endpoint",
+          "model",
+          "clusterIds",
+          "timeoutSeconds",
+          "maxOutputTokens",
+          "tokenParameter",
+          "revision",
+          "source",
+          "keyConfigured",
+          "caConfigured"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "endpoint": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "clusterIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            },
+            "maxItems": 100,
+            "uniqueItems": true
+          },
+          "timeoutSeconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 60
+          },
+          "maxOutputTokens": {
+            "type": "integer",
+            "minimum": 512,
+            "maximum": 4096
+          },
+          "tokenParameter": {
+            "type": "string",
+            "enum": [
+              "max_completion_tokens",
+              "max_tokens"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "server",
+              "platform"
+            ]
+          },
+          "keyConfigured": {
+            "type": "boolean"
+          },
+          "caConfigured": {
+            "type": "boolean"
+          }
+        }
+      }
+    ManagedPlatformUser:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "email",
+          "name",
+          "username",
+          "authSource",
+          "active",
+          "revision",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]{15}$"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "authSource": {
+            "type": "string",
+            "enum": [
+              "local",
+              "pam",
+              "ldap"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      }
+    PlatformUserRoles:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "user",
+          "roles"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/ManagedPlatformUser"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "roleCode",
+                "roleName",
+                "scope",
+                "clusterId",
+                "clusterName"
+              ],
+              "properties": {
+                "roleCode": {
+                  "type": "string"
+                },
+                "roleName": {
+                  "type": "string"
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "platform",
+                    "cluster"
+                  ]
+                },
+                "clusterId": {
+                  "type": "string"
+                },
+                "clusterName": {
+                  "type": "string"
+                }
+              }
+            },
+            "maxItems": 2000
+          }
+        }
+      }
+    PlatformRoleCatalog:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "roles",
+          "clusters"
+        ],
+        "properties": {
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "code",
+                "name",
+                "scope",
+                "permissions"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "platform",
+                    "cluster"
+                  ]
+                },
+                "permissions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "code",
+                      "name"
+                    ],
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "maxItems": 1000
+                }
+              }
+            },
+            "maxItems": 200
+          },
+          "clusters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            },
+            "maxItems": 1000
+          }
+        }
+      }
+    PlatformRuntime:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtime",
+          "integrations"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "startedAt",
+              "goVersion",
+              "os",
+              "arch",
+              "revision",
+              "modified",
+              "runAsRoot",
+              "database"
+            ],
+            "properties": {
+              "startedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "goVersion": {
+                "type": "string"
+              },
+              "os": {
+                "type": "string"
+              },
+              "arch": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string"
+              },
+              "modified": {
+                "type": "boolean"
+              },
+              "runAsRoot": {
+                "type": "boolean"
+              },
+              "database": {
+                "type": "string",
+                "enum": [
+                  "SQLite"
+                ]
+              }
+            }
+          },
+          "integrations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "configured",
+                "count"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "configured": {
+                  "type": "boolean"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
           }
         }
       }

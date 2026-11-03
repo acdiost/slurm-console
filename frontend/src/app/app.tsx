@@ -11,6 +11,10 @@ import {
 import { Toaster } from "@/components/ui/sonner"
 import { Button } from "@/components/ui/button"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import {
+  PlatformIdentityLoader,
+  usePlatformIdentity,
+} from "@/features/platform-settings/identity"
 import { ConsoleLayout } from "@/app/console-layout"
 import { useAppearance } from "@/hooks/use-appearance"
 import { queryClient } from "@/lib/query-client"
@@ -18,6 +22,11 @@ import {
   SessionLifecycle,
   RequireSession,
 } from "@/features/auth/session-boundary"
+const PlatformSettingsPage = lazy(() =>
+  import("@/pages/platform-settings-page").then((m) => ({
+    default: m.PlatformSettingsPage,
+  }))
+)
 const ConfigurationHistoryPage = lazy(() =>
   import("@/pages/configuration-history-page").then((m) => ({
     default: m.ConfigurationHistoryPage,
@@ -123,6 +132,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={300}>
         <BrowserRouter>
+          <PlatformIdentityLoader />
           <RouteTitle />
           <SessionLifecycle />
           <Suspense
@@ -137,6 +147,7 @@ export function App() {
               <Route element={<RequireSession />}>
                 <Route element={<ConsoleLayout />}>
                   <Route index element={<Navigate to="/fleet" replace />} />
+                  <Route path="settings" element={<PlatformSettingsPage />} />
                   <Route path="fleet" element={<FleetPage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route path="capacity" element={<CapacityPage />} />
@@ -198,54 +209,57 @@ export function App() {
 
 function RouteTitle() {
   const { pathname } = useLocation()
+  const platformName = usePlatformIdentity((s) => s.name)
   useEffect(() => {
     const title =
-      pathname === "/configuration-history"
-        ? "配置变更对比"
-        : pathname === "/reports"
-          ? "资源使用报表"
-          : pathname === "/operation-templates"
-            ? "运维操作模板"
-            : pathname === "/gpu-efficiency"
-              ? "GPU 资源效率分析"
-              : pathname === "/capacity"
-                ? "集群容量分析"
-                : pathname === "/notifications"
-                  ? "告警通知"
-                  : pathname === "/history"
-                    ? "历史作业与记账"
-                    : pathname === "/gpu"
-                      ? "GPU 监控"
-                      : pathname === "/reservations"
-                        ? "Reservation 资源预留"
-                        : pathname === "/tres"
-                          ? "TRES 限额"
-                          : pathname === "/policies"
-                            ? "QOS 与 Fairshare"
-                            : pathname === "/accounts"
-                              ? "账户与 Association"
-                              : pathname === "/linux-users"
-                                ? "Linux 系统用户"
-                                : pathname === "/fleet"
-                                  ? "集群工作台"
-                                  : pathname === "/audits"
-                                    ? "操作审计"
-                                    : pathname === "/login"
-                                      ? "登录"
-                                      : pathname === "/partitions"
-                                        ? "分区查询"
-                                        : pathname === "/nodes"
-                                          ? "节点管理"
-                                          : pathname === "/jobs"
-                                            ? "作业管理"
-                                            : pathname === "/overview"
-                                              ? "集群总览"
-                                              : pathname === "/clusters"
-                                                ? "集群配置"
-                                                : pathname === "/access"
-                                                  ? "我的权限"
-                                                  : "设计系统"
-    document.title = `${title} · Slurm Console`
-  }, [pathname])
+      pathname === "/settings"
+        ? "平台设置"
+        : pathname === "/configuration-history"
+          ? "配置变更对比"
+          : pathname === "/reports"
+            ? "资源使用报表"
+            : pathname === "/operation-templates"
+              ? "运维操作模板"
+              : pathname === "/gpu-efficiency"
+                ? "GPU 资源效率分析"
+                : pathname === "/capacity"
+                  ? "集群容量分析"
+                  : pathname === "/notifications"
+                    ? "告警通知"
+                    : pathname === "/history"
+                      ? "历史作业与记账"
+                      : pathname === "/gpu"
+                        ? "GPU 监控"
+                        : pathname === "/reservations"
+                          ? "Reservation 资源预留"
+                          : pathname === "/tres"
+                            ? "TRES 限额"
+                            : pathname === "/policies"
+                              ? "QOS 与 Fairshare"
+                              : pathname === "/accounts"
+                                ? "账户与 Association"
+                                : pathname === "/linux-users"
+                                  ? "Linux 系统用户"
+                                  : pathname === "/fleet"
+                                    ? "集群工作台"
+                                    : pathname === "/audits"
+                                      ? "操作审计"
+                                      : pathname === "/login"
+                                        ? "登录"
+                                        : pathname === "/partitions"
+                                          ? "分区查询"
+                                          : pathname === "/nodes"
+                                            ? "节点管理"
+                                            : pathname === "/jobs"
+                                              ? "作业管理"
+                                              : pathname === "/overview"
+                                                ? "集群总览"
+                                                : pathname === "/clusters"
+                                                  ? "集群配置"
+                                                  : pathname === "/access"
+                                                    ? "我的权限"
+                                                    : "设计系统"
+    document.title = `${title} · ${platformName}`
+  }, [pathname, platformName])
   return null
 }

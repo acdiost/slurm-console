@@ -161,7 +161,7 @@ func Require(permission string, clusterScoped bool) func(*core.RequestEvent) err
 	}
 }
 
-// Grant is used only by trusted local administration commands, never public CRUD.
+// Grant validates a role/scope pair; callers enforce authorization and audit in a transaction.
 func Grant(app core.App, userID, roleCode, clusterID string) (*core.Record, error) {
 	if _, err := app.FindRecordById("users", userID); err != nil {
 		return nil, err

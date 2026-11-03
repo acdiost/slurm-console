@@ -57,6 +57,7 @@ func UsersCommand(app core.App) *cobra.Command {
 			record.SetEmail(strings.TrimSpace(email))
 			record.Set("name", strings.TrimSpace(name))
 			record.Set("active", true)
+			record.Set("management_revision", 1)
 			record.Set("auth_source", "local")
 			record.SetPassword(password)
 			if err := audit.SaveLocal(app, record, audit.Event{Action: "users.create", TargetType: "user", Message: "本地命令创建平台账户。", Changes: []audit.Change{{Field: "authSource", After: "local"}}}); err != nil {

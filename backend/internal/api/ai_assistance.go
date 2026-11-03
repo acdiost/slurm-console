@@ -121,6 +121,9 @@ func aiExplain(e *core.RequestEvent) error {
 	}
 	defer invocation.Release()
 	scope := invocation.Scope
+	if !invocation.Current(e.App) {
+		return aiError(e, aiassist.ErrConflict)
+	}
 	if err = aiFresh(e, scope.Source, scope.Revision); err != nil {
 		return err
 	}
@@ -159,6 +162,12 @@ func aiExplain(e *core.RequestEvent) error {
 		}
 		return err
 	}
+	if !invocation.Current(e.App) {
+		if finish("failed", "AI 配置变化，未发送请求。") != nil {
+			return failure("审计结果写入失败，未发送请求。")
+		}
+		return aiError(e, aiassist.ErrConflict)
+	}
 	answer, callErr := invocation.Call(e.Request.Context())
 	if callErr != nil {
 		status, message := "unknown", "AI 请求可能已经发送，但未获得通过校验的结果。"
@@ -172,7 +181,7 @@ func aiExplain(e *core.RequestEvent) error {
 		}
 		return failure(message)
 	}
-	if err = aiFresh(e, scope.Source, scope.Revision); err != nil {
+	if err = aiFresh(e, scope.Source, scope.Revision); err != nil || !invocation.Current(e.App) {
 		if finish("unknown", "请求已发送；返回时权限或集群配置变化，结果已丢弃。") != nil {
 			return failure("请求已发送，审计结果写入失败，结果已丢弃。")
 		}

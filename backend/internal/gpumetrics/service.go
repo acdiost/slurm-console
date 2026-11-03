@@ -225,3 +225,5 @@ func (s *Service) History(ctx context.Context, id, node, uuid, window string) (H
 	return result, e
 }
 func ValidUUID(s string) bool { return uuidPattern.MatchString(s) }
+
+func (s *Service) ConfiguredCount() int { return len(s.registry.Clusters) }

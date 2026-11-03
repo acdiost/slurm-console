@@ -66,7 +66,10 @@ export function logout(message = "") {
   clearSession(message)
 }
 
-async function authenticate(credentials?: { identity: string; password: string }) {
+async function authenticate(credentials?: {
+  identity: string
+  password: string
+}) {
   activeFlow?.abort()
   const controller = new AbortController()
   activeFlow = controller
@@ -135,4 +138,28 @@ export function restoreSession(): Promise<void> {
 export async function login(identity: string, password: string) {
   clearSession()
   await authenticate({ identity, password })
+}
+
+// Refresh authoritative access after a user/role edit without restoring a stale session.
+export async function refreshAccess() {
+  const token = pb.authStore.token,
+    actor = useAuth.getState().user?.id
+  try {
+    const result = await pb.send<{ data: PlatformUser }>("/api/v1/auth/me", {
+      requestKey: null,
+    })
+    const user = userSchema.parse(result.data)
+    if (pb.authStore.token === token && useAuth.getState().user?.id === actor) {
+      queryClient.clear()
+      useAuth.setState({ user })
+    }
+  } catch (error) {
+    if (pb.authStore.token === token && useAuth.getState().user?.id === actor)
+      useAuth.setState({
+        status: "unavailable",
+        user: null,
+        message: "授权已更新，当前会话需要重新校验。",
+      })
+    throw error
+  }
 }

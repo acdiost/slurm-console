@@ -6,6 +6,7 @@ import {
   login,
   logout,
   restoreSession,
+  refreshAccess,
   useAuth,
 } from "./auth"
 
@@ -53,23 +54,40 @@ afterEach(() => {
 })
 
 describe("平台会话", () => {
-  it.each(["pam", "ldap"])("以用户名登录并保留服务器返回的 %s 认证来源", async (source) => {
-    const pamRecord = { ...record, username: "fixture_linux", auth_source: source }
-    fetchMock.mockImplementation((input: RequestInfo | URL) =>
-      Promise.resolve(
-        String(input).includes("/auth/me")
-          ? json({ data: { ...user, username: "fixture_linux", authSource: source } })
-          : json({ token: fixtureToken(), record: pamRecord })
+  it.each(["pam", "ldap"])(
+    "以用户名登录并保留服务器返回的 %s 认证来源",
+    async (source) => {
+      const pamRecord = {
+        ...record,
+        username: "fixture_linux",
+        auth_source: source,
+      }
+      fetchMock.mockImplementation((input: RequestInfo | URL) =>
+        Promise.resolve(
+          String(input).includes("/auth/me")
+            ? json({
+                data: {
+                  ...user,
+                  username: "fixture_linux",
+                  authSource: source,
+                },
+              })
+            : json({ token: fixtureToken(), record: pamRecord })
+        )
       )
-    )
-    await login("fixture_linux", "system-password")
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).identity).toBe("fixture_linux")
-    expect(useAuth.getState().user).toMatchObject({
-      username: "fixture_linux",
-      authSource: source,
-    })
-    expect(sessionStorage.getItem("slurm-console-session")).not.toContain("system-password")
-  })
+      await login("fixture_linux", "system-password")
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body).identity).toBe(
+        "fixture_linux"
+      )
+      expect(useAuth.getState().user).toMatchObject({
+        username: "fixture_linux",
+        authSource: source,
+      })
+      expect(sessionStorage.getItem("slurm-console-session")).not.toContain(
+        "system-password"
+      )
+    }
+  )
   it("复用 SDK 登录并校验当前用户，保存会话时不保存密码", async () => {
     queryClient.setQueryData(["private-data"], "old-account-data")
     await login(record.email, "fixture-password-123")
@@ -93,7 +111,9 @@ describe("平台会话", () => {
     } catch (error) {
       failure = error
     }
-    expect(authErrorMessage(failure)).toBe("用户名、邮箱或密码不正确，或账户不可用。")
+    expect(authErrorMessage(failure)).toBe(
+      "用户名、邮箱或密码不正确，或账户不可用。"
+    )
     expect(pb.authStore.isValid).toBe(false)
     expect(useAuth.getState().status).toBe("anonymous")
   })
@@ -144,4 +164,43 @@ describe("平台会话", () => {
     expect(useAuth.getState().status).toBe("anonymous")
     expect(pb.authStore.token).toBe("")
   })
+})
+
+it("授权刷新替换当前权限并清除旧查询缓存", async () => {
+  await login(record.email, "fixture-password-123")
+  queryClient.setQueryData(["private-data"], "stale-admin-data")
+  fetchMock.mockResolvedValue(
+    json({
+      data: {
+        ...user,
+        access: {
+          platformRoles: [],
+          platformPermissions: ["platform.settings.read"],
+          clusters: [],
+        },
+      },
+    })
+  )
+  await refreshAccess()
+  expect(useAuth.getState().user?.access.platformPermissions).toEqual([
+    "platform.settings.read",
+  ])
+  expect(queryClient.getQueryData(["private-data"])).toBeUndefined()
+})
+it("授权刷新晚到的响应不能恢复已经退出的会话", async () => {
+  await login(record.email, "fixture-password-123")
+  let resolve!: (response: Response) => void
+  fetchMock.mockImplementation(
+    () =>
+      new Promise<Response>((done) => {
+        resolve = done
+      })
+  )
+  const pending = refreshAccess()
+  logout()
+  resolve(json({ data: user }))
+  await pending
+  expect(useAuth.getState().status).toBe("anonymous")
+  expect(useAuth.getState().user).toBeNull()
+  expect(pb.authStore.token).toBe("")
 })

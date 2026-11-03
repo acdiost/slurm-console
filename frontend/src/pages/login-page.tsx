@@ -1,3 +1,4 @@
+import { usePlatformIdentity } from "@/features/platform-settings/identity"
 import { useState } from "react"
 import { Navigate, useNavigate } from "react-router"
 import { useForm } from "react-hook-form"
@@ -25,6 +26,7 @@ const schema = z.object({
 type LoginValues = z.infer<typeof schema>
 
 export function LoginPage() {
+  const identity = usePlatformIdentity()
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const { status, message } = useAuth()
@@ -60,7 +62,7 @@ export function LoginPage() {
             <Boxes className="size-6" />
           </div>
           <span className="text-lg font-semibold tracking-tight">
-            Slurm Console
+            {identity.name}
           </span>
         </div>
         <div className="relative my-auto max-w-md py-20">
@@ -73,9 +75,7 @@ export function LoginPage() {
             尽在掌握。
           </h1>
           <p className="mt-6 text-sm leading-7 text-muted-foreground">
-            连接集群、洞察资源、管理调度。
-            <br />
-            为团队提供清晰、一致的算力运维工作空间。
+            <span className="whitespace-pre-wrap">{identity.description}</span>
           </p>
           <div className="mt-10 flex items-center gap-3 rounded-xl border bg-card/80 p-5">
             <ShieldCheck className="size-6 shrink-0 text-primary" />
@@ -96,7 +96,7 @@ export function LoginPage() {
         <div className="w-full max-w-sm">
           <div className="mb-10 flex items-center gap-2 text-sm font-semibold lg:hidden">
             <Boxes className="size-5 text-primary" />
-            Slurm Console
+            {identity.name}
           </div>
           <div className="mb-7">
             <div className="mb-4 flex size-10 items-center justify-center rounded-xl border bg-muted/40">
@@ -109,6 +109,17 @@ export function LoginPage() {
               使用平台邮箱或已关联的用户名登录。
             </p>
           </div>
+          {identity.loginNotice && (
+            <section
+              aria-label="登录公告"
+              className="mb-6 space-y-2 rounded-lg border bg-muted/40 p-4"
+            >
+              <h3 className="text-sm font-semibold">平台公告</h3>
+              <p className="text-sm leading-6 break-words whitespace-pre-wrap">
+                {identity.loginNotice}
+              </p>
+            </section>
+          )}
           <form className="space-y-5" onSubmit={submit} noValidate>
             <fieldset
               disabled={isSubmitting || status === "checking"}
@@ -194,7 +205,8 @@ export function LoginPage() {
           <p className="mt-6 text-center text-2xs leading-6 text-muted-foreground">
             平台账户由管理员统一管理。
             <br />
-            需要开通账户或重置密码，请联系管理员。
+            {identity.supportContact ||
+              "需要开通账户或重置密码，请联系管理员。"}
           </p>
           <p className="mt-12 text-center font-mono text-micro text-muted-foreground/70">
             SLURM CONSOLE · INTERNAL ACCESS

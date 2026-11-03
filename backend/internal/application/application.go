@@ -18,6 +18,7 @@ import (
 	"slurm-console/backend/internal/jobcontrol"
 	"slurm-console/backend/internal/linuxusers"
 	"slurm-console/backend/internal/notifications"
+	"slurm-console/backend/internal/platformsettings"
 	"slurm-console/backend/internal/rbac"
 	_ "slurm-console/backend/migrations"
 )
@@ -42,11 +43,11 @@ func New() (*pocketbase.PocketBase, error) {
 	if err != nil {
 		return nil, err
 	}
-	aiProfile, err := aiassist.Load(os.Getenv("SLURM_CONSOLE_AI_CONFIG"))
+	aiConfig, err := aiassist.LoadConfig(os.Getenv("SLURM_CONSOLE_AI_CONFIG"))
 	if err != nil {
 		return nil, err
 	}
-	aiassist.Register(app, aiProfile)
+	app.Store().Set("platform.aiBase", aiConfig)
 	gpumetrics.Register(app, metricsRegistry)
 	linuxusers.Register(app, linuxRegistry, nil)
 	connections := clusterconfig.Register(app, registry)
@@ -62,6 +63,9 @@ func New() (*pocketbase.PocketBase, error) {
 		publicDir := os.Getenv("SLURM_CONSOLE_PUBLIC_DIR")
 		if publicDir == "" {
 			publicDir = "../frontend/dist"
+		}
+		if err := platformsettings.ApplyAI(app); err != nil {
+			return err
 		}
 		api.Register(event.Router, publicDir)
 		go connections.CheckEnabled(connectionContext)

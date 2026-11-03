@@ -86,3 +86,5 @@ func IsFailure(err error, code string) bool {
 	var e *Failure
 	return errors.As(err, &e) && e.Code == code
 }
+
+func (s *Service) ConfiguredCount() int { return len(s.registry.Clusters) }

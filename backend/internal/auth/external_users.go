@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"regexp"
+	"slurm-console/backend/internal/pamauth"
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -69,6 +71,7 @@ func externalUserCommand(app core.App, source string, link bool) *cobra.Command 
 			}
 			previousSource := record.GetString("auth_source")
 			previousUsername := record.GetString("username")
+			record.Set("management_revision", record.GetInt("management_revision")+1)
 			record.Set("auth_source", source)
 			record.Set("username", username)
 			record.Set("ldap_entry_id", entryID)
@@ -96,4 +99,35 @@ func externalUserCommand(app core.App, source string, link bool) *cobra.Command 
 		cmd.Flags().StringVar(&name, "name", "", "Display name")
 	}
 	return cmd
+}
+
+// LookupExternalIdentity validates a mapping without receiving an external password.
+func LookupExternalIdentity(ctx context.Context, app core.App, source, username string) (string, error) {
+	if !regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.-]{0,62}[$]?$`).MatchString(username) || source == "pam" && username == "root" {
+		return "", fmt.Errorf("invalid external username")
+	}
+	switch source {
+	case "ldap":
+		p := ldapProvider(app)
+		if p == nil {
+			return "", fmt.Errorf("LDAP unavailable")
+		}
+		identity, e := p.Lookup(ctx, username)
+		if e != nil || identity.Username != username || identity.ID == "" {
+			return "", fmt.Errorf("LDAP identity unavailable")
+		}
+		return identity.ID, nil
+	case "pam":
+		p, _ := app.Store().Get(pamProviderKey).(pamauth.Provider)
+		if p == nil {
+			return "", fmt.Errorf("PAM unavailable")
+		}
+		v, e := p.Run(ctx, pamauth.Request{Mode: "account", Username: username})
+		if e != nil || !v.OK || v.Username != username {
+			return "", fmt.Errorf("PAM identity unavailable")
+		}
+		return "", nil
+	default:
+		return "", fmt.Errorf("invalid auth source")
+	}
 }

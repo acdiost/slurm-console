@@ -70,3 +70,5 @@ GPU 资源效率分析沿用集群 `metrics.read`，无新增写权限或 `nodes
 连接草稿预览要求 platform.clusters.manage；完整历史快照和操作来源另外要求 platform.audit.read，两者必须同时存在。历史不依赖当前集群存在或 clusters.read，版本原生 CRUD 锁定，见 [配置变更对比](configuration-history.md)。
 
 AI 解释新增集群权限 `ai.explain`，默认授予 Super Admin、Cluster Admin、Operator，Viewer 不授予。预览与发送同时要求对应来源 jobs.read / job_history.read、活动账户、启用集群和管理员显式配置的集群允许列表，每次确认发送；返回前复查。仅生成只读建议，无 Slurm 写权限，详见 [AI 运维辅助](ai-assistance.md)。
+
+平台设置新增 platform.settings.read/manage，默认只授予 Super Admin；用户管理使用既有 platform.users.manage，角色目录使用 platform.roles.manage，用户授权变更要求二者同时具备。事务内复查权限、目标修订及最后一个活动管理员，见 [平台设置](platform-settings.md)。

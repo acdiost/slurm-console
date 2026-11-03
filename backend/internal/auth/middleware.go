@@ -19,3 +19,8 @@ func RequireActiveUser(e *core.RequestEvent) error {
 	}
 	return e.Next()
 }
+
+// ConfigurationStatus reports loaded providers, never credentials or live health.
+func ConfigurationStatus(app core.App) (bool, bool) {
+	return app.Store().Get(pamProviderKey) != nil, app.Store().Get(ldapProviderKey) != nil
+}

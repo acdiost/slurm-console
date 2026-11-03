@@ -56,22 +56,39 @@ type Service struct {
 	last    map[string]time.Time
 	slots   chan struct{}
 	ctx     context.Context
+	cancel  context.CancelFunc
 }
 
 var serviceMu sync.Mutex
 
-func Register(app core.App, p *Profile) *Service {
-	ctx, cancel := context.WithCancel(context.Background())
-	s := &Service{profile: p, pending: map[string]pending{}, active: map[string]bool{}, last: map[string]time.Time{}, slots: make(chan struct{}, 2), ctx: ctx}
-	app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error {
-		cancel()
-		if p != nil {
-			p.client.CloseIdleConnections()
+func register(app core.App, p *Profile) *Service {
+	if old, ok := app.Store().Get("platform.aiAssistance").(*Service); ok && old.cancel != nil {
+		old.cancel()
+		if old.profile != nil {
+			old.profile.client.CloseIdleConnections()
 		}
-		return e.Next()
-	})
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s := &Service{profile: p, pending: map[string]pending{}, active: map[string]bool{}, last: map[string]time.Time{}, slots: make(chan struct{}, 2), ctx: ctx, cancel: cancel}
+	if app.Store().Get("platform.aiShutdownBound") == nil {
+		app.Store().Set("platform.aiShutdownBound", true)
+		app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error {
+			if current, ok := app.Store().Get("platform.aiAssistance").(*Service); ok {
+				current.cancel()
+				if current.profile != nil {
+					current.profile.client.CloseIdleConnections()
+				}
+			}
+			return e.Next()
+		})
+	}
 	app.Store().Set("platform.aiAssistance", s)
 	return s
+}
+func Register(app core.App, p *Profile) *Service {
+	serviceMu.Lock()
+	defer serviceMu.Unlock()
+	return register(app, p)
 }
 func For(app core.App) *Service {
 	serviceMu.Lock()
@@ -79,8 +96,12 @@ func For(app core.App) *Service {
 	if s, ok := app.Store().Get("platform.aiAssistance").(*Service); ok {
 		return s
 	}
-	return Register(app, nil)
+	return register(app, nil)
 }
+func (i *Invocation) Current(app core.App) bool {
+	return app.Store().Get("platform.aiAssistance") == i.service && i.service.ctx.Err() == nil
+}
+
 func (s *Service) Enabled(cid string) bool {
 	return s.profile != nil && slices.Contains(s.profile.config.ClusterIDs, cid)
 }
