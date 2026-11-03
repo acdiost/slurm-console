@@ -37,6 +37,7 @@ export const auditDetailSchema = z.object({
   fetchedAt: z.string(),
 })
 export const actions: Record<string, string> = {
+  "ai.explain": "AI 作业解释",
   "operation_templates.create": "创建运维模板",
   "operation_templates.update": "修改运维模板",
   "operation_templates.delete": "删除运维模板",
@@ -77,6 +78,9 @@ export const statuses: Record<string, string> = {
   unknown: "结果待核实",
 }
 export const fields: Record<string, string> = {
+  aiProvider: "AI 服务",
+  aiModel: "AI 模型",
+  aiPayloadDigest: "发送内容摘要",
   templateAction: "模板动作",
   reservationName: "预留名称",
   reservationStart: "开始时间（Unix 秒）",

@@ -8,6 +8,7 @@ import { useAuth } from "@/stores/auth"
 import { api } from "@/services/api"
 import { date, number, percent } from "@/features/capacity/schema"
 import { quantity } from "@/features/jobs/schema"
+import { AIAssistance } from "@/features/aiassist/panel"
 import { diagnosisSchema, type Diagnosis } from "./schema"
 export function DiagnosticPanel({
   clusterId,
@@ -291,6 +292,18 @@ export function DiagnosticPanel({
                     </p>
                   ))}
                 </div>
+                {!result.isFetching && (
+                  <AIAssistance
+                    key={`${data.revision}:${r.generatedAt}:${r.observedAt}`}
+                    clusterId={clusterId}
+                    source={source}
+                    previewPath={
+                      source === "controller"
+                        ? `/clusters/${clusterId}/jobs/${encodeURIComponent(jobId)}/diagnosis/ai-preview`
+                        : `/clusters/${clusterId}/job-history/${encodeURIComponent(recordKey)}/diagnosis/ai-preview?${new URLSearchParams({ jobId, start: String(start), end: String(end) })}`
+                    }
+                  />
+                )}
               </>
             )
           )}

@@ -45,42 +45,65 @@ func diagnosticFresh(e *core.RequestEvent, permission string, revision int) erro
 	}
 	return nil
 }
+
+type diagnosticSnapshot struct {
+	Report   diagnostics.Report `json:"report"`
+	Revision int                `json:"revision"`
+	Cached   bool               `json:"cached"`
+	Start    int64              `json:"start,omitempty"`
+	End      int64              `json:"end,omitempty"`
+}
+
 func diagnoseCurrent(e *core.RequestEvent) error {
-	if err := slurmQuery(e); err != nil {
+	v, err := loadCurrentDiagnosis(e)
+	if err != nil {
 		return err
+	}
+	return response(e, v)
+}
+func diagnoseHistory(e *core.RequestEvent) error {
+	v, err := loadHistoryDiagnosis(e)
+	if err != nil {
+		return err
+	}
+	return response(e, v)
+}
+func loadCurrentDiagnosis(e *core.RequestEvent) (diagnosticSnapshot, error) {
+	if err := slurmQuery(e); err != nil {
+		return diagnosticSnapshot{}, err
 	}
 	id := e.Request.PathValue("jobId")
 	if !client.ValidJobID(id) {
-		return e.BadRequestError("作业 ID 不合法。", nil)
+		return diagnosticSnapshot{}, e.BadRequestError("作业 ID 不合法。", nil)
 	}
 	revision, err := diagnosticRevision(e)
 	if err != nil {
-		return err
+		return diagnosticSnapshot{}, err
 	}
 	v, err := services.SlurmFor(e.App).Read(e.Request.Context(), e.Request.PathValue("clusterId"), "job", id)
 	if err != nil {
-		return slurmFailure(e, err)
+		return diagnosticSnapshot{}, slurmFailure(e, err)
 	}
 	if err := diagnosticFresh(e, "jobs.read", revision); err != nil {
-		return err
+		return diagnosticSnapshot{}, err
 	}
 	var j models.Job
 	if json.Unmarshal(v.Data, &j) != nil || j.ID != id {
-		return e.Error(503, "作业来源不完整。", nil)
+		return diagnosticSnapshot{}, e.Error(503, "作业来源不完整。", nil)
 	}
 	report := diagnostics.Current(j, v.FetchedAt)
 	if err := diagnosticFresh(e, "jobs.read", revision); err != nil {
-		return err
+		return diagnosticSnapshot{}, err
 	}
-	return response(e, map[string]any{"report": report, "revision": revision, "cached": v.Cached})
+	return diagnosticSnapshot{Report: report, Revision: revision, Cached: v.Cached}, nil
 }
-func diagnoseHistory(e *core.RequestEvent) error {
+func loadHistoryDiagnosis(e *core.RequestEvent) (diagnosticSnapshot, error) {
 	if err := slurmQuery(e, "start", "end", "jobId"); err != nil {
-		return err
+		return diagnosticSnapshot{}, err
 	}
 	raw, err := hex.DecodeString(e.Request.PathValue("recordKey"))
 	if err != nil || len(raw) != 32 {
-		return e.BadRequestError("历史记录标识不合法。", nil)
+		return diagnosticSnapshot{}, e.BadRequestError("历史记录标识不合法。", nil)
 	}
 	values := e.Request.URL.Query()
 	start, e1 := strconv.ParseInt(values.Get("start"), 10, 64)
@@ -88,32 +111,32 @@ func diagnoseHistory(e *core.RequestEvent) error {
 	id := values.Get("jobId")
 	q := client.HistoryQuery{Cluster: "validated", Start: start, End: end, JobID: id}
 	if e1 != nil || e2 != nil || !client.ValidJobID(id) || !q.Valid() {
-		return e.BadRequestError("历史诊断必须指定单个 Job ID 和最多 31 天的提交时间范围。", nil)
+		return diagnosticSnapshot{}, e.BadRequestError("历史诊断必须指定单个 Job ID 和最多 31 天的提交时间范围。", nil)
 	}
 	revision, err := diagnosticRevision(e)
 	if err != nil {
-		return err
+		return diagnosticSnapshot{}, err
 	}
 	q.Cluster = ""
 	v, err := services.SlurmFor(e.App).Read(e.Request.Context(), e.Request.PathValue("clusterId"), "job_history", q.Key())
 	if err != nil {
-		return slurmFailure(e, err)
+		return diagnosticSnapshot{}, slurmFailure(e, err)
 	}
 	if err := diagnosticFresh(e, "job_history.read", revision); err != nil {
-		return err
+		return diagnosticSnapshot{}, err
 	}
 	var snapshot models.HistorySnapshot
 	if json.Unmarshal(v.Data, &snapshot) != nil {
-		return e.Error(503, "历史来源不完整。", nil)
+		return diagnosticSnapshot{}, e.Error(503, "历史来源不完整。", nil)
 	}
 	for _, j := range snapshot.Items {
 		if j.Key == e.Request.PathValue("recordKey") && j.ID == id {
 			report := diagnostics.Accounting(j, v.FetchedAt)
 			if err := diagnosticFresh(e, "job_history.read", revision); err != nil {
-				return err
+				return diagnosticSnapshot{}, err
 			}
-			return response(e, map[string]any{"report": report, "revision": revision, "cached": v.Cached, "start": snapshot.Start, "end": snapshot.End})
+			return diagnosticSnapshot{Report: report, Revision: revision, Cached: v.Cached, Start: snapshot.Start, End: snapshot.End}, nil
 		}
 	}
-	return e.NotFoundError("所选记录不在此 Job ID 和提交窗口内，无法生成诊断。", nil)
+	return diagnosticSnapshot{}, e.NotFoundError("所选记录不在此 Job ID 和提交窗口内，无法生成诊断。", nil)
 }

@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "label": "管理员批准的模型服务",
+  "endpoint": "https://ai.example.internal/v1/chat/completions",
+  "model": "replace-with-approved-model",
+  "clusterIds": ["replacecluster1"],
+  "apiKeyFile": "/etc/slurm-console/secrets/ai.key",
+  "timeoutSeconds": 30,
+  "maxOutputTokens": 2048,
+  "tokenParameter": "max_completion_tokens"
+}

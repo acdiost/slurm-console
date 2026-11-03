@@ -26,6 +26,7 @@ sudo bash deploy/install.sh --pam
 | `deploy/backup.env.example` | 可选独立存储复制目标（不包含密钥内容） |
 | `deploy/slurm-console.env.example` | 所有可选集成的统一环境文件 |
 | `deploy/ldap.example.json` | 应用的 LDAP 客户端配置 |
+| `deploy/ai.example.json` | 可选 AI 服务接入，默认关闭 |
 | `deploy/cluster-profiles.example.json` | 应用的已批准集群连接方式 |
 
 配置集中在 `/etc/slurm-console/slurm-console.env`，安装器保留已有配置。按需取消注释 LDAP/集群配置路径，将编辑后的 JSON 安装为 `root:root 0640`；没有配置就不启用该集成。JSON 只引用服务端凭据文件，密码和令牌不能进入仓库、前端或命令参数。修改后执行 `systemctl restart slurm-console`。
@@ -72,3 +73,5 @@ GPU 实际监控使用管理员既有 Prometheus/DCGM；应用只读取受保护
 告警通知随应用迁移自动启用，无新增配置或第三方告警服务；用户创建规则后才开始监控。反向代理应允许 text/event-stream、关闭响应缓冲，并使读取超时大于 30 秒；实时连接不可用时浏览器继续轮询。规则和通知随应用数据库备份，详见 [告警通知](notifications.md)。
 
 容量采样随应用启动，使用现有已启用集群及可信连接方式，无需新增参数或第三方组件。历史从上线后积累，SQLite 汇总记录受时间和数量限制，并随已有数据库备份。详见 [容量分析](capacity.md)。
+
+可选模型服务由管理员自行提供。应用只按受保护配置接入批准的 Chat Completions 兼容服务，不安装第三方模型组件；默认关闭，配置和发送范围见 [AI 运维辅助](ai-assistance.md)。

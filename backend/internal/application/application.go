@@ -8,6 +8,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 
+	"slurm-console/backend/internal/aiassist"
 	"slurm-console/backend/internal/api"
 	"slurm-console/backend/internal/auth"
 	"slurm-console/backend/internal/backup"
@@ -41,6 +42,11 @@ func New() (*pocketbase.PocketBase, error) {
 	if err != nil {
 		return nil, err
 	}
+	aiProfile, err := aiassist.Load(os.Getenv("SLURM_CONSOLE_AI_CONFIG"))
+	if err != nil {
+		return nil, err
+	}
+	aiassist.Register(app, aiProfile)
 	gpumetrics.Register(app, metricsRegistry)
 	linuxusers.Register(app, linuxRegistry, nil)
 	connections := clusterconfig.Register(app, registry)

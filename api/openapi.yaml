@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.29.0
+  version: 0.30.0
   description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -9006,6 +9006,442 @@ paths:
         ]
       }
     }
+  /api/v1/clusters/{clusterId}/ai-assistance:
+    {
+      "get": {
+        "operationId": "getAIAssistanceStatus",
+        "summary": "读取 AI 接入状态",
+        "description": "Requires active user, ai.explain and corresponding source read permission, enabled cluster and unchanged revision. Admin-approved protected AI config with explicit cluster allowlist; no browser endpoint/model/key overrides. No tools, commands, Slurm mutation or automatic retry. No raw names, job/record/cluster IDs, scripts, environment, logs, credentials or timestamps in outbound body. Only normalized states/reason group, numeric facts, counts and static rule hints. No model request; disabled returns enabled:false without destination.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "controller",
+                "accounting"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "enabled"
+                          ],
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean",
+                              "enum": [
+                                false
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "enabled",
+                            "destination"
+                          ],
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "destination": {
+                              "$ref": "#/components/schemas/AIDestination"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/jobs/{jobId}/diagnosis/ai-preview:
+    {
+      "post": {
+        "operationId": "previewCurrentJobAI",
+        "summary": "预览当前作业 AI 发送正文",
+        "description": "Requires active user, ai.explain and corresponding source read permission, enabled cluster and unchanged revision. Admin-approved protected AI config with explicit cluster allowlist; no browser endpoint/model/key overrides. No tools, commands, Slurm mutation or automatic retry. No raw names, job/record/cluster IDs, scripts, environment, logs, credentials or timestamps in outbound body. Only normalized states/reason group, numeric facts, counts and static rule hints. Server loads exactly one diagnosis source, not a browser prompt/report. POST {} only; no model request or audit side effect. Full exact outbound body/destination/digest returned for explicit review. Two-minute actor+cluster+source+target+revision/config-bound memory context; 64 global /8 per actor. Existing source cache can be used and original observedAt preserved. Requires jobs.read; controller only; rejects all query params.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          },
+          {
+            "in": "path",
+            "name": "jobId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,9}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AIPreview"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/job-history/{recordKey}/diagnosis/ai-preview:
+    {
+      "post": {
+        "operationId": "previewHistoricalJobAI",
+        "summary": "预览历史作业 AI 发送正文",
+        "description": "Requires active user, ai.explain and corresponding source read permission, enabled cluster and unchanged revision. Admin-approved protected AI config with explicit cluster allowlist; no browser endpoint/model/key overrides. No tools, commands, Slurm mutation or automatic retry. No raw names, job/record/cluster IDs, scripts, environment, logs, credentials or timestamps in outbound body. Only normalized states/reason group, numeric facts, counts and static rule hints. Server loads exactly one diagnosis source, not a browser prompt/report. POST {} only; no model request or audit side effect. Full exact outbound body/destination/digest returned for explicit review. Two-minute actor+cluster+source+target+revision/config-bound memory context; 64 global /8 per actor. Existing source cache can be used and original observedAt preserved. Requires job_history.read independently of jobs.read. Exact recordKey+jobId+submission window; actual Slurm cluster resolved server-side, no current-source fallback or duplicate-record merge. Unknown/repeated query parameters rejected.",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          },
+          {
+            "in": "path",
+            "name": "recordKey",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{64}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "jobId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,9}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Submission [start,end), end>start; at most31 days."
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Submission [start,end), end>start; at most31 days."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AIPreview"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/clusters/{clusterId}/ai-assistance/{previewId}/explain:
+    {
+      "post": {
+        "operationId": "explainJobWithAI",
+        "summary": "确认发送证据并生成只读 AI 建议",
+        "description": "Requires active user, ai.explain and corresponding source read permission, enabled cluster and unchanged revision. Admin-approved protected AI config with explicit cluster allowlist; no browser endpoint/model/key overrides. No tools, commands, Slurm mutation or automatic retry. No raw names, job/record/cluster IDs, scripts, environment, logs, credentials or timestamps in outbound body. Only normalized states/reason group, numeric facts, counts and static rule hints. Requires confirmation=SEND AI and exact preview digest. Sends exact reviewed snapshot without re-fetching source. Consumes once, no replay or retry after uncertain outcome; global2/per-user1 concurrent,30s actor cooldown,5-60s timeout,16KiB request/128KiB response/24KiB content. Persist audit intent BEFORE outbound; failed intent=no transmission. Strict structured response/known evidence refs, no tool/refusal/truncation/unknown fields/duplicate answer keys. After-return auth/config recheck: changed discards answer and audits unknown (request already sent). Final audit failure discards answer, retains processing intent; errors include operation ID when allocated. Audit stores metadata/hash only, never prompt/answer/key. succeeded only means received structurally valid unverified advice. No persistent answer store. ",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clusterId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{15}$"
+            }
+          },
+          {
+            "in": "path",
+            "name": "previewId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z2-7]{26,64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response; no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AIExplanation"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "confirmation",
+                  "digest"
+                ],
+                "properties": {
+                  "confirmation": {
+                    "type": "string",
+                    "enum": [
+                      "SEND AI"
+                    ]
+                  },
+                  "digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -15217,6 +15653,273 @@ components:
           },
           "fetchedAt": {
             "type": "string"
+          }
+        }
+      }
+    AIDestination:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "endpoint",
+          "model"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          }
+        }
+      }
+    AIOutboundRequest:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model",
+          "messages",
+          "stream",
+          "store",
+          "response_format"
+        ],
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "role",
+                "content"
+              ],
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "system",
+                    "user"
+                  ]
+                },
+                "content": {
+                  "type": "string"
+                }
+              }
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "stream": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "store": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "response_format": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "json_object"
+                ]
+              }
+            }
+          },
+          "max_completion_tokens": {
+            "type": "integer",
+            "minimum": 512,
+            "maximum": 4096
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 512,
+            "maximum": 4096
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "max_completion_tokens"
+            ]
+          },
+          {
+            "required": [
+              "max_tokens"
+            ]
+          }
+        ]
+      }
+    AIPreview:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "digest",
+          "expiresAt",
+          "observedAt",
+          "destination",
+          "request"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z2-7]{26,64}$"
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "destination": {
+            "$ref": "#/components/schemas/AIDestination"
+          },
+          "request": {
+            "$ref": "#/components/schemas/AIOutboundRequest"
+          }
+        }
+      }
+    AIAnswer:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "summary",
+          "observations",
+          "checks",
+          "limitations"
+        ],
+        "properties": {
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "text",
+                "evidenceIds"
+              ],
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "evidenceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "maxItems": 5,
+                  "uniqueItems": true
+                }
+              }
+            },
+            "minItems": 1,
+            "maxItems": 4
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "audience",
+                "text",
+                "evidenceIds"
+              ],
+              "properties": {
+                "audience": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "admin"
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "evidenceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "maxItems": 5,
+                  "uniqueItems": true
+                }
+              }
+            },
+            "minItems": 1,
+            "maxItems": 4
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "minItems": 1,
+            "maxItems": 4
+          }
+        }
+      }
+    AIExplanation:
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "answer",
+          "operationId",
+          "observedAt",
+          "destination"
+        ],
+        "properties": {
+          "answer": {
+            "$ref": "#/components/schemas/AIAnswer"
+          },
+          "operationId": {
+            "type": "string"
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "destination": {
+            "$ref": "#/components/schemas/AIDestination"
           }
         }
       }
