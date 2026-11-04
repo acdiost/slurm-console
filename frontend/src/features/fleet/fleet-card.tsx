@@ -11,25 +11,35 @@ export function FleetCard({ item }: { item: FleetItem }) {
     j = jobs.status === "ok" ? jobs.item : undefined
   const tone =
     item.state === "connected"
-      ? "border-success/30 text-success"
+      ? "success"
       : ["unavailable", "controller_down"].includes(item.state)
-        ? "border-destructive/30 text-destructive"
-        : "border-warning/30 text-warning"
+        ? "danger"
+        : ["disabled", "unconfigured"].includes(item.state)
+          ? "neutral"
+          : "warning"
   return (
     <article
-      className="panel flex flex-col overflow-hidden"
+      className="panel fleet-card flex flex-col overflow-hidden"
       aria-label={`集群 ${cluster.name}`}
     >
-      <div className="space-y-3 border-b p-5">
+      <div className="fleet-card-heading space-y-3 border-b p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Badge variant="outline" className={tone}>
+          <Badge
+            variant="outline"
+            className="status-badge gap-1.5 font-normal"
+            data-tone={tone}
+          >
+            <span className="size-1.5 rounded-full bg-current" />
             {stateLabels[item.state]}
           </Badge>
           <span className="font-mono text-2xs text-muted-foreground">
             {cluster.slug}
           </span>
         </div>
-        <h2 className="text-lg font-semibold break-all">
+        <h2 className="flex items-center gap-3 text-lg font-semibold break-all">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/5 text-primary">
+            <Server className="size-4" />
+          </span>
           <Link
             to={clusterLink("/overview", cluster.id)}
             className="hover:text-primary"
@@ -125,9 +135,15 @@ export function FleetCard({ item }: { item: FleetItem }) {
                 ["排队中", j.pending],
                 ["异常结束", j.failed],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-md border bg-muted/10 p-2">
-                  <p className="font-mono text-lg font-semibold">{value}</p>
-                  <p className="mt-1 text-2xs text-muted-foreground">{label}</p>
+                <div key={label} className="rounded-lg bg-muted/40 px-2 py-3">
+                  <p
+                    className={`font-mono text-lg font-semibold ${label === "运行中" ? "text-status-success" : label === "排队中" ? "text-status-warning" : "text-status-danger"}`}
+                  >
+                    {value}
+                  </p>
+                  <p className="mt-1 text-micro text-muted-foreground">
+                    {label}
+                  </p>
                 </div>
               ))}
             </div>
@@ -140,8 +156,8 @@ export function FleetCard({ item }: { item: FleetItem }) {
           )}
         </section>
       </div>
-      <div className="flex flex-wrap items-center gap-2 border-t p-4">
-        <Button asChild size="sm" variant="outline">
+      <div className="flex flex-wrap items-center gap-1.5 border-t bg-muted/15 p-4">
+        <Button asChild size="sm" variant="secondary">
           <Link to={clusterLink("/overview", cluster.id)}>
             <ArrowUpRight />
             集群总览

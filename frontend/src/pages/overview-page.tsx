@@ -84,12 +84,14 @@ export function OverviewPage() {
     (inventory.isPending && !clusterId) || (!!clusterId && overview.isPending)
   const emptyPage = !!inventory.data?.totalItems && !clusters.length
   return (
-    <div className="mx-auto max-w-7xl space-y-5 p-6 sm:p-8">
-      <header className="flex flex-wrap items-center justify-between gap-4">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-8">
+      <header className="page-hero flex flex-wrap items-center justify-between gap-5">
         <div>
           <p className="section-eyebrow">CLUSTER OVERVIEW</p>
-          <h1 className="mt-2 text-2xl font-semibold">集群总览</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+            集群总览
+          </h1>
+          <p className="mt-3 text-xs leading-6 text-muted-foreground">
             {data
               ? `${data.cluster.name} · ${data.cluster.description || data.cluster.slug}`
               : "查看集群资源、调度状态与当前需关注项。"}

@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react"
 import {
   Activity,
   CheckCircle2,
@@ -108,6 +109,7 @@ export function ResourceCards({ section }: { section: Overview["nodes"] }) {
   const cards = [
     {
       title: "CPU 容量",
+      color: "var(--resource-cpu)",
       icon: Cpu,
       value: nodes?.cpus.total.toLocaleString("zh-CN") ?? "—",
       unit: "CPU",
@@ -115,6 +117,7 @@ export function ResourceCards({ section }: { section: Overview["nodes"] }) {
     },
     {
       title: "内存容量",
+      color: "var(--resource-memory)",
       icon: HardDrive,
       value: nodes ? memory(nodes.memoryMiB.total).replace(" GiB", "") : "—",
       unit: "GiB",
@@ -123,6 +126,7 @@ export function ResourceCards({ section }: { section: Overview["nodes"] }) {
     },
     {
       title: "GPU 调度资源",
+      color: "var(--resource-gpu)",
       icon: Gauge,
       value: gpu?.total?.toLocaleString("zh-CN") ?? "—",
       unit: "GPU",
@@ -141,6 +145,7 @@ export function ResourceCards({ section }: { section: Overview["nodes"] }) {
     },
     {
       title: "计算节点",
+      color: "var(--resource-node)",
       icon: Server,
       value: nodes?.total.toLocaleString("zh-CN") ?? "—",
       unit: "节点",
@@ -148,64 +153,72 @@ export function ResourceCards({ section }: { section: Overview["nodes"] }) {
   ]
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {cards.map(({ title, icon: Icon, value, unit, resource, format }) => (
-        <section key={title} className="panel p-5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xs font-medium text-muted-foreground">
-              {title}
-            </h2>
-            <Icon className="size-4 text-muted-foreground" />
-          </div>
-          <p className="mt-5 flex items-baseline gap-2">
-            <span className="font-mono text-3xl font-semibold tracking-tight tabular-nums">
-              {value}
-            </span>
-            <span className="text-2xs text-muted-foreground">{unit}</span>
-          </p>
-          {!nodes ? (
-            <SourceState section={section} />
-          ) : title === "计算节点" ? (
-            <>
-              <div className="my-5 flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2 text-2xs">
-                <span>不可用节点</span>
-                <span
-                  className={
-                    nodes.unavailable
-                      ? "font-mono text-[var(--amber-11)]"
-                      : "font-mono"
-                  }
-                >
-                  {nodes.unavailable}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                {[
-                  ["空闲", nodes.idle],
-                  ["分配", nodes.allocated],
-                  ["混合", nodes.mixed],
-                ].map(([label, count]) => (
-                  <div key={label}>
-                    <p className="font-mono text-sm tabular-nums">{count}</p>
-                    <p className="mt-1 text-2xs text-muted-foreground">
-                      {label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : title === "GPU 调度资源" && gpu?.total === 0 ? (
-            <p className="my-5 text-2xs leading-6 text-muted-foreground">
-              当前节点未配置 GPU 调度资源。
+      {cards.map(
+        ({ title, color, icon: Icon, value, unit, resource, format }) => (
+          <section
+            key={title}
+            className="panel metric-card p-5"
+            style={{ "--metric-color": color } as CSSProperties}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xs font-medium text-muted-foreground">
+                {title}
+              </h2>
+              <span className="metric-icon">
+                <Icon className="size-4" />
+              </span>
+            </div>
+            <p className="mt-5 flex items-baseline gap-2">
+              <span className="font-mono text-3xl font-semibold tracking-tight tabular-nums">
+                {value}
+              </span>
+              <span className="text-2xs text-muted-foreground">{unit}</span>
             </p>
-          ) : resource ? (
-            <Capacity label={title} resource={resource} format={format} />
-          ) : (
-            <p className="my-5 text-2xs leading-6 text-[var(--amber-11)]">
-              {gpu?.unknownNodes} 个节点的 GPU 数量或分配信息无法确认。
-            </p>
-          )}
-        </section>
-      ))}
+            {!nodes ? (
+              <SourceState section={section} />
+            ) : title === "计算节点" ? (
+              <>
+                <div className="my-5 flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2 text-2xs">
+                  <span>不可用节点</span>
+                  <span
+                    className={
+                      nodes.unavailable
+                        ? "font-mono text-[var(--amber-11)]"
+                        : "font-mono"
+                    }
+                  >
+                    {nodes.unavailable}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[
+                    ["空闲", nodes.idle],
+                    ["分配", nodes.allocated],
+                    ["混合", nodes.mixed],
+                  ].map(([label, count]) => (
+                    <div key={label}>
+                      <p className="font-mono text-sm tabular-nums">{count}</p>
+                      <p className="mt-1 text-2xs text-muted-foreground">
+                        {label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : title === "GPU 调度资源" && gpu?.total === 0 ? (
+              <p className="my-5 text-2xs leading-6 text-muted-foreground">
+                当前节点未配置 GPU 调度资源。
+              </p>
+            ) : resource ? (
+              <Capacity label={title} resource={resource} format={format} />
+            ) : (
+              <p className="my-5 text-2xs leading-6 text-[var(--amber-11)]">
+                {gpu?.unknownNodes} 个节点的 GPU 数量或分配信息无法确认。
+              </p>
+            )}
+          </section>
+        )
+      )}
     </div>
   )
 }

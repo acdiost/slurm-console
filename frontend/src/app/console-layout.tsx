@@ -5,7 +5,6 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useLocation } from "react-router"
 import {
-  Activity,
   Bell,
   ScrollText,
   ArrowUpRight,
@@ -13,8 +12,12 @@ import {
   ChevronRight,
   CircleHelp,
   Cpu,
+  ChartNoAxesCombined,
+  CalendarRange,
+  Gauge,
+  History,
+  Terminal,
   Database,
-  FlaskConical,
   Layers3,
   LayoutDashboard,
   Globe2,
@@ -24,7 +27,6 @@ import {
   Moon,
   Network,
   Palette,
-  PanelLeftClose,
   Server,
   Settings2,
   ShieldCheck,
@@ -89,9 +91,9 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const canReadAudit =
     user?.access.platformPermissions.includes("platform.audit.read") ?? false
   return (
-    <div className="flex h-full flex-col overflow-y-auto">
-      <div className="flex h-17 items-center gap-2.5 px-5">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+    <div className="flex h-full flex-col">
+      <div className="flex h-20 shrink-0 items-center gap-3 px-5">
+        <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
           <Boxes className="size-4.5" />
         </div>
         <div>
@@ -106,7 +108,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         </div>
       </div>
-      <div className="mx-3 mb-5 flex items-center gap-2 rounded-md border bg-background/60 px-3 py-2.5 text-xs text-muted-foreground">
+      <div className="mx-4 mb-5 flex shrink-0 items-center gap-2 rounded-lg border bg-background/60 px-3 py-2.5 text-2xs text-muted-foreground">
         <Database className="size-3.5" />
         <span className="flex-1">
           {inventory.isPending
@@ -119,7 +121,10 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
         </span>
         <span className="size-1.5 rounded-full bg-muted-foreground/50" />
       </div>
-      <nav aria-label="主导航" className="flex-1 space-y-5 px-3">
+      <nav
+        aria-label="主导航"
+        className="console-navigation min-h-0 flex-1 space-y-6 overflow-y-auto px-3 pb-5"
+      >
         <div>
           <p className="nav-label">工作空间</p>
           <NavLink
@@ -151,12 +156,6 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
           >
             <Palette />
             <span>设计系统</span>
-            <Badge
-              variant="outline"
-              className="ml-auto border-primary/20 text-micro text-primary"
-            >
-              MVP
-            </Badge>
           </NavLink>
         </div>
         {sections.map((section) => (
@@ -182,7 +181,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                   `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
                 }
               >
-                <Activity />
+                <ChartNoAxesCombined />
                 <span>集群容量分析</span>
               </NavLink>
             )}
@@ -194,7 +193,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                   `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
                 }
               >
-                <Activity />
+                <Terminal />
                 <span>运维操作模板</span>
               </NavLink>
             )}
@@ -357,7 +356,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                   `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
                 }
               >
-                <Database />
+                <CalendarRange />
                 <span>资源预留</span>
               </NavLink>
             )}
@@ -370,7 +369,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                     `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
                   }
                 >
-                  <Database />
+                  <Cpu />
                   <span>GPU 监控</span>
                 </NavLink>
                 <NavLink
@@ -380,7 +379,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                     `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
                   }
                 >
-                  <Database />
+                  <Gauge />
                   <span>GPU 资源效率</span>
                 </NavLink>
               </>
@@ -393,7 +392,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                   `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
                 }
               >
-                <Database />
+                <History />
                 <span>历史作业与记账</span>
               </NavLink>
             )}
@@ -418,25 +417,8 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
           <span>我的权限</span>
         </NavLink>
       </nav>
-      <div className="m-3 mt-8 rounded-lg border bg-background/60 p-3">
-        <div className="mb-2 flex items-center gap-2 text-xs font-medium">
-          <FlaskConical className="size-3.5 text-primary" />
-          MVP 进度
-          <span className="ml-auto font-mono text-2xs text-muted-foreground">
-            11 / 11
-          </span>
-        </div>
-        <div className="h-1 overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-full bg-primary" />
-        </div>
-        <p className="mt-2 text-2xs leading-relaxed text-muted-foreground">
-          阶段一 · MVP 已完成
-          <br />
-          V1 · 集群、账户与调度策略管理已就绪
-        </p>
-      </div>
-      <div className="flex items-center gap-2.5 border-t p-4">
-        <div className="flex size-7 items-center justify-center rounded-full border bg-background text-2xs font-medium">
+      <div className="flex shrink-0 items-center gap-2.5 border-t p-4">
+        <div className="flex size-8 items-center justify-center rounded-lg border bg-primary/15 text-2xs font-medium text-primary">
           {user?.name.slice(0, 1) ||
             user?.email.slice(0, 1).toUpperCase() ||
             "U"}
@@ -479,11 +461,11 @@ export function ConsoleLayout() {
       >
         跳转到主要内容
       </a>
-      <aside className="fixed inset-y-0 left-0 hidden w-57 border-r bg-sidebar lg:block">
+      <aside className="console-sidebar fixed inset-y-0 left-0 z-40 hidden w-62 border-r lg:block">
         <Navigation />
       </aside>
-      <div className="lg:pl-57">
-        <header className="flex h-14 items-center gap-3 border-b bg-card px-4 sm:px-7">
+      <div className="min-w-0 lg:pl-62">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-card/95 px-4 backdrop-blur-sm sm:px-8">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button
@@ -495,7 +477,10 @@ export function ConsoleLayout() {
                 <Menu />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 gap-0 p-0">
+            <SheetContent
+              side="left"
+              className="console-sidebar w-68 gap-0 p-0"
+            >
               <SheetHeader className="sr-only">
                 <SheetTitle>主导航</SheetTitle>
                 <SheetDescription>
@@ -505,7 +490,7 @@ export function ConsoleLayout() {
               <Navigation onNavigate={() => setMobileOpen(false)} />
             </SheetContent>
           </Sheet>
-          <PanelLeftClose
+          <Globe2
             className="hidden size-4 text-muted-foreground lg:block"
             aria-hidden="true"
           />

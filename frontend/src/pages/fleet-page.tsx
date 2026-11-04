@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type CSSProperties } from "react"
 import { Link, useSearchParams } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { ClientResponseError } from "pocketbase"
@@ -6,6 +6,10 @@ import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import {
+  CircleCheck,
+  CirclePause,
+  Globe2,
+  TriangleAlert,
   ArrowDown,
   ArrowUp,
   ChevronLeft,
@@ -161,12 +165,14 @@ export function FleetPage() {
       return next
     })
   return (
-    <div className="mx-auto max-w-screen-2xl space-y-6 p-6 sm:p-8">
-      <header className="flex flex-wrap items-center justify-between gap-4">
+    <div className="mx-auto max-w-screen-2xl space-y-6 p-4 sm:p-8">
+      <header className="page-hero flex flex-wrap items-center justify-between gap-5">
         <div>
           <p className="section-eyebrow">CLUSTER FLEET</p>
-          <h1 className="mt-2 text-2xl font-semibold">集群工作台</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+            集群工作台
+          </h1>
+          <p className="mt-3 text-xs leading-6 text-muted-foreground">
             在授权范围内查看各集群，进入对应资源与调度工作空间。
           </p>
         </div>
@@ -225,46 +231,72 @@ export function FleetPage() {
       {data && (
         <>
           <section
-            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+            className="grid grid-cols-2 gap-3 xl:grid-cols-4"
             aria-label="本页集群统计"
           >
             {[
-              [
-                "登记集群",
-                String(data.totalItems),
-                "符合筛选条件的可见登记总数",
-              ],
-              [
-                "本页控制器连通",
-                String(data.pageSummary.connected),
-                "连通不代表所有节点可调度",
-              ],
-              [
-                "本页连接/数据待处理",
-                String(data.pageSummary.needsAttention),
-                `${data.pageSummary.partial} 个集群的资源数据不完整`,
-              ],
-              [
-                "本页停用/未配置",
-                String(
-                  data.pageSummary.disabled + data.pageSummary.unconfigured
-                ),
-                "按配置状态区分，不请求上游",
-              ],
-            ].map(([label, value, description]) => (
-              <article key={label} className="panel p-4">
-                <h2 className="text-2xs text-muted-foreground">{label}</h2>
-                <p className="mt-2 font-mono text-2xl font-semibold">{value}</p>
-                <p className="mt-2 text-2xs leading-5 text-muted-foreground">
+              {
+                label: "登记集群",
+                value: data.totalItems,
+                description: "符合筛选条件的可见登记总数",
+                icon: Globe2,
+                color: "var(--primary)",
+              },
+              {
+                label: "本页控制器连通",
+                value: data.pageSummary.connected,
+                description: "连通不代表所有节点可调度",
+                icon: CircleCheck,
+                color: "var(--grass-11)",
+              },
+              {
+                label: "本页连接/数据待处理",
+                value: data.pageSummary.needsAttention,
+                description: `${data.pageSummary.partial} 个集群的资源数据不完整`,
+                icon: TriangleAlert,
+                color: "var(--amber-11)",
+              },
+              {
+                label: "本页停用/未配置",
+                value:
+                  data.pageSummary.disabled + data.pageSummary.unconfigured,
+                description: "按配置状态区分，不请求上游",
+                icon: CirclePause,
+                color: "var(--slate-11)",
+              },
+            ].map(({ label, value, description, icon: Icon, color }) => (
+              <article
+                key={label}
+                className="panel metric-card p-4 sm:p-5"
+                style={{ "--metric-color": color } as CSSProperties}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-2xs text-muted-foreground">{label}</h2>
+                  <span className="metric-icon">
+                    <Icon className="size-4" />
+                  </span>
+                </div>
+                <p className="mt-2 font-mono text-3xl font-semibold tracking-tight tabular-nums">
+                  {value}
+                </p>
+                <p className="mt-3 text-2xs leading-5 text-muted-foreground">
                   {description}
                 </p>
               </article>
             ))}
           </section>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-2xs text-muted-foreground">
-              本次查询 {timestamp(data.generatedAt)} · 各来源采样时间单独标注
-            </p>
+            <div>
+              <h2 className="text-sm font-semibold">
+                集群列表{" "}
+                <span className="ml-2 rounded-md bg-primary/8 px-2 py-0.5 font-mono text-2xs font-normal text-primary">
+                  {data.totalItems}
+                </span>
+              </h2>
+              <p className="mt-1 text-2xs text-muted-foreground">
+                本次查询 {timestamp(data.generatedAt)} · 各来源采样时间单独标注
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <Select
                 value={sort}
