@@ -57,7 +57,7 @@ func listPlatformUsers(e *core.RequestEvent) error {
 	text := q.Get("q")
 	source := q.Get("source")
 	active := q.Get("active")
-	if !platformText(text, 0, 100, false) || source != "" && source != "local" && source != "pam" && source != "ldap" || active != "" && active != "true" && active != "false" {
+	if !platformText(text, 0, 100, false) || source != "" && source != "local" && source != "pam" && source != "ldap" && source != "freeipa" || active != "" && active != "true" && active != "false" {
 		return e.BadRequestError("用户筛选条件不合法。", nil)
 	}
 	filters := []dbx.Expression{dbx.NewExp("1=1")}
@@ -109,7 +109,7 @@ func createPlatformUser(e *core.RequestEvent) error {
 		if in.Username != "" || !utf8.ValidString(in.Password) || utf8.RuneCountInString(in.Password) < 12 || len(in.Password) > 71 {
 			return e.BadRequestError("平台账户使用邮箱登录，密码至少 12 个字符且不超过 71 字节。", nil)
 		}
-	} else if in.AuthSource == "pam" || in.AuthSource == "ldap" {
+	} else if in.AuthSource == "pam" || in.AuthSource == "ldap" || in.AuthSource == "freeipa" {
 		if in.Password != "" {
 			return e.BadRequestError("系统或目录账户不接收外部密码。", nil)
 		}
@@ -134,7 +134,11 @@ func createPlatformUser(e *core.RequestEvent) error {
 		r.Set("name", in.Name)
 		r.Set("auth_source", in.AuthSource)
 		r.Set("username", in.Username)
-		r.Set("ldap_entry_id", entryID)
+		if in.AuthSource == "freeipa" {
+			r.Set("freeipa_entry_id", entryID)
+		} else {
+			r.Set("ldap_entry_id", entryID)
+		}
 		r.Set("active", true)
 		r.Set("management_revision", 1)
 		if in.AuthSource == "local" {

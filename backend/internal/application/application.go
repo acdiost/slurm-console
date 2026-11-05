@@ -31,6 +31,9 @@ func New() (*pocketbase.PocketBase, error) {
 	if err := auth.ConfigureLDAP(app); err != nil {
 		return nil, err
 	}
+	if err := auth.ConfigureFreeIPA(app); err != nil {
+		return nil, err
+	}
 	registry, err := clusterconfig.LoadRegistry(os.Getenv("SLURM_CONSOLE_CLUSTER_PROFILES"))
 	if err != nil {
 		return nil, err

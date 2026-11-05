@@ -28,6 +28,8 @@ func CheckBackgroundUser(ctx context.Context, app core.App, user *core.Record) e
 			return denied
 		}
 		return nil
+	case "freeipa":
+		return freeIPAIdentity(ctx, app, user.GetString("username"), user.GetString("freeipa_entry_id"))
 	case "ldap":
 		p := ldapProvider(app)
 		name, id := user.GetString("username"), user.GetString("ldap_entry_id")

@@ -59,7 +59,7 @@ export const platformUserSchema = z.object({
   email: z.string(),
   name: z.string(),
   username: z.string(),
-  authSource: z.enum(["local", "pam", "ldap"]),
+  authSource: z.enum(["local", "pam", "ldap", "freeipa"]),
   active: z.boolean(),
   revision: z.number().int().nonnegative(),
   updatedAt: z.string(),

@@ -1,0 +1,8 @@
+{
+  "url": "https://ipa.acdiost.internal",
+  "domain": "acdiost.internal",
+  "realm": "ACDIOST.INTERNAL",
+  "username": "slurm-console-ipa",
+  "passwordFile": "/etc/slurm-console/freeipa-password",
+  "caFile": "/etc/slurm-console/freeipa-ca.pem"
+}

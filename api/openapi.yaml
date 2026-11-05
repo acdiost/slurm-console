@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.31.0
-  description: 平台密码/PAM/LDAP 认证和基础 RBAC。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
+  version: 0.32.0
+  description: 平台密码/PAM/LDAP/FreeIPA 认证和基础 RBAC。FreeIPA 目录管理及直接成员组角色映射由独立平台权限控制。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
 paths:
@@ -9896,7 +9896,7 @@ paths:
               "enum": [
                 "local",
                 "pam",
-                "ldap"
+                "ldap", "freeipa"
               ]
             }
           },
@@ -10064,7 +10064,7 @@ paths:
                     "enum": [
                       "local",
                       "pam",
-                      "ldap"
+                      "ldap", "freeipa"
                     ]
                   },
                   "username": {
@@ -10520,6 +10520,740 @@ paths:
         }
       }
     }
+  /api/v1/directory:
+    {
+      "get": {
+        "operationId": "freeipaInfo",
+        "summary": "读取 FreeIPA 已加载配置；需要 platform.directory.read",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FreeIPAInfo"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/directory/users:
+    {
+      "get": {
+        "operationId": "freeipaUsers",
+        "summary": "查询目录用户；最多 1000 条，来源截断则明确失败",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "page",
+                        "perPage",
+                        "totalItems"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/FreeIPAUser"
+                          }
+                        },
+                        "page": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "perPage": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalItems": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ]
+      }
+    }
+  /api/v1/directory/groups:
+    {
+      "get": {
+        "operationId": "freeipaGroups",
+        "summary": "查询目录组与直接用户成员；需要 platform.directory.read",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "page",
+                        "perPage",
+                        "totalItems"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/FreeIPAGroup"
+                          }
+                        },
+                        "page": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "perPage": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalItems": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ]
+      }
+    }
+  /api/v1/directory/changes:
+    {
+      "post": {
+        "operationId": "freeipaChange",
+        "summary": "确认后执行限定目录操作；需要 platform.directory.manage，持久审计先于发送，不自动重试",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FreeIPAOperation"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreeIPAChange"
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/directory/operations:
+    {
+      "get": {
+        "operationId": "freeipaOperations",
+        "summary": "读取本人最近十条持久目录操作",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/FreeIPAOperation"
+                          }
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  /api/v1/directory/operations/{operationId}:
+    {
+      "get": {
+        "operationId": "freeipaOperation",
+        "summary": "按原操作编号读取本人结果",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FreeIPAOperation"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    }
+  /api/v1/directory/role-mappings:
+    {
+      "get": {
+        "operationId": "freeipaMappings",
+        "summary": "读取组角色映射；需要目录读取及 platform.roles.manage",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "items"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/FreeIPAMapping"
+                          }
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createFreeipaMapping",
+        "summary": "绑定不可变目录组到平台角色；不创建手工授权",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FreeIPAMapping"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "group",
+                  "roleCode",
+                  "clusterId",
+                  "confirmation"
+                ],
+                "properties": {
+                  "group": {
+                    "type": "string"
+                  },
+                  "roleCode": {
+                    "type": "string"
+                  },
+                  "clusterId": {
+                    "type": "string"
+                  },
+                  "confirmation": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  /api/v1/directory/role-mappings/{mappingId}:
+    {
+      "delete": {
+        "operationId": "removeFreeipaMapping",
+        "summary": "移除组角色映射；输入 CHANGE ACCESS，保留手工授权",
+        "security": [
+          {
+            "platformToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "removed"
+                      ],
+                      "properties": {
+                        "removed": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "updatedAt",
+                  "confirmation"
+                ],
+                "properties": {
+                  "updatedAt": {
+                    "type": "string"
+                  },
+                  "confirmation": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mappingId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    }
 components:
   securitySchemes:
     platformToken:
@@ -10678,7 +11412,7 @@ components:
           description: PAM/LDAP 外部用户名，本地账户为空字符串
         authSource:
           type: string
-          enum: [local, pam, ldap]
+          enum: [local, pam, ldap, freeipa]
         access:
           $ref: "#/components/schemas/Access"
 
@@ -17242,7 +17976,7 @@ components:
             "enum": [
               "local",
               "pam",
-              "ldap"
+              "ldap", "freeipa"
             ]
           },
           "active": {
@@ -17467,6 +18201,248 @@ components:
                 }
               }
             }
+          }
+        }
+      }
+
+    FreeIPAInfo:
+      {
+        "type": "object",
+        "required": [
+          "configured",
+          "domain",
+          "realm"
+        ],
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "realm": {
+            "type": "string"
+          }
+        }
+      }
+
+    FreeIPAUser:
+      {
+        "type": "object",
+        "required": [
+          "username",
+          "firstName",
+          "lastName",
+          "email",
+          "uid",
+          "gid",
+          "version",
+          "enabled",
+          "passwordExpired",
+          "accountExpired",
+          "groups"
+        ],
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "gid": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "passwordExpired": {
+            "type": "boolean"
+          },
+          "accountExpired": {
+            "type": "boolean"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+
+    FreeIPAGroup:
+      {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "gid",
+          "version",
+          "members"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "gid": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+
+    FreeIPAChange:
+      {
+        "type": "object",
+        "required": [
+          "target",
+          "member",
+          "firstName",
+          "lastName",
+          "email",
+          "description",
+          "operationId",
+          "version",
+          "confirmation",
+          "reason",
+          "action"
+        ],
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "member": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "operationId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "confirmation": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "user.create",
+              "user.enable",
+              "user.disable",
+              "group.create",
+              "group.add-member",
+              "group.remove-member"
+            ]
+          }
+        }
+      }
+
+    FreeIPAOperation:
+      {
+        "type": "object",
+        "required": [
+          "operationId",
+          "action",
+          "target",
+          "message",
+          "updatedAt",
+          "status"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "processing",
+              "succeeded",
+              "failed",
+              "unknown"
+            ]
+          }
+        }
+      }
+
+    FreeIPAMapping:
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "group",
+          "roleCode",
+          "roleName",
+          "clusterId",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "roleCode": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "clusterId": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
           }
         }
       }

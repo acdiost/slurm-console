@@ -34,7 +34,12 @@ import {
   type PlatformUser,
 } from "./schema"
 import { Confirmation, errorMessage } from "./common"
-const sourceLabels = { local: "平台密码", pam: "PAM", ldap: "LDAP" }
+const sourceLabels = {
+  local: "平台密码",
+  pam: "PAM",
+  ldap: "LDAP",
+  freeipa: "FreeIPA",
+}
 export function UserSettings({
   actor,
   canUsers,
@@ -270,7 +275,7 @@ const createSchema = z
   .object({
     email: z.email(),
     name: z.string().trim().min(1).max(100),
-    authSource: z.enum(["local", "pam", "ldap"]),
+    authSource: z.enum(["local", "pam", "ldap", "freeipa"]),
     username: z.string().trim().max(64),
     password: z.string().max(255),
   })
@@ -369,6 +374,7 @@ function CreateUser({ onCreated }: { onCreated: (u: PlatformUser) => void }) {
                   <SelectItem value="local">平台密码</SelectItem>
                   <SelectItem value="pam">PAM 系统账户</SelectItem>
                   <SelectItem value="ldap">LDAP 目录账户</SelectItem>
+                  <SelectItem value="freeipa">FreeIPA 目录账户</SelectItem>
                 </SelectContent>
               </Select>
             )}

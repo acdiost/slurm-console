@@ -1,6 +1,6 @@
 # 平台认证与首次授权
 
-使用 PocketBase v0.40.6 管理平台账户、令牌及 RBAC；支持平台密码、Linux PAM、LDAP 三种认证来源。外部账户必须由管理员显式关联，平台 ID 与集群权限独立保存；系统/目录密码不进入 PocketBase。安装及关联命令见 [PAM 接入](pam.md)、[LDAP 接入](ldap.md)。FreeIPA/AD 专属生命周期、目录组同步及 Slurm 操作身份映射尚未接入。
+使用 PocketBase v0.40.6 管理平台账户、令牌及 RBAC；支持平台密码、Linux PAM、LDAP 与 FreeIPA 四种认证来源。外部账户必须由管理员显式关联，平台 ID 与集群权限独立保存；系统/目录密码不进入 PocketBase。安装及关联命令见 [PAM 接入](pam.md)、[LDAP 接入](ldap.md)。FreeIPA 独立认证、目录用户/组管理与直接成员组角色映射见 [FreeIPA 接入](freeipa.md)；AD 专属策略及自动 Slurm 身份映射尚未接入。
 
 ## 首次启动
 

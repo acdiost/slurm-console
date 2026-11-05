@@ -593,6 +593,8 @@ PocketBase + Go
 
 平台设置现支持基础信息与登录公告、AI 非敏感配置、平台用户和角色授权、集成及运行信息，见 [平台设置](docs/platform-settings.md)。
 
+FreeIPA 独立认证、目录用户/组管理及直接成员组角色映射已接入，见 [FreeIPA 接入与部署记录](docs/freeipa.md)。
+
 AI 服务配置与证据发送边界见 [可选 AI 运维辅助](docs/ai-assistance.md)。
 
 ## 11. 分阶段实施

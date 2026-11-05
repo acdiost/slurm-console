@@ -34,6 +34,13 @@ func externalUserCommand(app core.App, source string, link bool) *cobra.Command 
 				return fmt.Errorf("username must be an eligible account name (1–64 characters; PAM excludes root)")
 			}
 			entryID := ""
+			if source == "freeipa" {
+				var err error
+				entryID, err = LookupExternalIdentity(cmd.Context(), app, source, username)
+				if err != nil {
+					return err
+				}
+			}
 			if source == "ldap" {
 				provider := ldapProvider(app)
 				if provider == nil {
@@ -74,7 +81,13 @@ func externalUserCommand(app core.App, source string, link bool) *cobra.Command 
 			record.Set("management_revision", record.GetInt("management_revision")+1)
 			record.Set("auth_source", source)
 			record.Set("username", username)
-			record.Set("ldap_entry_id", entryID)
+			if source == "freeipa" {
+				record.Set("freeipa_entry_id", entryID)
+				record.Set("ldap_entry_id", "")
+			} else {
+				record.Set("freeipa_entry_id", "")
+				record.Set("ldap_entry_id", entryID)
+			}
 			// PocketBase requires a hash. It never verifies this random secret for
 			// external accounts; neither the directory/system password nor this
 			// random secret is retained.
@@ -107,6 +120,16 @@ func LookupExternalIdentity(ctx context.Context, app core.App, source, username 
 		return "", fmt.Errorf("invalid external username")
 	}
 	switch source {
+	case "freeipa":
+		p := FreeIPA(app)
+		if p == nil {
+			return "", fmt.Errorf("FreeIPA unavailable")
+		}
+		u, e := p.User(ctx, username)
+		if e != nil || u.Username != username || !u.Enabled || u.AccountExpired || u.PasswordExpired || u.ID == "" {
+			return "", fmt.Errorf("FreeIPA identity unavailable")
+		}
+		return u.ID, nil
 	case "ldap":
 		p := ldapProvider(app)
 		if p == nil {

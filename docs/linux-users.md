@@ -77,7 +77,7 @@ SLURM_CONSOLE_LINUX_USERS_PROFILES=/etc/slurm-console/linux-users.json
 
 ## 本地账户创建、锁定与解锁
 
-2026-10-28 增加本机来源的账户写操作。SSH 来源仍保持只读，LDAP/FreeIPA/AD 目录账户由目录管理员维护。`linux_users.create/lock/unlock` 为独立集群动作，显式绑定内置 Super Admin 与 Cluster Admin；Operator、Viewer 和自定义角色不会自动获得写能力。平台授权、`manageLocal` 来源开关和 root 主机策略须同时满足。
+2026-10-28 增加本机来源的账户写操作。SSH 来源仍保持只读，本页不修改 LDAP/FreeIPA/AD 目录账户；FreeIPA 的独立目录管理见 [FreeIPA 接入](freeipa.md)。`linux_users.create/lock/unlock` 为独立集群动作，显式绑定内置 Super Admin 与 Cluster Admin；Operator、Viewer 和自定义角色不会自动获得写能力。平台授权、`manageLocal` 来源开关和 root 主机策略须同时满足。
 
 主机策略默认只允许 UID 10000–59999，须由管理员预留为本地身份段，避免与目录及现有账户分配重叠。名称/UID 唯一性根据当前 NSS 可见范围检查；不能据此保证不可见目录中不存在同名身份。root、应用进程身份、策略保护名单、GID 0、属于本机 root/wheel/sudo/admin 组的账户及非本地匹配账户均不可修改。Web 服务以 root 运行，平台仍通过固定子命令和主机策略执行限定操作。
 

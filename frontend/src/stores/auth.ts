@@ -26,7 +26,7 @@ const userSchema = z.object({
   email: z.email(),
   name: z.string(),
   username: z.string().default(""),
-  authSource: z.enum(["local", "pam", "ldap"]).default("local"),
+  authSource: z.enum(["local", "pam", "ldap", "freeipa"]).default("local"),
   access: accessSchema,
 })
 export type PlatformUser = z.infer<typeof userSchema>

@@ -71,6 +71,7 @@ export function AccessPage() {
                 local: "平台密码认证",
                 pam: "PAM 系统认证",
                 ldap: "LDAP 目录认证",
+                freeipa: "FreeIPA 目录认证",
               }[user.authSource]
             }
           </Badge>

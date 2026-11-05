@@ -17,6 +17,11 @@ func RequireActiveUser(e *core.RequestEvent) error {
 			return err
 		}
 	}
+	if e.Auth.GetString("auth_source") == "freeipa" {
+		if err := checkFreeIPA(e, e.Auth, "", false); err != nil {
+			return err
+		}
+	}
 	return e.Next()
 }
 

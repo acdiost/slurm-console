@@ -73,5 +73,6 @@ func UsersCommand(app core.App) *cobra.Command {
 	root.AddCommand(create)
 	root.AddCommand(externalUserCommand(app, "pam", false), externalUserCommand(app, "pam", true))
 	root.AddCommand(externalUserCommand(app, "ldap", false), externalUserCommand(app, "ldap", true), ldapCheckCommand(app))
+	root.AddCommand(externalUserCommand(app, "freeipa", false), externalUserCommand(app, "freeipa", true), freeIPACheckCommand(app))
 	return root
 }

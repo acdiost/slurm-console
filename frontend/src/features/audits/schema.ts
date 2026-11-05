@@ -37,6 +37,14 @@ export const auditDetailSchema = z.object({
   fetchedAt: z.string(),
 })
 export const actions: Record<string, string> = {
+  "directory.user.create": "创建 FreeIPA 用户",
+  "directory.user.enable": "启用 FreeIPA 用户",
+  "directory.user.disable": "停用 FreeIPA 用户",
+  "directory.group.create": "创建 FreeIPA 组",
+  "directory.group.add-member": "添加 FreeIPA 组成员",
+  "directory.group.remove-member": "移除 FreeIPA 组成员",
+  "directory.mapping.create": "创建目录组角色映射",
+  "directory.mapping.remove": "移除目录组角色映射",
   "platform.settings.update": "修改平台基础设置",
   "platform.ai.update": "配置 AI 接入",
   "users.update": "更新平台用户",
@@ -81,6 +89,8 @@ export const statuses: Record<string, string> = {
   unknown: "结果待核实",
 }
 export const fields: Record<string, string> = {
+  groupName: "目录组名称",
+  roleCode: "平台角色代码",
   platformName: "平台名称",
   platformDescription: "平台说明",
   loginNotice: "登录公告",

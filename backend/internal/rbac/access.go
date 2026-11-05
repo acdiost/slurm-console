@@ -92,6 +92,9 @@ func Resolve(app core.App, userID string) (Access, error) {
 		entry.Roles = append(entry.Roles, role.GetString("name"))
 		entry.Permissions = append(entry.Permissions, permissions...)
 	}
+	if err := directoryRoles(app, user, &result, byCluster); err != nil {
+		return Access{}, err
+	}
 	result.PlatformRoles = unique(result.PlatformRoles)
 	result.PlatformPermissions = unique(result.PlatformPermissions)
 	for _, entry := range byCluster {
