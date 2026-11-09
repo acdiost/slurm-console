@@ -388,13 +388,13 @@ export function LinuxUsersPage() {
       {clusterId && (
         <>
           <LinuxUserManagement
-            key={clusterId}
+            key={`management:${clusterId}`}
             clusterId={clusterId}
             operationId={params.get("operation") || ""}
             onOperation={(operation) => update({ operation })}
           />
           <ExactLookup
-            key={clusterId}
+            key={`lookup:${clusterId}`}
             onLookup={(username) => update({ username })}
           />
           <FiltersForm

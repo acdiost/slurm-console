@@ -1,10 +1,77 @@
 package overview
 
 import (
+	"fmt"
 	"math"
 	"slurm-console/backend/internal/slurm/models"
 	"testing"
 )
+
+func TestSummaryPreviewsKeepSmallestNamesWithoutChangingInput(t *testing.T) {
+	nodes := make([]models.Node, 20)
+	partitions := make([]models.Partition, 20)
+	for i := range nodes {
+		name := fmt.Sprintf("item-%02d", len(nodes)-(i*7)%len(nodes))
+		nodes[i] = models.Node{Name: name, States: []string{"DOWN"}}
+		partitions[i] = models.Partition{Name: name, States: []string{"UP"}}
+	}
+	nodeSummary, err := NodeSummary(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	partitionSummary := PartitionSummary(partitions)
+	if nodeSummary.Unavailable != 20 || len(nodeSummary.Issues) != 5 || partitionSummary.Total != 20 || partitionSummary.Up != 20 || len(partitionSummary.Items) != 6 {
+		t.Fatalf("lost totals or unbounded previews: %+v, %+v", nodeSummary, partitionSummary)
+	}
+	for i, issue := range nodeSummary.Issues {
+		if want := fmt.Sprintf("item-%02d", i+1); issue.Name != want {
+			t.Fatalf("node preview %d: got %s, want %s", i, issue.Name, want)
+		}
+	}
+	for i, partition := range partitionSummary.Items {
+		if want := fmt.Sprintf("item-%02d", i+1); partition.Name != want {
+			t.Fatalf("partition preview %d: got %s, want %s", i, partition.Name, want)
+		}
+	}
+	if nodes[0].Name != "item-20" || partitions[0].Name != "item-20" {
+		t.Fatal("preview reordered source data")
+	}
+	partitionSummary.Items[0].Name = "changed"
+	for _, partition := range partitions {
+		if partition.Name == "changed" {
+			t.Fatal("preview shares its slice with source data")
+		}
+	}
+	if got := PartitionSummary(nil); got.Items == nil || len(got.Items) != 0 {
+		t.Fatal("empty partition preview must serialize as an array")
+	}
+}
+
+func BenchmarkLargeNodeSummary(b *testing.B) {
+	nodes := make([]models.Node, 10000)
+	for i := range nodes {
+		nodes[i] = models.Node{Name: fmt.Sprintf("node-%05d", len(nodes)-i), States: []string{"DOWN"}}
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if _, err := NodeSummary(nodes); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkLargePartitionSummary(b *testing.B) {
+	partitions := make([]models.Partition, 10000)
+	for i := range partitions {
+		partitions[i] = models.Partition{Name: fmt.Sprintf("partition-%05d", len(partitions)-i), States: []string{"UP"}}
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		PartitionSummary(partitions)
+	}
+}
 
 func TestNodeSummarySeparatesAllocationIdleAndUnavailableWithoutPartitionDuplication(t *testing.T) {
 	nodes := []models.Node{
@@ -95,6 +162,17 @@ func TestJobBucketsAreExclusiveAndFailuresIncludeTerminations(t *testing.T) {
 	})
 	if result.Total != 8 || result.Running != 1 || result.Completing != 1 || result.Pending != 1 || result.Failed != 2 || result.Completed != 1 || result.Cancelled != 1 || result.Other != 1 {
 		t.Fatalf("job buckets: %+v", result)
+	}
+}
+
+func TestStateCountsDeduplicateNonAdjacentFlagsWithoutReorderingInput(t *testing.T) {
+	states := []string{"RUNNING", "COMPLETING", "RUNNING", "COMPLETING"}
+	result := JobSummary([]models.Job{{States: states}, {States: []string{"RUNNING"}}})
+	if len(result.States) != 2 || result.States[0] != (StateCount{"COMPLETING", 1}) || result.States[1] != (StateCount{"RUNNING", 2}) {
+		t.Fatalf("incorrect distinct state counts: %+v", result.States)
+	}
+	if states[0] != "RUNNING" || states[1] != "COMPLETING" {
+		t.Fatal("counting reordered source flags")
 	}
 }
 

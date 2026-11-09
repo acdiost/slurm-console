@@ -2,6 +2,7 @@
 package overview
 
 import (
+	"cmp"
 	"fmt"
 	"iter"
 	"math"
@@ -80,13 +81,33 @@ func flags(states []string, wanted ...string) bool {
 	}
 	return false
 }
+
+// State lists are short; avoid allocating and sorting a copy for every resource.
+func countStates(counts map[string]int, states []string) {
+	for i, state := range states {
+		if !slices.Contains(states[:i], state) {
+			counts[state]++
+		}
+	}
+}
+
+// Keep only the alphabetically first preview entries while scanning the full set.
+func includePreview[T any](items []T, value T, limit int, compare func(T, T) int) []T {
+	i, _ := slices.BinarySearchFunc(items, value, compare)
+	if i >= limit {
+		return items
+	}
+	if len(items) == limit {
+		items = items[:limit-1]
+	}
+	return slices.Insert(items, i, value)
+}
+
 func JobSummary(jobs []models.Job) Jobs {
 	result := Jobs{Total: len(jobs)}
 	states := map[string]int{}
 	for _, job := range jobs {
-		for _, state := range slices.Compact(slices.Sorted(slices.Values(job.States))) {
-			states[state]++
-		}
+		countStates(states, job.States)
 		switch {
 		case flags(job.States, "FAILED", "TIMEOUT", "NODE_FAIL", "BOOT_FAIL", "OUT_OF_MEMORY", "DEADLINE"):
 			result.Failed++
@@ -201,20 +222,20 @@ func NodeSummary(nodes []models.Node) (Nodes, error) { return NodeSummaryFrom(sl
 
 // NodeSummaryFrom permits partition subsets without copying full node DTOs.
 func NodeSummaryFrom(nodes iter.Seq[models.Node]) (Nodes, error) {
-	result := Nodes{Issues: []NodeIssue{}}
+	result := Nodes{Issues: make([]NodeIssue, 0, 5)}
 	states := map[string]int{}
 	gpuResource := Resource{}
 	gpuTotalKnown, gpuAllocationKnown := true, true
 	for node := range nodes {
 		result.Total++
 		down := NodeUnavailable(node.States)
-		for _, state := range slices.Compact(slices.Sorted(slices.Values(node.States))) {
-			states[state]++
-		}
+		countStates(states, node.States)
 		switch {
 		case down:
 			result.Unavailable++
-			result.Issues = append(result.Issues, NodeIssue{node.Name, node.States, node.Reason})
+			result.Issues = includePreview(result.Issues, NodeIssue{node.Name, node.States, node.Reason}, 5, func(a, b NodeIssue) int {
+				return cmp.Compare(a.Name, b.Name)
+			})
 		case flags(node.States, "MIXED"):
 			result.Mixed++
 		case flags(node.States, "ALLOCATED"):
@@ -256,25 +277,22 @@ func NodeSummaryFrom(nodes iter.Seq[models.Node]) (Nodes, error) {
 		result.GPUs.Unavailable = &gpuResource.Unavailable
 	}
 	result.States = counts(states)
-	sort.Slice(result.Issues, func(i, j int) bool { return result.Issues[i].Name < result.Issues[j].Name })
-	if len(result.Issues) > 5 {
-		result.Issues = result.Issues[:5]
-	}
 	return result, nil
 }
 func PartitionSummary(partitions []models.Partition) Partitions {
-	result := Partitions{Total: len(partitions), Items: slices.Clone(partitions)}
-	if result.Items == nil {
-		result.Items = []models.Partition{}
-	}
-	for _, partition := range partitions {
-		if flags(partition.States, "UP") {
+	result := Partitions{Total: len(partitions), Items: make([]models.Partition, 0, 6)}
+	// Select by index so comparisons and insertions do not copy full DTOs.
+	indices := make([]int, 0, 6)
+	for i := range partitions {
+		if flags(partitions[i].States, "UP") {
 			result.Up++
 		}
+		indices = includePreview(indices, i, 6, func(a, b int) int {
+			return cmp.Compare(partitions[a].Name, partitions[b].Name)
+		})
 	}
-	sort.Slice(result.Items, func(i, j int) bool { return result.Items[i].Name < result.Items[j].Name })
-	if len(result.Items) > 6 {
-		result.Items = result.Items[:6]
+	for _, i := range indices {
+		result.Items = append(result.Items, partitions[i])
 	}
 	return result
 }
