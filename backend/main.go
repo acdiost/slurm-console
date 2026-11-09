@@ -7,6 +7,7 @@ import (
 
 	"slurm-console/backend/internal/application"
 	"slurm-console/backend/internal/backup"
+	"slurm-console/backend/internal/distribution"
 	"slurm-console/backend/internal/linuxusers"
 	"slurm-console/backend/internal/maintenance"
 	"slurm-console/backend/internal/slurm/client"
@@ -14,6 +15,13 @@ import (
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	if handled, err := distribution.Dispatch(os.Args[1:], distribution.Configure); handled {
+		if err != nil {
+			slog.Error("installation/configuration failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == client.LocalCommand {
 		if len(os.Args) != 2 || runtime.GOOS != "linux" || os.Geteuid() == 0 || os.Getegid() == 0 {
 			os.Exit(2)

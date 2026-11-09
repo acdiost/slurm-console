@@ -2,9 +2,9 @@
 # Install only this application. External services remain administrator-managed.
 set -euo pipefail
 [[ $EUID -eq 0 && $(uname -s) == Linux ]] || { echo 'Run as root on Linux.' >&2; exit 1; }
-[[ $# -eq 0 || ($# -eq 1 && $1 == --pam) ]] || { echo 'Usage: bash deploy/install.sh [--pam]' >&2; exit 1; }
+[[ $# -eq 0 || ($# -eq 1 && ($1 == --pam || $1 == --configure)) ]] || { echo 'Usage: bash deploy/install.sh [--pam|--configure]' >&2; exit 1; }
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-for cmd in getent useradd id install systemctl cmp cp mv chmod chown mktemp flock diff find; do
+for cmd in install systemctl cmp cp mv chmod chown mktemp flock diff find; do
   command -v "$cmd" >/dev/null || { echo "Required command: $cmd" >&2; exit 1; }
 done
 for artifact in backend/slurm-console frontend/dist/index.html; do
@@ -26,10 +26,6 @@ chmod 0644 "$lock"
 exec 9<>"$lock"
 flock -n 9 || { echo 'Maintenance in progress; retry later.' >&2; exit 1; }
 export SLURM_CONSOLE_LOCK_FD=9
-if ! getent passwd slurm-console >/dev/null; then
-  useradd --system --user-group --home-dir /var/lib/slurm-console --shell /sbin/nologin slurm-console
-fi
-[[ $(id -u slurm-console) != 0 ]] || exit 1
 for target in /opt/slurm-console /var/lib/slurm-console /var/lib/slurm-console/pb_data /etc/slurm-console; do
   [[ ! -L "$target" && (! -e "$target" || -d "$target") ]] || { echo "Unsafe target: $target" >&2; exit 1; }
 done
@@ -45,6 +41,7 @@ systemctl is-active --quiet slurm-console && was_active=true
 new_timer=true
 [[ ! -f /etc/systemd/system/slurm-console-backup.timer ]] || new_timer=false
 changed=false
+[[ ${1:-} != --configure ]] || changed=true
 [[ -z $(find /var/lib/slurm-console /etc/slurm-console \( ! -user root -o ! -group root \) -print -quit) ]] || changed=true
 for pair in 'backend/slurm-console /opt/slurm-console/slurm-console' 'deploy/slurm-console.service /etc/systemd/system/slurm-console.service' 'deploy/slurm-console-backup.service /etc/systemd/system/slurm-console-backup.service' 'deploy/slurm-console-backup.timer /etc/systemd/system/slurm-console-backup.timer'; do
   read -r source target <<< "$pair"
@@ -101,8 +98,7 @@ if "$changed"; then
   [[ ! -e /opt/slurm-console ]] || mv -- /opt/slurm-console "$previous"
   mv -- "$release" /opt/slurm-console
 fi
-# The web process and all application data now belong to root. The dedicated
-# slurm-console identity remains solely for Slurm auth/local socket requests.
+# The web process, application data and default local Slurm requests use root.
 chown -hR root:root /var/lib/slurm-console /etc/slurm-console
 chmod 0711 /var/lib/slurm-console
 chmod 0700 /var/lib/slurm-console/pb_data /etc/slurm-console
@@ -114,6 +110,9 @@ for unit in slurm-console.service slurm-console-backup.service slurm-console-bac
   install -o root -g root -m 0644 "$repo_dir/deploy/$unit" "/etc/systemd/system/$unit"
 done
 systemctl daemon-reload
+if [[ ${1:-} == --configure ]]; then
+  "$repo_dir/backend/slurm-console" configure-data --dir=/var/lib/slurm-console/pb_data
+fi
 if [[ ${1:-} == --pam ]]; then bash "$repo_dir/deploy/setup-pam.sh"; fi
 if command -v restorecon >/dev/null; then
   restorecon -RF /opt/slurm-console /var/lib/slurm-console /etc/slurm-console /var/lib/slurm-console-backup /var/backups/slurm-console /etc/systemd/system/slurm-console*.service /etc/systemd/system/slurm-console-backup.timer

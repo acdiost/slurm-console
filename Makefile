@@ -1,6 +1,7 @@
-.PHONY: install dev dev-backend build pam-helper check test
+.PHONY: install dev dev-backend build release pam-helper check test
 
 BACKEND_HTTP ?= 127.0.0.1:8090
+TARGET_ARCH ?= amd64
 
 install:
 	npm --prefix frontend ci
@@ -14,7 +15,15 @@ dev-backend:
 
 build:
 	npm --prefix frontend run build
+	bash deploy/package.sh
 	cd backend && go build -o slurm-console .
+
+release:
+	npm --prefix frontend run build
+	bash deploy/package.sh
+	mkdir -p dist/slurm-console-linux-$(TARGET_ARCH)
+	cd backend && CGO_ENABLED=0 GOOS=linux GOARCH=$(TARGET_ARCH) go build -trimpath -o ../dist/slurm-console-linux-$(TARGET_ARCH)/slurm-console .
+	cp deploy/slurm-console.service dist/slurm-console-linux-$(TARGET_ARCH)/slurm-console.service
 
 # Build on the target Linux host with gcc and pam-devel/libpam0g-dev installed.
 pam-helper:

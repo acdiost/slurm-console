@@ -3,7 +3,6 @@ package clusterconfig
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"time"
 
 	"slurm-console/backend/internal/slurm/client"
@@ -24,14 +23,9 @@ type ProbeResult struct {
 }
 
 func (profile Profile) Client(version string, timeout time.Duration) (*client.Client, error) {
-	localUsername := ""
-	if os.Geteuid() == 0 {
-		localUsername = profile.LocalUser
-		if localUsername == "" {
-			localUsername = "slurm-console"
-		}
-	}
-	return client.New(client.Config{LocalUsername: localUsername, Endpoint: profile.Endpoint, AuthType: profile.AuthType, Username: profile.Username, TokenFile: profile.TokenFile, TLS: profile.tls, Version: version, Timeout: timeout})
+	// Production services run as root and use that same Unix socket identity.
+	// Accept legacy localUser metadata without selecting a different peer UID.
+	return client.New(client.Config{Endpoint: profile.Endpoint, AuthType: profile.AuthType, Username: profile.Username, TokenFile: profile.TokenFile, TLS: profile.tls, Version: version, Timeout: timeout})
 }
 func Probe(ctx context.Context, profile Profile, version string, timeout time.Duration) ProbeResult {
 	started := time.Now()

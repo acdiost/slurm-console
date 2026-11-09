@@ -14,6 +14,7 @@ import (
 	"slurm-console/backend/internal/backup"
 	"slurm-console/backend/internal/capacity"
 	"slurm-console/backend/internal/clusterconfig"
+	"slurm-console/backend/internal/distribution"
 	"slurm-console/backend/internal/gpumetrics"
 	"slurm-console/backend/internal/jobcontrol"
 	"slurm-console/backend/internal/linuxusers"
@@ -62,6 +63,7 @@ func New() (*pocketbase.PocketBase, error) {
 	app.RootCmd.AddCommand(rbac.Commands(app))
 	app.RootCmd.AddCommand(jobcontrol.Command(app))
 	app.RootCmd.AddCommand(backup.Commands(), backup.HealthCommand())
+	app.RootCmd.AddCommand(distribution.Command(distribution.Configure).Commands()...)
 	app.OnServe().BindFunc(func(event *core.ServeEvent) error {
 		publicDir := os.Getenv("SLURM_CONSOLE_PUBLIC_DIR")
 		if publicDir == "" {
@@ -70,7 +72,11 @@ func New() (*pocketbase.PocketBase, error) {
 		if err := platformsettings.ApplyAI(app); err != nil {
 			return err
 		}
-		api.Register(event.Router, publicDir)
+		if os.Getenv("SLURM_CONSOLE_PUBLIC_DIR") != "" {
+			api.Register(event.Router, publicDir)
+		} else {
+			api.Register(event.Router, publicDir, distribution.Public())
+		}
 		go connections.CheckEnabled(connectionContext)
 		notifications.For(app).Start(connectionContext)
 		capacity.For(app).Start(connectionContext)

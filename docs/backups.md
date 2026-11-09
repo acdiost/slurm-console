@@ -69,7 +69,7 @@ sudo /opt/slurm-console/slurm-console backup restore \
 
 ## 应用完整恢复
 
-这是覆盖操作，应安排维护窗口。先确认备份来自可信管理员、密钥可用且架构相同；加密保护内容和完整性，不代替备份来源可信性。新主机先建立用于 Slurm 本地 socket 的 `slurm-console` 专用身份和应用依赖，恢复独立密钥及范围外的凭据/系统 PAM 身份。
+这是覆盖操作，应安排维护窗口。先确认备份来自可信管理员、密钥可用且架构相同；加密保护内容和完整性，不代替备份来源可信性。新主机准备应用依赖，恢复独立密钥及范围外的凭据/系统 PAM 身份。当前 root socket 连接不需要专用账户；恢复非 root 服务或支持降权 socket 身份的旧版程序时，另行建立该备份要求的原系统身份。
 
 ```sh
 sudo /opt/slurm-console/slurm-console backup restore \

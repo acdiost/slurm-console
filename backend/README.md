@@ -10,10 +10,13 @@ LDAP 通过 `SLURM_CONSOLE_LDAP_CONFIG` 指向服务端 JSON 配置，支持 LDA
 
 启动时应用 Go 迁移并关闭公开注册，所有业务和授权 Collection 原生 CRUD 规则均锁定。`GET /api/v1/auth/me` 校验活动平台用户并返回实时权限；`GET /api/v1/clusters` 在服务端筛选授权范围，详情接口要求 `clusters.read`。
 
-`SLURM_CONSOLE_PUBLIC_DIR` 可指定已构建的前端目录，默认 `../frontend/dist`；如果存在 `index.html`，同一后端提供 SPA 回退。未知 `/api` 请求始终返回 API 错误，不回退到 HTML。
+通过根目录 `make build` 或 `make release TARGET_ARCH=amd64`（ARM64 使用 `arm64`） 构建时，前端及安装器会嵌入程序。发布包只含 `slurm-console` 和 `slurm-console.service`，目标 Linux 主机以 root 执行 `./slurm-console install` 即可通过终端向导安装、初始化管理员并启动；`configure` 可重复执行，空输入保留已有值及外部认证来源。向导沿用维护锁、升级快照、失败回退和每日备份，见 [部署说明](../docs/deployment.md)。
+
+未设置 `SLURM_CONSOLE_PUBLIC_DIR` 时，后端优先使用内嵌前端；未准备内嵌资源的开发构建回退到 `../frontend/dist`。显式设置该环境变量时使用指定目录。未知 `/api` 请求始终返回 API 错误，不回退到 HTML。
 
 - `internal/api`：平台 `/api/v1` 路由。
 - `internal/application`：PocketBase 初始化、迁移和命令注册。
+- `internal/distribution`：内嵌资源、root 安装入口及可重复执行的终端配置向导。
 - `internal/auth`、`internal/rbac`：平台身份和集群范围授权。
 - `internal/ldapauth`、`internal/pamauth`：LDAP 加密绑定和 PAM 子进程适配。
 - `internal/slurm/{client,adapter,models}`：独立的 Slurm 接口适配。
@@ -26,7 +29,7 @@ LDAP 通过 `SLURM_CONSOLE_LDAP_CONFIG` 指向服务端 JSON 配置，支持 LDA
 
 不在浏览器保存集群凭据；不将作业、节点持久化为平台业务主表。平台用户、Slurm 身份和集群权限分别建模。
 
-Slurm Adapter 的版本、查询及缓存约束见 `../docs/slurm-adapter.md`；部署只有应用安装器和可独立重复运行的 PAM 设置脚本，不安装 LDAP/FreeIPA/slurmrestd。
+Slurm Adapter 的版本、查询及缓存约束见 `../docs/slurm-adapter.md`。正式服务及本地 Unix socket 请求均以 root 运行，旧 `localUser` 字段仅保留配置读取兼容，不再触发降权。安装器只管理本应用，不安装 LDAP/FreeIPA/slurmrestd；新启用 PAM 仍需可选 helper 和应用专属策略。
 
 作业管理与 `slurm-identity link/unlink` 见 `../docs/jobs.md`。没有显式关联时，即使平台 Super Admin 也不能取消作业；默认仅本人范围。
 

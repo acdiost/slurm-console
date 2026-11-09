@@ -84,8 +84,8 @@ func NewRegistry(profiles map[string]Profile) (*Registry, error) {
 		}
 		switch u.Scheme {
 		case "unix":
-			if profile.LocalUser != "" && (!keyPattern.MatchString(profile.LocalUser) || profile.LocalUser == "root") {
-				return nil, errors.New("localUser must name a dedicated non-root Unix socket identity")
+			if profile.LocalUser != "" && !keyPattern.MatchString(profile.LocalUser) {
+				return nil, errors.New("localUser must name a Unix socket identity")
 			}
 			if u.Host != "" || !filepath.IsAbs(u.Path) || filepath.Clean(u.Path) != u.Path || u.RawPath != "" || profile.AuthType != "local" || profile.TokenFile != "" || profile.Username != "" || profile.CAFile != "" {
 				return nil, errors.New("Unix profiles require an absolute socket and local authentication")

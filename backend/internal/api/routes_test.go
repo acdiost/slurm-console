@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -45,6 +46,32 @@ func setup(t *testing.T) (core.App, http.Handler) {
 		t.Fatal(err)
 	}
 	return app, mux
+}
+
+func TestBundledFrontendWithoutExternalFilesKeepsAPIFallbackSeparate(t *testing.T) {
+	app, _ := setup(t)
+	routes, err := apis.NewRouter(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	api.Register(routes, filepath.Join(t.TempDir(), "missing"), fstest.MapFS{
+		"index.html":    &fstest.MapFile{Data: []byte("<html>embedded console</html>")},
+		"assets/app.js": &fstest.MapFile{Data: []byte("embedded javascript")},
+	})
+	mux, err := routes.BuildMux()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sample := range []struct{ path, content string }{{"/login", "embedded console"}, {"/assets/app.js", "embedded javascript"}} {
+		res := request(mux, "GET", sample.path, "", "")
+		if res.Code != 200 || !strings.Contains(res.Body.String(), sample.content) {
+			t.Fatalf("%s: %d %s", sample.path, res.Code, res.Body.String())
+		}
+	}
+	res := request(mux, "GET", "/api/missing", "", "")
+	if res.Code != 404 || strings.Contains(res.Body.String(), "embedded console") {
+		t.Fatal("API request fell through to bundled HTML")
+	}
 }
 
 func user(t *testing.T, app core.App, collectionName string) *core.Record {

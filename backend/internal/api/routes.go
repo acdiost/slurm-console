@@ -2,6 +2,7 @@ package api
 
 import (
 	"crypto/rand"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -26,7 +27,7 @@ type User struct {
 	Access     rbac.Access `json:"access"`
 }
 
-func Register(routes *router.Router[*core.RequestEvent], publicDir string) {
+func Register(routes *router.Router[*core.RequestEvent], publicDir string, bundled ...fs.FS) {
 	routes.Bind(&hook.Handler[*core.RequestEvent]{
 		Id: "platformRequestMetadata", Priority: apis.DefaultLoadAuthTokenMiddlewarePriority - 1,
 		Func: func(e *core.RequestEvent) error {
@@ -113,8 +114,20 @@ func Register(routes *router.Router[*core.RequestEvent], publicDir string) {
 	registerOperationTemplateRoutes(group)
 	// Never serve the SPA for missing API routes.
 	routes.Any("/api/{path...}", func(e *core.RequestEvent) error { return e.NotFoundError("接口不存在。", nil) })
+	var public fs.FS
 	if _, err := os.Stat(publicDir + "/index.html"); err == nil {
-		static := apis.Static(os.DirFS(publicDir), true)
+		public = os.DirFS(publicDir)
+	}
+	for _, candidate := range bundled {
+		if candidate != nil {
+			if _, err := fs.Stat(candidate, "index.html"); err == nil {
+				public = candidate
+				break
+			}
+		}
+	}
+	if public != nil {
+		static := apis.Static(public, true)
 		routes.Any("/{path...}", func(e *core.RequestEvent) error {
 			if e.Request.Method != http.MethodGet && e.Request.Method != http.MethodHead {
 				return e.Error(http.StatusMethodNotAllowed, "不支持的请求方法。", nil)

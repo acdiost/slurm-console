@@ -48,7 +48,7 @@ Slurm REST 不提供跨外部管理员的乐观并发事务；平台在发送前
 
 Slurm、SlurmDBD、slurmrestd、数据库和相应认证均由系统管理员安装、配置。仓库不提供这些组件或服务模板。管理员为现有 REST 服务启用 `slurmctld,slurmdbd` 内容插件以及 `v0.0.43` parser，并确保连接身份可以读取所需记账数据；写操作还须具有目标 SlurmDBD 的相应权限。仅控制器接口可用时，页面明确返回 `SLURM_ACCOUNTING_UNAVAILABLE`。
 
-Unix socket 默认继续使用非 root `slurm-console` 对端身份。管理员也可在受保护的集群 profile 中设置 `localUser`，指定匹配该 socket 服务的专用非 root 本地用户；root 主服务以该 UID/GID 的一次性子进程请求，不继承 root 附加组。不允许浏览器指定该身份，HTTPS/JWT profile 禁止使用 `localUser`。这样可以将测试或记账管理连接与现有只读控制器连接分开。HTTPS/JWT 使用原有受保护令牌与 TLS 配置。
+Unix socket 使用 root 对端身份，终端向导显式设置 `localUser: "root"`。旧 profile 的 `localUser` 字段仅保留读取兼容，不再改变请求身份。不允许浏览器指定该身份，HTTPS/JWT profile 禁止使用 `localUser`。HTTPS/JWT 使用原有受保护令牌与 TLS 配置。
 
 正式 Slurm 管理权限应由系统管理员根据本站策略显式配置，不由安装器、迁移或平台角色自动授予。
 

@@ -29,7 +29,7 @@ Job ID 不是唯一键。每条记录保留 SHA-256 标识，依据实际集群�
 
 默认每页 20，最大 100；允许提交/开始/结束时间、经过时长、Job ID 排序，未知值始终置末。列表省略步骤，详情保留步骤。30 秒有界缓存按集群、连接修订和完整条件隔离，页面不自动轮询；刷新按钮重发请求，30 秒内可能命中缓存。来源单响应 8 MiB、最多 5000 条作业、单作业 512 步骤及全查询 20000 步骤，超限须缩小条件，不静默截断。使用现有四并发、128 条/32 MiB 缓存限制，失败不缓存。
 
-本机 root 服务经受限子进程以专用 Slurm socket 身份读取。子进程仅接受固定条件的规范序列化，不能读取任意记账端点或升级为脚本/环境查询。本功能全部只读。
+本机服务以 root 直接读取 Slurm socket，旧 profile 的 `localUser` 字段不再改变请求身份。请求仅使用固定条件，不支持脚本或环境查询。本功能全部只读。
 
 契约依据测试环境安装版本的 `/openapi/v3`，参考 [Slurm REST API](https://slurm.schedmd.com/rest_api.html)、[sacct](https://slurm.schedmd.com/sacct.html) 与[记账采集配置](https://slurm.schedmd.com/accounting.html)。
 

@@ -1,0 +1,27 @@
+name: Deployment
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      - run: make release TARGET_ARCH=amd64
+      - name: Install and repeat configuration as root
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 deploy/test-install.py dist/slurm-console-linux-amd64/slurm-console
+      - name: Service diagnostics
+        if: failure()
+        run: sudo journalctl -u slurm-console -n 80 --no-pager

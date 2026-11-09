@@ -177,7 +177,11 @@ func TestLocalAccountingIdentityIsProtectedConfiguration(t *testing.T) {
 	if strings.Contains(string(raw), profile.LocalUser) {
 		t.Fatal("local peer identity escaped profile DTO")
 	}
-	for _, name := range []string{"root", "invalid name", "../root"} {
+	profile.LocalUser = "root"
+	if _, err := NewRegistry(map[string]Profile{"accounting": profile}); err != nil {
+		t.Fatal("root socket identity rejected", err)
+	}
+	for _, name := range []string{"invalid name", "../root"} {
 		profile.LocalUser = name
 		if _, err := NewRegistry(map[string]Profile{"accounting": profile}); err == nil {
 			t.Fatal("invalid peer identity accepted", name)

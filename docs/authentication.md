@@ -4,7 +4,15 @@
 
 ## 首次启动
 
-需要 Go 1.27.3+，或允许 Go 按 `go.mod` 自动下载工具链。前端要求 Node.js 22.16+（22.x）或 24 LTS。
+正式部署使用[两文件交付与终端向导](deployment.md#两文件交付与终端引导推荐)，目标主机无需安装构建工具：
+
+```sh
+sudo ./slurm-console install
+```
+
+向导默认沿用现有活动 Super Admin，保留 PAM/LDAP 等认证来源及授权。新建管理员时可修改显示的默认邮箱 `admin@example.com`，设置 12–71 字符密码，或留空生成随机密码并仅在当前终端显示一次。重复配置时，已有密码留空保持不变；外部认证账户密码由其身份来源维护。向导在同一事务中保存账户、Super Admin 授权和审计，不开放网页注册。后续可用 `sudo /opt/slurm-console/slurm-console configure` 重新引导，数据库固定为 `/var/lib/slurm-console/pb_data`。
+
+以下为源码开发或手工创建普通账户的流程。构建需要 Go 1.27.3+，或允许 Go 按 `go.mod` 自动下载工具链；前端要求 Node.js 22.16+（22.x）或 24 LTS。
 
 ```sh
 make install
@@ -16,7 +24,7 @@ make install
 go run . users create --email operator@example.com --name Operator
 ```
 
-自动化场景也支持 stdin。不要把真实密码直接写在命令参数、脚本或 Git 文件中。程序不会打印密码，也不会自动生成默认账户或默认密码。
+`users create` 也支持 stdin，不回显输入的密码，也不自动授予角色。不要把真实密码直接写在命令参数、脚本或 Git 文件中。应用没有内置账户或固定默认密码；安装向导首次生成的随机密码仅显示一次。
 
 新账户没有任何角色。需要平台级管理员时，由管理主机上的可信操作员显式授予：
 

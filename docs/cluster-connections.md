@@ -8,7 +8,7 @@
 
 支持两种连接：
 
-- **本机 Unix socket + `rest_auth/local`**：`endpoint` 使用 `unix:///run/slurm-console-rest/rest.sock`，`authType` 为 `local`。root 平台通过一次性子进程以专用 `slurm-console` 普通 UID 访问，与 slurmrestd 保持同一对端身份，socket 所在目录设为该用户独占的 `0700`。不配置 JWT、远程用户名或 CA。可在可信 profile 设置 `localUser` 指定匹配 socket 的专用非 root 身份，默认 `slurm-console`；该字段不接受浏览器修改，也不用于 HTTPS/JWT。slurmrestd 由系统管理员独立安装和配置，本项目不提供其服务模板。禁止使用 root 或 Slurm 守护进程用户运行 REST 服务。
+- **本机 Unix socket + `rest_auth/local`**：`endpoint` 使用 `unix:///run/slurm-console-rest/rest.sock`，`authType` 为 `local`。root 平台直接以 root 访问 socket；终端向导保存 `localUser: "root"`。不配置 JWT、远程用户名或 CA。旧 `localUser` 字段保留读取兼容，不再选择其他请求身份；该字段不接受浏览器修改，也不用于 HTTPS/JWT。slurmrestd 的服务身份、socket 权限及 root 客户端准入由系统管理员配置，本项目不安装或修改该外部服务。
 - **远程 HTTPS + JWT**：`authType` 为 `jwt`，设置固定 `username`、绝对 `tokenFile`，可选私有 `caFile`。只接受 HTTPS origin，无路径、查询、URL 用户信息或片段；验证证书和主机名，TLS 最低 1.2。JWT 文件只允许服务用户读取（推荐 `root:root 0640`），每次检测重新读取，支持原子替换轮换。JWT 的签发、续期和目标 Slurm 权限由可信管理员负责，不会自动提权或续期。
 
 浏览器只选择已批准的连接引用，不接收任意 endpoint 或凭据。数据库保存引用、版本、超时、启停及检测结果，不保存 JWT；API 不返回 JWT、用户名、凭据路径或原始上游响应。修改连接方式、CA 后需重启平台；JWT 文件轮换无需重启。凭据缺失会得到 `credentials_unavailable`，不会回退其他认证。

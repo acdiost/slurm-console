@@ -15,3 +15,5 @@ backend/slurm-console-pam-helper
 
 *.tar.gz.age
 deploy/backup.env
+backend/internal/distribution/assets/*
+!backend/internal/distribution/assets/.keep

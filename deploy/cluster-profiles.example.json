@@ -4,6 +4,7 @@
       "label": "本机 Slurm",
       "endpoint": "unix:///run/slurm-console-rest/rest.sock",
       "authType": "local",
+      "localUser": "root",
       "apiVersions": ["v0.0.43"]
     },
     "remote-slurm": {
