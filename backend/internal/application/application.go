@@ -5,8 +5,10 @@ import (
 	"os"
 
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/cmd"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
+	"github.com/spf13/cobra"
 
 	"slurm-console/backend/internal/aiassist"
 	"slurm-console/backend/internal/api"
@@ -26,6 +28,21 @@ import (
 
 func New() (*pocketbase.PocketBase, error) {
 	app := pocketbase.NewWithConfig(pocketbase.Config{DefaultDataDir: "./pb_data"})
+	serve := cmd.NewServeCommand(app, true)
+	serve.Short = "Starts the web server (default to 127.0.0.1:6829 if no domain is specified)"
+	httpFlag := serve.PersistentFlags().Lookup("http")
+	httpFlag.DefValue = "127.0.0.1:6829"
+	httpFlag.Usage = "TCP address to listen for the HTTP server\n(if domain args are specified - default to 0.0.0.0:80, otherwise - default to 127.0.0.1:6829)"
+	runServe := serve.RunE
+	serve.RunE = func(command *cobra.Command, args []string) error {
+		if len(args) == 0 && !httpFlag.Changed {
+			if err := httpFlag.Value.Set(httpFlag.DefValue); err != nil {
+				return err
+			}
+		}
+		return runServe(command, args)
+	}
+	app.RootCmd.AddCommand(serve, cmd.NewSuperuserCommand(app))
 	if err := auth.ConfigurePAM(app); err != nil {
 		return nil, err
 	}

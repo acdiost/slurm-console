@@ -15,7 +15,7 @@ Linux 简化交付支持两个文件：内嵌前端的 `slurm-console` 和 `slur
 
 ```sh
 make install
-make dev-backend  # 终端一，后端监听 127.0.0.1:8090
+make dev-backend  # 终端一，后端监听 127.0.0.1:6829
 make dev          # 终端二，打开 Vite 输出的地址
 ```
 

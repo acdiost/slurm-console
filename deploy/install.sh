@@ -122,4 +122,4 @@ if "$changed" || ! "$was_active"; then systemctl restart slurm-console; fi
 systemctl is-active --quiet slurm-console
 /opt/slurm-console/slurm-console healthcheck
 if "$new_timer"; then systemctl enable --now slurm-console-backup.timer; else systemctl try-restart slurm-console-backup.timer; fi
-echo 'Installed and ready: http://127.0.0.1:18090. Backup key: /var/lib/slurm-console-backup/identity.txt (keep an offline copy).'
+echo 'Installed and ready: http://127.0.0.1:6829. Backup key: /var/lib/slurm-console-backup/identity.txt (keep an offline copy).'

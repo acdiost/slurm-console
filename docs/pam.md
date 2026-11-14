@@ -62,13 +62,13 @@ systemctl status slurm-console
 
 ## 本地浏览器联调
 
-单元默认监听虚拟机的 `127.0.0.1:18090`，可通过 SSH 转发访问构建后的完整应用：
+单元默认监听虚拟机的 `127.0.0.1:6829`，可通过 SSH 转发访问构建后的完整应用：
 
 ```sh
-ssh -N -L 18090:127.0.0.1:18090 root@your-server
+ssh -N -L 6829:127.0.0.1:6829 root@your-server
 ```
 
-打开 `http://127.0.0.1:18090`。开发前端可使用同一转发：`SLURM_CONSOLE_API_TARGET=http://127.0.0.1:18090 npm --prefix frontend run dev`。正式内网发布应使用 HTTPS 反向代理；本任务不修改防火墙或对外开放端口。
+打开 `http://127.0.0.1:6829`。开发前端可使用同一转发：`SLURM_CONSOLE_API_TARGET=http://127.0.0.1:6829 npm --prefix frontend run dev`。正式内网发布应使用 HTTPS 反向代理；本任务不修改防火墙或对外开放端口。
 
 ## 配置与故障排查
 

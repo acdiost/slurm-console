@@ -22,7 +22,7 @@ def request(path, body=None, token=None):
     if token:
         headers["Authorization"] = token
     payload = None if body is None else json.dumps(body).encode()
-    req = urllib.request.Request("http://127.0.0.1:18090" + path, payload, headers)
+    req = urllib.request.Request("http://127.0.0.1:6829" + path, payload, headers)
     with urllib.request.urlopen(req, timeout=5) as response:
         return response.read()
 

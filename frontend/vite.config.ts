@@ -9,7 +9,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: process.env.SLURM_CONSOLE_API_TARGET || "http://127.0.0.1:8090",
+        target: process.env.SLURM_CONSOLE_API_TARGET || "http://127.0.0.1:6829",
         changeOrigin: true,
       },
     },

@@ -61,7 +61,7 @@ func main() {
 		slog.Error("invalid application configuration", "error", err)
 		os.Exit(1)
 	}
-	if err := app.Start(); err != nil {
+	if err := app.Execute(); err != nil {
 		slog.Error("application stopped", "error", err)
 		os.Exit(1)
 	}

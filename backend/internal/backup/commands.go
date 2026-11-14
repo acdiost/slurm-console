@@ -135,7 +135,7 @@ func Health(ctx context.Context, url string) error {
 func ready() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	if err := Health(ctx, "http://127.0.0.1:18090/api/v1/health"); err != nil {
+	if err := Health(ctx, "http://127.0.0.1:6829/api/v1/health"); err != nil {
 		return err
 	}
 	running, err := active()
@@ -472,7 +472,7 @@ func HealthCommand() *cobra.Command {
 		defer cancel()
 		return Health(ctx, url)
 	}}
-	cmd.Flags().StringVar(&url, "url", "http://127.0.0.1:18090/api/v1/health", "Application health endpoint")
+	cmd.Flags().StringVar(&url, "url", "http://127.0.0.1:6829/api/v1/health", "Application health endpoint")
 	return cmd
 }
 

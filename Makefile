@@ -1,6 +1,6 @@
 .PHONY: install dev dev-backend build release pam-helper check test
 
-BACKEND_HTTP ?= 127.0.0.1:8090
+BACKEND_HTTP ?= 127.0.0.1:6829
 TARGET_ARCH ?= amd64
 
 install:

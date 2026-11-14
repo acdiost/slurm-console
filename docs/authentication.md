@@ -44,7 +44,7 @@ make dev-backend
 make dev
 ```
 
-打开 Vite 输出的地址。匿名访问 `/design-system` 或 `/access` 会进入 `/login`。Vite 将 `/api` 代理至 `127.0.0.1:8090`。
+打开 Vite 输出的地址。匿名访问 `/design-system` 或 `/access` 会进入 `/login`。Vite 将 `/api` 代理至 `127.0.0.1:6829`。
 
 ## 集群范围授权
 

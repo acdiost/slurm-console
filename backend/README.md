@@ -1,6 +1,6 @@
 # 后端工程边界
 
-PocketBase v0.40.6 内嵌 Go 应用，要求 Go 1.27.3+。启动 `go run . serve --http=127.0.0.1:8090`。数据库默认写入当前工作目录的 `pb_data/`，通过 `--dir` 可选择其他目录；数据库与凭据不提交 Git。
+PocketBase v0.40.6 内嵌 Go 应用，要求 Go 1.27.3+。启动 `go run . serve`（默认监听 `127.0.0.1:6829`），可通过 `--http` 覆盖监听地址。数据库默认写入当前工作目录的 `pb_data/`，通过 `--dir` 可选择其他目录；数据库与凭据不提交 Git。
 
 `go run . users create --email <邮箱> --name <名称>` 创建平台账户，密码通过隐藏终端输入或 stdin 读取。初始账户没有任何集群授权。`go run . access --help` 查看平台/集群授权命令。认证和权限约定见 `../docs/authentication.md`、`../docs/permissions.md`。
 

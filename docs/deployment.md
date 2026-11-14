@@ -15,7 +15,7 @@ sudo ./slurm-console install
 
 安装器自动准备应用/配置/数据目录、加密备份密钥、systemd 主服务及每日备份任务，交互配置完成后启动并检查就绪。需要 Linux、bash、systemd、flock 和基本系统工具；非 root 安装或配置会被拒绝。应用及 Slurm 本地 Unix socket 连接均使用 root，不再要求创建 `slurm-console` 系统账户。Slurm REST 服务由管理员提供，安装器不修改其配置或启动身份。
 
-终端向导依次设置平台名称、管理员邮箱/名称/密码，可选配置一个 Slurm 连接（本地 socket，或 HTTPS/JWT）。直接回车使用已有值；首次安装使用显示的默认值。首次密码留空时生成随机密码，仅在当前终端显示；已有密码或 JWT 留空时保持不变。密码及 JWT 输入不回显、不进入命令参数或审计；非敏感可选项可输入 `-` 清空。默认监听 `127.0.0.1:18090`，HTTPS 反向代理继续由管理员配置。
+终端向导依次设置平台名称、管理员邮箱/名称/密码，可选配置一个 Slurm 连接（本地 socket，或 HTTPS/JWT）。直接回车使用已有值；首次安装使用显示的默认值。首次密码留空时生成随机密码，仅在当前终端显示；已有密码或 JWT 留空时保持不变。密码及 JWT 输入不回显、不进入命令参数或审计；非敏感可选项可输入 `-` 清空。默认监听 `127.0.0.1:6829`，HTTPS 反向代理继续由管理员配置。
 
 Slurm API 支持 `v0.0.40`–`v0.0.44`。版本输入 `auto` 可通过认证后的 OpenAPI 文档选择最高可用且被批准的版本；手动输入可省略 `v`，例如 `0.0.40`。留空保留已有版本，新连接默认 `v0.0.43`。选择结果固定保存，不在业务请求失败后自动切换。版本功能差异及白名单配置见[集群连接配置](cluster-connections.md)。
 
@@ -54,7 +54,7 @@ make pam-helper                 # 仅 PAM；须在目标 Linux 架构构建
 sudo bash deploy/install.sh --pam
 ```
 
-不用 PAM 则省略 `make pam-helper` 和 `--pam`。安装器以 root 运行应用和默认 Slurm 本地 socket 请求，安装应用程序、静态文件和 systemd 单元，启动于 `127.0.0.1:18090`。可重复执行升级；程序、前端或单元变化且已有数据库时，先停服并在 `/var/backups/slurm-console/` 生成加密一致快照。前端资源整套替换，应用必须通过数据库就绪检查；升级失败会尝试恢复升级前快照。直接运行源码安装脚本且没有变化、服务已运行时不重启应用。备份与恢复详见 [加密备份](backups.md)。
+不用 PAM 则省略 `make pam-helper` 和 `--pam`。安装器以 root 运行应用和默认 Slurm 本地 socket 请求，安装应用程序、静态文件和 systemd 单元，启动于 `127.0.0.1:6829`。可重复执行升级；程序、前端或单元变化且已有数据库时，先停服并在 `/var/backups/slurm-console/` 生成加密一致快照。前端资源整套替换，应用必须通过数据库就绪检查；升级失败会尝试恢复升级前快照。直接运行源码安装脚本且没有变化、服务已运行时不重启应用。备份与恢复详见 [加密备份](backups.md)。
 
 本应用仅使用以下部署文件：
 
@@ -85,7 +85,7 @@ sudo bash deploy/install.sh --pam
 
 ```sh
 make install
-make dev-backend  # 终端一，127.0.0.1:8090
+make dev-backend  # 终端一，127.0.0.1:6829
 make dev          # 终端二，打开 Vite 输出地址
 make check        # TypeScript、ESLint、go vet
 make test         # 前端交互及真实 PocketBase/SQLite 测试
