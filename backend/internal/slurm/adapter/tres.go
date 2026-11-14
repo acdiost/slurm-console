@@ -9,6 +9,7 @@ import (
 	"slices"
 	"slurm-console/backend/internal/slurm/client"
 	"slurm-console/backend/internal/slurm/models"
+	"slurm-console/backend/internal/slurm/protocol"
 	"strconv"
 )
 
@@ -96,9 +97,17 @@ func rawAt(raw json.RawMessage, path []string) json.RawMessage {
 	}
 	return raw
 }
-func projectTRES(target models.TRESTarget) (models.TRESTarget, error) {
+func projectTRES(target models.TRESTarget, versions ...string) (models.TRESTarget, error) {
+	version := Version
+	if len(versions) > 0 {
+		version = versions[0]
+	}
 	target.Limits = map[string][]models.TRESAmount{}
 	for _, bucket := range client.TRESBuckets(target.Kind) {
+		if target.Kind == "qos" && bucket == "group_minutes" && !protocol.QOSGroupMinutes(version) {
+			target.UnsupportedBuckets = append(target.UnsupportedBuckets, bucket)
+			continue
+		}
 		raw := rawAt(target.Raw, client.TRESPath(target.Kind, bucket))
 		entries := []models.TRESAmount{}
 		if len(raw) > 0 && string(raw) != "null" {
@@ -216,7 +225,7 @@ func (a *Adapter) TRESLimits(ctx context.Context, kind string) (models.TRESSnaps
 			return v, err
 		}
 		for _, q := range rows {
-			target, err := projectTRES(models.TRESTarget{Kind: kind, ID: q.ID, Name: q.Name, Cluster: v.Cluster, Relative: slices.Contains(q.Flags, "RELATIVE"), Raw: q.Raw})
+			target, err := projectTRES(models.TRESTarget{Kind: kind, ID: q.ID, Name: q.Name, Cluster: v.Cluster, Relative: slices.Contains(q.Flags, "RELATIVE"), Raw: q.Raw}, a.version)
 			if err != nil {
 				return v, err
 			}
@@ -227,8 +236,8 @@ func (a *Adapter) TRESLimits(ctx context.Context, kind string) (models.TRESSnaps
 		if err != nil {
 			return v, err
 		}
-		for _, a := range rows {
-			target, err := projectTRES(models.TRESTarget{Kind: kind, ID: a.ID, Cluster: v.Cluster, Account: a.Account, User: a.User, Partition: a.Partition, Raw: a.Raw})
+		for _, assoc := range rows {
+			target, err := projectTRES(models.TRESTarget{Kind: kind, ID: assoc.ID, Cluster: v.Cluster, Account: assoc.Account, User: assoc.User, Partition: assoc.Partition, Raw: assoc.Raw}, a.version)
 			if err != nil {
 				return v, err
 			}

@@ -5,7 +5,7 @@
       "endpoint": "unix:///run/slurm-console-rest/rest.sock",
       "authType": "local",
       "localUser": "root",
-      "apiVersions": ["v0.0.43"]
+      "apiVersions": ["v0.0.44", "v0.0.43", "v0.0.42", "v0.0.41", "v0.0.40"]
     },
     "remote-slurm": {
       "label": "远程 Slurm（配置后再启用）",
@@ -14,7 +14,7 @@
       "username": "slurm-console",
       "tokenFile": "/etc/slurm-console/secrets/remote-slurm.jwt",
       "caFile": "/etc/slurm-console/tls/slurm-ca.pem",
-      "apiVersions": ["v0.0.43"]
+      "apiVersions": ["v0.0.44", "v0.0.43", "v0.0.42", "v0.0.41", "v0.0.40"]
     }
   }
 }

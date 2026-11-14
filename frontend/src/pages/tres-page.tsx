@@ -437,7 +437,11 @@ export function TRESPage() {
                       {Object.entries(buckets)
                         .filter(([, v]) => v[kind])
                         .map(([key, v]) => (
-                          <SelectItem key={key} value={key}>
+                          <SelectItem
+                            key={key}
+                            value={key}
+                            disabled={target.unsupportedBuckets?.includes(key)}
+                          >
                             {v.label}
                           </SelectItem>
                         ))}
@@ -446,6 +450,11 @@ export function TRESPage() {
                   <p className="text-xs text-muted-foreground">
                     {buckets[bucket].description}
                   </p>
+                  {target.unsupportedBuckets?.includes(bucket) && (
+                    <p className="text-xs text-muted-foreground">
+                      当前 slurmrestd API 版本未开放此限额类型。
+                    </p>
+                  )}
                 </div>
                 <Table aria-label="本层资源限额">
                   <TableHeader>
@@ -476,7 +485,9 @@ export function TRESPage() {
                           colSpan={3}
                           className="h-24 text-center text-muted-foreground"
                         >
-                          本层未设置此类限额，按 Slurm 规则继承。
+                          {target.unsupportedBuckets?.includes(bucket)
+                            ? "当前 API 版本不支持查询此类限额。"
+                            : "本层未设置此类限额，按 Slurm 规则继承。"}
                         </TableCell>
                       </TableRow>
                     )}

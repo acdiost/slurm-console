@@ -55,6 +55,7 @@ export const states: Record<string, string> = {
 const meta = { fetchedAt: z.string(), cached: z.boolean() }
 export const pageSchema = z.object({
   items: z.array(reservationSchema),
+  supportsWrite: z.boolean().optional(),
   page: z.number(),
   perPage: z.number(),
   totalItems: z.number(),

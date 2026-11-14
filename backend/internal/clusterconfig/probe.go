@@ -2,9 +2,9 @@ package clusterconfig
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
+	"slurm-console/backend/internal/slurm/adapter"
 	"slurm-console/backend/internal/slurm/client"
 )
 
@@ -41,32 +41,19 @@ func Probe(ctx context.Context, profile Profile, version string, timeout time.Du
 	if err != nil {
 		return finish(client.Code(err), err.Error())
 	}
-	envelope, err := connection.Read(ctx, client.Ping, "")
+	adapted, err := adapter.New(connection, version)
 	if err != nil {
 		return finish(client.Code(err), err.Error())
 	}
-	var body struct {
-		Pings []struct {
-			Hostname string `json:"hostname"`
-			Pinged   string `json:"pinged"`
-			Mode     string `json:"mode"`
-		} `json:"pings"`
+	health, err := adapted.Health(ctx)
+	if err != nil {
+		return finish(client.Code(err), err.Error())
 	}
-	if json.Unmarshal(envelope.Pings, &body.Pings) != nil || len(body.Pings) == 0 || len(body.Pings) > 16 {
-		return finish("invalid_response", "目标服务未返回有效的 Slurm 控制器检测结果。")
+	result.ServerVersion = health.ServerVersion
+	for _, ping := range health.Controllers {
+		result.Controllers = append(result.Controllers, Controller{Hostname: ping.Hostname, State: ping.State, Role: ping.Role})
 	}
-	result.ServerVersion = envelope.Meta.Slurm.Release
-	up := false
-	for _, ping := range body.Pings {
-		if ping.Hostname == "" || len(ping.Hostname) > 255 || len(ping.Mode) > 32 || (ping.Pinged != "UP" && ping.Pinged != "DOWN") {
-			return finish("invalid_response", "控制器响应字段不合法。")
-		}
-		result.Controllers = append(result.Controllers, Controller{Hostname: ping.Hostname, State: ping.Pinged, Role: ping.Mode})
-		if ping.Pinged == "UP" {
-			up = true
-		}
-	}
-	if !up {
+	if health.Status != "connected" {
 		return finish("controller_down", "REST 服务已响应，但 Slurm 控制器不可达。")
 	}
 	return finish("connected", "连接成功，Slurm 控制器已响应。")

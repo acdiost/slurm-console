@@ -8,6 +8,12 @@ export const profileSchema = z.object({
   apiVersions: z.array(z.string()),
 })
 export type ConnectionProfile = z.infer<typeof profileSchema>
+export const versionDiscoverySchema = z
+  .object({
+    versions: z.array(z.string()).min(1),
+    recommended: z.string(),
+  })
+  .refine((v) => v.versions.includes(v.recommended))
 export const configurationSchema = z.object({
   id: z.string(),
   name: z.string(),

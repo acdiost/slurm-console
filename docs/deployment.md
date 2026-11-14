@@ -17,6 +17,8 @@ sudo ./slurm-console install
 
 终端向导依次设置平台名称、管理员邮箱/名称/密码，可选配置一个 Slurm 连接（本地 socket，或 HTTPS/JWT）。直接回车使用已有值；首次安装使用显示的默认值。首次密码留空时生成随机密码，仅在当前终端显示；已有密码或 JWT 留空时保持不变。密码及 JWT 输入不回显、不进入命令参数或审计；非敏感可选项可输入 `-` 清空。默认监听 `127.0.0.1:18090`，HTTPS 反向代理继续由管理员配置。
 
+Slurm API 支持 `v0.0.40`–`v0.0.44`。版本输入 `auto` 可通过认证后的 OpenAPI 文档选择最高可用且被批准的版本；手动输入可省略 `v`，例如 `0.0.40`。留空保留已有版本，新连接默认 `v0.0.43`。选择结果固定保存，不在业务请求失败后自动切换。版本功能差异及白名单配置见[集群连接配置](cluster-connections.md)。
+
 后续重复运行同一命令即可升级并重新引导，或执行：
 
 ```sh
@@ -75,7 +77,7 @@ sudo bash deploy/install.sh --pam
 
 ## 外部组件要求
 
-- **Slurm REST**：管理员提供与集群兼容、启用 `openapi/slurmctld` 和 `data_parser/v0.0.43` 的 slurmrestd。Unix socket 连接需要接受 root 客户端，并允许该身份读取 ping、jobs、nodes、partitions；HTTPS/JWT 使用受保护配置中的固定身份及校验过的证书。作业取消还要求连接身份具备目标作业的 Slurm 取消权限，并完成[平台身份关联](jobs.md)。节点控制需要 Slurm 节点更新权限，见[节点管理](nodes.md)。安装器不授予上游权限或修改外部服务身份，`PrivateData` 等设置仍决定可见范围。
+- **Slurm REST**：管理员提供与集群兼容、启用 `openapi/slurmctld` 和对应 `data_parser/v0.0.40`–`v0.0.44` 插件 的 slurmrestd。Unix socket 连接需要接受 root 客户端，并允许该身份读取 ping、jobs、nodes、partitions；HTTPS/JWT 使用受保护配置中的固定身份及校验过的证书。作业取消还要求连接身份具备目标作业的 Slurm 取消权限，并完成[平台身份关联](jobs.md)。节点控制需要 Slurm 节点更新权限，见[节点管理](nodes.md)。安装器不授予上游权限或修改外部服务身份，`PrivateData` 等设置仍决定可见范围。
 - **LDAP/FreeIPA/AD**：可选。管理员提供 LDAPS 或强制 StartTLS、受信任 CA、专用只读查询身份、用户子树、唯一身份属性及反映禁用/锁定/准入规则的过滤器。本项目不管理目录服务、证书签发、系统域加入或目录用户生命周期。FreeIPA 现支持独立认证、用户/组管理及直接成员角色映射，见 [FreeIPA 接入](freeipa.md)；AD 专属组同步尚未实现。
 - **PAM**：本机系统身份来源和共享 PAM 策略由管理员维护。本项目只设置独立 `slurm-console` PAM service，root 服务直接运行专用 helper，无需 sudo 规则。
 

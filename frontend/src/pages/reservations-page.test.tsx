@@ -88,7 +88,7 @@ function show(url = "/reservations?cluster=alpha") {
     </QueryClientProvider>
   )
 }
-function mock(unknown = false) {
+function mock(unknown = false, supportsWrite = true) {
   let spec: unknown = {
       ...emptySpec,
       reservation: {
@@ -139,6 +139,7 @@ function mock(unknown = false) {
       if (path.includes("/reservations/")) return { item: target, ...meta } as T
       return {
         items: [target],
+        supportsWrite,
         page: 1,
         perPage: 20,
         totalItems: 25,
@@ -147,6 +148,19 @@ function mock(unknown = false) {
     }
   )
 }
+it("旧版本展示只读提示并禁止新建预留", async () => {
+  mock(false, false)
+  show()
+  expect(
+    await screen.findByText(/当前 slurmrestd API 版本仅支持查询预留/)
+  ).toBeVisible()
+  expect(screen.getByRole("button", { name: "新建预留" })).toBeDisabled()
+  expect(
+    vi
+      .mocked(api)
+      .mock.calls.some(([path]) => path.includes("/reservation-controls/"))
+  ).toBe(false)
+})
 it("只读角色查看访问范围，隐藏写入口", async () => {
   role(false)
   mock()

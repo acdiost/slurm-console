@@ -413,6 +413,9 @@ func (s *Service) Prepare(ctx context.Context, actor, cluster, action string, v 
 	if err != nil {
 		return result, err
 	}
+	if err := c.Client.CheckMutationVersion(mutation(action, "validation", v)); err != nil {
+		return result, err
+	}
 	snapshot, err := readSnapshot(ctx, c.Adapter, action)
 	if err != nil {
 		return result, err

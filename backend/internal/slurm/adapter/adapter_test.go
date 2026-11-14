@@ -67,7 +67,7 @@ func TestAdapterPreservesFlagsAndDropsUnselectedSensitiveFields(t *testing.T) {
 	if normalized[0]["script"] != nil || normalized[0]["environment"] != nil {
 		t.Fatal("sensitive wire fields escaped DTO boundary")
 	}
-	if _, err := New(fixtureReader{}, "v0.0.44"); client.Code(err) != "api_unsupported" {
+	if _, err := New(fixtureReader{}, "v0.0.39"); client.Code(err) != "api_unsupported" {
 		t.Fatal("unverified adapter version accepted")
 	}
 }

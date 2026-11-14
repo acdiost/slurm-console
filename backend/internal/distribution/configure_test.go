@@ -3,7 +3,11 @@ package distribution
 import (
 	"bufio"
 	"bytes"
+	"encoding/pem"
+	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -137,6 +141,56 @@ func TestConfigureJWTStoredPrivatelyWithoutEchoAndBlankPreservesIt(t *testing.T)
 	data, _ = os.ReadFile(path)
 	if string(data) != jwt {
 		t.Fatal("blank JWT overwrote existing credential")
+	}
+}
+
+func TestConfigureAutoDiscoversLegacyVersionUsingNewPrivateJWT(t *testing.T) {
+	app, dir := wizardApp(t), t.TempDir()
+	const jwt = "fixture.new.jwt"
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/openapi/v3" || r.Header.Get("X-SLURM-USER-TOKEN") != jwt || r.Header.Get("X-SLURM-USER-NAME") != "slurm" {
+			t.Error("discovery did not use configured identity", r.URL.Path)
+			w.WriteHeader(403)
+			return
+		}
+		fmt.Fprint(w, `{"openapi":"3.0.2","paths":{`)
+		for i, resource := range []string{"ping", "jobs", "nodes", "partitions"} {
+			if i > 0 {
+				fmt.Fprint(w, ",")
+			}
+			fmt.Fprintf(w, `"/slurm/v0.0.40/%s/":{"get":{}}`, resource)
+		}
+		fmt.Fprint(w, `}}`)
+	}))
+	t.Cleanup(server.Close)
+	caPath := filepath.Join(dir, "test-ca.pem")
+	if err := os.WriteFile(caPath, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}), 0600); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runWizard(app, dir, "", "", "", "", "y", "", "", server.URL, "auto", "slurm", caPath, jwt, "")
+	if err != nil || !strings.Contains(out, "本次选择 v0.0.40") || strings.Contains(out, jwt) {
+		t.Fatal("auto version selection failed or leaked JWT", err)
+	}
+	clusters, err := app.FindAllRecords("clusters")
+	if err != nil || len(clusters) != 1 || clusters[0].GetString("api_version") != "v0.0.40" {
+		t.Fatal("detected version not persisted", err)
+	}
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		if strings.HasPrefix(f.Name(), ".discover-token-") {
+			t.Fatal("temporary discovery credential was retained")
+		}
+	}
+	// A blank version on rerun preserves the detected selection, without discovery.
+	if _, err := runWizard(app, dir, "", "", "", "", "y", "", "", "", "", "", "", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	current, _ := app.FindRecordById("clusters", clusters[0].Id)
+	if current.GetString("api_version") != "v0.0.40" {
+		t.Fatal("rerun changed the selected version")
 	}
 }
 

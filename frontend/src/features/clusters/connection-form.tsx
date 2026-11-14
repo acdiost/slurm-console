@@ -1,9 +1,11 @@
 import { useForm, useWatch } from "react-hook-form"
+import { useEffect, useRef, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { LoaderCircle, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { api } from "@/services/api"
 import {
   Select,
   SelectContent,
@@ -13,6 +15,7 @@ import {
 } from "@/components/ui/select"
 import {
   connectionFormSchema,
+  versionDiscoverySchema,
   type ClusterConfiguration,
   type ConnectionProfile,
   type ConnectionValues,
@@ -39,6 +42,7 @@ export function ConnectionForm({
     register,
     control,
     setValue,
+    getValues,
     handleSubmit,
     formState: { errors },
   } = useForm<ConnectionValues>({
@@ -56,6 +60,59 @@ export function ConnectionForm({
   })
   const values = useWatch({ control })
   const profile = profiles.find((item) => item.ref === values.connectionRef)
+  const [discovery, setDiscovery] = useState<{
+    ref: string
+    versions: string[]
+  } | null>(null)
+  const [discovering, setDiscovering] = useState(false)
+  const [discoveryError, setDiscoveryError] = useState("")
+  const discoveryRequest = useRef<AbortController | null>(null)
+  useEffect(() => {
+    return () => {
+      discoveryRequest.current?.abort()
+      discoveryRequest.current = null
+    }
+  }, [])
+  const discoverVersions = async () => {
+    if (!profile) return
+    discoveryRequest.current?.abort()
+    const controller = new AbortController()
+    discoveryRequest.current = controller
+    const ref = profile.ref
+    setDiscovering(true)
+    setDiscoveryError("")
+    try {
+      const result = versionDiscoverySchema.parse(
+        await api(
+          `/cluster-connection-profiles/${encodeURIComponent(ref)}/versions`,
+          { signal: controller.signal }
+        )
+      )
+      if (
+        discoveryRequest.current !== controller ||
+        getValues("connectionRef") !== ref
+      )
+        return
+      setDiscovery({ ref, versions: result.versions })
+      if (!result.versions.includes(getValues("apiVersion")))
+        setValue("apiVersion", result.recommended, { shouldValidate: true })
+    } catch {
+      if (
+        discoveryRequest.current === controller &&
+        !controller.signal.aborted &&
+        getValues("connectionRef") === ref
+      )
+        setDiscoveryError(
+          "版本检测失败，请核对 slurmrestd 连接，或手动选择版本。"
+        )
+    } finally {
+      if (discoveryRequest.current === controller) setDiscovering(false)
+    }
+  }
+  const versions =
+    discovery && discovery.ref === profile?.ref
+      ? discovery.versions
+      : profile?.apiVersions
   const fieldError = (name: keyof ConnectionValues) =>
     errors[name] && (
       <p
@@ -115,6 +172,11 @@ export function ConnectionForm({
           <Select
             value={values.connectionRef}
             onValueChange={(ref) => {
+              discoveryRequest.current?.abort()
+              discoveryRequest.current = null
+              setDiscovering(false)
+              setDiscoveryError("")
+              setDiscovery(null)
               setValue("connectionRef", ref, { shouldValidate: true })
               setValue(
                 "apiVersion",
@@ -152,6 +214,28 @@ export function ConnectionForm({
             </div>
           )}
         </div>
+        <div className="space-y-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={discovering || !profile}
+            onClick={() => void discoverVersions()}
+          >
+            {discovering && <LoaderCircle className="animate-spin" />}
+            {discovering ? "正在检测版本…" : "检测可用 API 版本"}
+          </Button>
+          {discovery && discovery.ref === profile?.ref && (
+            <p role="status" className="text-2xs text-muted-foreground">
+              slurmrestd 可用版本：{discovery.versions.join("、")}
+            </p>
+          )}
+          {discoveryError && (
+            <p role="alert" className="text-2xs text-destructive">
+              {discoveryError}
+            </p>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="cluster-apiVersion">REST API 版本</Label>
@@ -169,7 +253,7 @@ export function ConnectionForm({
                 <SelectValue placeholder="选择 API 版本" />
               </SelectTrigger>
               <SelectContent>
-                {profile?.apiVersions.map((version) => (
+                {versions?.map((version) => (
                   <SelectItem key={version} value={version}>
                     {version}
                   </SelectItem>

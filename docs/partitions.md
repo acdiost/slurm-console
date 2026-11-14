@@ -23,7 +23,7 @@
 
 分区 DRAIN 与节点 DRAIN 分别说明。数值保留显式零、未设置和无限三种状态。仅内存限制的显式零按 Slurm 语义显示不限；其他约束的零不会统一转换为无限。默认时限未设置时，Slurm 使用最长时限。读取 `partition_memory_per_cpu/node` 规范字段，不直接解释带标志位的原始 `memory_per_cpu`。
 
-空 ACL 显示“未显式指定”，由 Slurm 的默认规则决定准入，不推断平台已授予提交资格。当前 v0.0.43 分区响应未提供可靠的默认分区标记，页面不推断该标记。
+空 ACL 显示“未显式指定”，由 Slurm 的默认规则决定准入，不推断平台已授予提交资格。当前受支持的分区响应未提供可靠的默认分区标记，页面不推断该标记。
 
 ## API
 
@@ -36,7 +36,7 @@
 
 名称按列表精确匹配，不存在或不可见返回 404。resources 的 status 为 ok/forbidden/error；失败及缺权时 item=null。ok 的 item 包含 summary、configuredNodes、complete。最长时限排序中无限大于有限值，未知始终排在末尾。同值按名称稳定排序。
 
-语义依据 [SchedMD scontrol](https://slurm.schedmd.com/scontrol.html)，字段以部署环境的 v0.0.43 OpenAPI 为准。应用不修改 Slurm 分区、角色或外部服务配置。
+语义依据 [SchedMD scontrol](https://slurm.schedmd.com/scontrol.html)，字段以部署环境的所选版本 OpenAPI（`v0.0.40`–`v0.0.44`） 为准。应用不修改 Slurm 分区、角色或外部服务配置。
 
 ## 验证记录
 

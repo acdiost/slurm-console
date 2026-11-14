@@ -19,7 +19,7 @@
 
 打开确认框会直接读取最新节点，绕过查询缓存。用户输入完整节点名及 2–300 字单行原因；确认有效 2 分钟，绑定平台用户、集群、动作、节点身份/启动信息、状态、状态原因、已分配资源、维护信息及配置版本。状态/原因变化、权限撤销或配置更新后必须重新校验。
 
-执行前再次核对权限和配置，先把操作意图持久化至 `operation_audits`，再向 `POST /slurm/v0.0.43/node/{node_name}` 发送一次固定更新。审计不可写则不发送请求。控制前后会使节点列表、详情和总览来源缓存失效，进行中的旧快照被丢弃。
+执行前再次核对权限和配置，先把操作意图持久化至 `operation_audits`，再向 `POST /slurm/{apiVersion}/node/{node_name}` 发送一次固定更新。审计不可写则不发送请求。控制前后会使节点列表、详情和总览来源缓存失效，进行中的旧快照被丢弃。
 
 ## 批量与结果
 
@@ -51,6 +51,6 @@
 
 节点与作业操作复用锁定原生读写的审计 Collection，各自接口按动作类型隔离，不能借另一资源的读取权限查询审计。审计包含平台操作人、目标节点、动作、原因、请求编号、配置版本、已观察状态和时间。平台审计检索和历史快照见 [操作审计](audits.md)，独立备份与留存由管理员配置。
 
-上游语义及权限依据 [SchedMD scontrol](https://slurm.schedmd.com/scontrol.html)，字段以部署环境提供的 `v0.0.43` OpenAPI 为准，见 [REST 客户端指南](https://slurm.schedmd.com/rest_clients.html)。
+上游语义及权限依据 [SchedMD scontrol](https://slurm.schedmd.com/scontrol.html)，字段以部署环境提供的所选版本 OpenAPI（`v0.0.40`–`v0.0.44`） 为准，见 [REST 客户端指南](https://slurm.schedmd.com/rest_clients.html)。
 
 服务端批量协议、上下文期限及重启后的只读恢复见 [批量操作](bulk-operations.md)。

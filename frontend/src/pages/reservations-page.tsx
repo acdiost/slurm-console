@@ -197,7 +197,10 @@ export function ReservationsPage() {
           </Button>
           {cid &&
             has("reservations.read", "reservations.create", "nodes.read") && (
-              <Button onClick={() => setEditing("reservation_create")}>
+              <Button
+                disabled={list.data?.supportsWrite === false}
+                onClick={() => setEditing("reservation_create")}
+              >
                 <Plus className="size-4" />
                 新建预留
               </Button>
@@ -214,6 +217,12 @@ export function ReservationsPage() {
       />
       {cid && (
         <>
+          {list.data?.supportsWrite === false && (
+            <p className="rounded-lg border p-3 text-sm text-muted-foreground">
+              当前 slurmrestd API 版本仅支持查询预留；新建、调整和删除需要
+              v0.0.43 或 v0.0.44。
+            </p>
+          )}
           <p className="rounded-lg border bg-card p-3 text-sm text-muted-foreground">
             预留会影响可调度资源。支持明确节点的新建、尚未开始预留的结束时间调整，以及经作业检查的删除；周期、动态资源和其他高级策略保留查询，由管理员维护。
           </p>

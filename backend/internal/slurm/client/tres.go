@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 	"slices"
+	"slurm-console/backend/internal/slurm/protocol"
 	"strconv"
 	"strings"
 )
@@ -151,6 +152,9 @@ func validTRESMutation(m AccountingMutation) bool {
 }
 func tresWrite(version string, m AccountingMutation) (string, string, []byte, bool) {
 	if !m.Valid() || m.TRES == nil || len(m.TRESEntries) == 0 {
+		return "", "", nil, false
+	}
+	if m.TRES.Kind == "qos" && m.TRES.Bucket == "group_minutes" && !protocol.QOSGroupMinutes(version) {
 		return "", "", nil, false
 	}
 	s := m.TRES

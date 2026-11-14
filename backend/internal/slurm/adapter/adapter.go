@@ -1,4 +1,4 @@
-// Package adapter normalizes the explicitly supported Slurm v0.0.43 wire contract.
+// Package adapter normalizes reviewed slurmrestd v0.0.40–v0.0.44 contracts.
 package adapter
 
 import (
@@ -11,20 +11,25 @@ import (
 
 	"slurm-console/backend/internal/slurm/client"
 	"slurm-console/backend/internal/slurm/models"
+	"slurm-console/backend/internal/slurm/protocol"
 )
 
-const Version = "v0.0.43"
+const Version = protocol.DefaultVersion
 
 type Reader interface {
 	Read(context.Context, client.Resource, string) (client.Envelope, error)
 }
-type Adapter struct{ reader Reader }
+type Adapter struct {
+	reader  Reader
+	version string
+}
 
 func New(reader Reader, version string) (*Adapter, error) {
-	if version != Version {
-		return nil, client.Failure("api_unsupported", "Adapter 当前只支持已验证的 v0.0.43，请调整连接版本。")
+	canonical, ok := protocol.Normalize(version)
+	if !ok {
+		return nil, client.Failure("api_unsupported", "支持的 Slurm REST API 版本为 v0.0.40–v0.0.44。")
 	}
-	return &Adapter{reader}, nil
+	return &Adapter{reader: reader, version: canonical}, nil
 }
 func invalid() error {
 	return client.Failure("invalid_response", "Slurm 返回的数据不符合已支持的 API 契约。")
@@ -95,15 +100,33 @@ func (a *Adapter) Health(ctx context.Context) (models.Health, error) {
 		return models.Health{}, err
 	}
 	pings, err := decode[struct {
-		Hostname string `json:"hostname"`
-		Pinged   string `json:"pinged"`
-		Mode     string `json:"mode"`
+		Hostname   string `json:"hostname"`
+		Pinged     string `json:"pinged"`
+		Mode       string `json:"mode"`
+		Responding *bool  `json:"responding"`
+		Primary    *bool  `json:"primary"`
 	}](envelope.Pings)
 	if err != nil || len(pings) == 0 || len(pings) > 16 {
 		return models.Health{}, invalid()
 	}
-	result := models.Health{Status: "controller_down", ServerVersion: envelope.Meta.Slurm.Release, APIVersion: Version, Cluster: envelope.Meta.Slurm.Cluster, Controllers: []models.Controller{}, Capabilities: []string{"jobs.read", "nodes.read", "partitions.read"}}
+	result := models.Health{Status: "controller_down", ServerVersion: envelope.Meta.Slurm.Release, APIVersion: a.version, Cluster: envelope.Meta.Slurm.Cluster, Controllers: []models.Controller{}, Capabilities: []string{"jobs.read", "nodes.read", "partitions.read"}}
 	for _, ping := range pings {
+		if ping.Responding != nil {
+			state := "DOWN"
+			if *ping.Responding {
+				state = "UP"
+			}
+			if ping.Pinged != "" && ping.Pinged != state {
+				return models.Health{}, invalid()
+			}
+			ping.Pinged = state
+		}
+		if ping.Mode == "" && ping.Primary != nil {
+			ping.Mode = "backup"
+			if *ping.Primary {
+				ping.Mode = "primary"
+			}
+		}
 		if ping.Hostname == "" || len(ping.Hostname) > 255 || (ping.Pinged != "UP" && ping.Pinged != "DOWN") || len(ping.Mode) > 32 {
 			return models.Health{}, invalid()
 		}

@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"slurm-console/backend/internal/slurm/protocol"
 	"strconv"
 	"strings"
 	"time"
@@ -72,8 +73,13 @@ func ValidJobID(id string) bool {
 }
 func ValidNodeName(name string) bool { return nodePattern.MatchString(name) }
 func New(config Config) (*Client, error) {
+	version, supported := protocol.Normalize(config.Version)
+	if !supported {
+		return nil, Failure("api_unsupported", "支持的 Slurm REST API 版本为 v0.0.40–v0.0.44。")
+	}
+	config.Version = version
 	u, err := url.Parse(config.Endpoint)
-	if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" || config.Timeout <= 0 || config.Timeout > 30*time.Second || !slices.Contains([]string{"v0.0.41", "v0.0.42", "v0.0.43", "v0.0.44"}, config.Version) {
+	if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" || config.Timeout <= 0 || config.Timeout > 30*time.Second {
 		return nil, Failure("api_unsupported", "Slurm REST 连接或版本配置不受支持。")
 	}
 	if u.Scheme == "unix" {
@@ -202,6 +208,94 @@ func (c *Client) request(ctx context.Context, method, path string, bodyData []by
 	if strings.HasPrefix(c.config.Endpoint, "unix:") && os.Geteuid() == 0 && c.config.LocalUsername != "" {
 		return c.localRequest(ctx, method, path, bodyData, sent)
 	}
+	return c.exchange(ctx, method, path, bodyData, sent, func(ctx context.Context, response *http.Response) (Envelope, error) {
+		switch response.StatusCode {
+		case 200:
+		case 500:
+			if sent == nil {
+				return empty, Failure("unreachable", "Slurm REST 服务未正常响应。")
+			}
+		case 401, 403:
+			if sent != nil {
+				*sent = false
+			}
+			return empty, Failure("auth_failed", "Slurm REST 拒绝该连接身份。")
+		case 404:
+			if sent != nil {
+				*sent = false
+			}
+			if strings.HasPrefix(path, "/slurmdb/") {
+				return empty, Failure("accounting_unavailable", "连接未开放 slurmdbd 记账接口，请管理员配置对应 REST 插件。")
+			}
+			if strings.Contains(path, "/job/") || strings.Contains(path, "/node/") {
+				return empty, Failure("not_found", "Slurm 资源不存在或对连接身份不可见。")
+			}
+			return empty, Failure("api_unsupported", "Slurm REST 不支持该版本或查询。")
+		default:
+			return empty, Failure("unreachable", "Slurm REST 服务未正常响应。")
+		}
+		body, err := io.ReadAll(io.LimitReader(response.Body, (8<<20)+1))
+		if ctx.Err() != nil {
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return empty, context.Canceled
+			}
+			return empty, Failure("timeout", "Slurm 请求超时。")
+		}
+		if err != nil || len(body) > 8<<20 || json.Unmarshal(body, &empty) != nil {
+			return Envelope{}, Failure("invalid_response", "Slurm 响应格式异常或超过大小限制。")
+		}
+		if strings.HasPrefix(path, "/slurmdb/") && empty.Meta.Plugin.Type != "openapi/slurmdbd" {
+			return Envelope{}, Failure("invalid_response", "记账响应来源不是已批准的 slurmdbd 插件。")
+		}
+		if strings.Contains(path, "/jobs/?") && strings.HasPrefix(path, "/slurmdb/") && !validHistoryWarnings(empty) {
+			return Envelope{}, Failure("invalid_response", "记账来源返回不完整警告，请缩小范围或核对服务。")
+		}
+		if len(empty.Errors) > 0 {
+			// Stable Slurm authorization errors are explicit rejections, even when
+			// REST reports them with HTTP 500. Never expose the upstream text.
+			if sent != nil && strings.TrimPrefix(empty.Meta.Plugin.Parser, "data_parser/") == c.config.Version && empty.Meta.Slurm.Release != "" && len(empty.Meta.Slurm.Release) <= 64 {
+				denied := true
+				ambiguous := strings.HasPrefix(path, "/slurmdb/") && method == http.MethodDelete
+				for _, raw := range empty.Errors {
+					var item struct {
+						Number int `json:"error_number"`
+					}
+					if json.Unmarshal(raw, &item) != nil || item.Number != 9210 {
+						ambiguous = false
+					}
+					if json.Unmarshal(raw, &item) != nil || (item.Number != 2002 && item.Number != 2010) {
+						denied = false
+					}
+				}
+				if ambiguous {
+					// ESLURM_DATA_AMBIGUOUS_MODIFY: Slurm refuses to commit the
+					// singular endpoint when removal would affect several rows.
+					*sent = false
+					return Envelope{}, Failure("operation_rejected", "Slurm 拒绝了多目标记账变更，未提交删除。请先核对并移除分区子关联。")
+				}
+				if denied {
+					*sent = false
+					return Envelope{}, Failure("auth_failed", "Slurm 拒绝固定连接身份，请管理员核实上游身份及动作授权。")
+				}
+			}
+			return Envelope{}, Failure("upstream_error", "Slurm 未完成查询，请检查上游权限与服务状态。")
+		}
+		if response.StatusCode != 200 {
+			return Envelope{}, Failure("unreachable", "Slurm REST 服务未正常响应。")
+		}
+		if strings.TrimPrefix(empty.Meta.Plugin.Parser, "data_parser/") != c.config.Version {
+			return Envelope{}, Failure("api_unsupported", "Slurm 响应 API 版本与配置不一致。")
+		}
+		if empty.Meta.Slurm.Release == "" || len(empty.Meta.Slurm.Release) > 64 {
+			return Envelope{}, Failure("invalid_response", "Slurm 未返回有效版本元数据。")
+		}
+		return empty, nil
+	})
+}
+
+// exchange keeps the request deadline active until the response consumer finishes.
+func (c *Client) exchange(ctx context.Context, method, path string, bodyData []byte, sent *bool, consume func(context.Context, *http.Response) (Envelope, error)) (Envelope, error) {
+	var empty Envelope
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
 	dialer := &net.Dialer{Timeout: c.config.Timeout}
@@ -255,88 +349,9 @@ func (c *Client) request(ctx context.Context, method, path string, bodyData []by
 		return empty, Failure("unreachable", "无法连接 Slurm REST 服务。")
 	}
 	defer response.Body.Close()
-	switch response.StatusCode {
-	case 200:
-	case 500:
-		if sent == nil {
-			return empty, Failure("unreachable", "Slurm REST 服务未正常响应。")
-		}
-	case 401, 403:
-		if sent != nil {
-			*sent = false
-		}
-		return empty, Failure("auth_failed", "Slurm REST 拒绝该连接身份。")
-	case 404:
-		if sent != nil {
-			*sent = false
-		}
-		if strings.HasPrefix(path, "/slurmdb/") {
-			return empty, Failure("accounting_unavailable", "连接未开放 slurmdbd 记账接口，请管理员配置对应 REST 插件。")
-		}
-		if strings.Contains(path, "/job/") || strings.Contains(path, "/node/") {
-			return empty, Failure("not_found", "Slurm 资源不存在或对连接身份不可见。")
-		}
-		return empty, Failure("api_unsupported", "Slurm REST 不支持该版本或查询。")
-	default:
-		return empty, Failure("unreachable", "Slurm REST 服务未正常响应。")
-	}
-	body, err := io.ReadAll(io.LimitReader(response.Body, (8<<20)+1))
-	if ctx.Err() != nil {
-		if errors.Is(ctx.Err(), context.Canceled) {
-			return empty, context.Canceled
-		}
-		return empty, Failure("timeout", "Slurm 请求超时。")
-	}
-	if err != nil || len(body) > 8<<20 || json.Unmarshal(body, &empty) != nil {
-		return Envelope{}, Failure("invalid_response", "Slurm 响应格式异常或超过大小限制。")
-	}
-	if strings.HasPrefix(path, "/slurmdb/") && empty.Meta.Plugin.Type != "openapi/slurmdbd" {
-		return Envelope{}, Failure("invalid_response", "记账响应来源不是已批准的 slurmdbd 插件。")
-	}
-	if strings.Contains(path, "/jobs/?") && strings.HasPrefix(path, "/slurmdb/") && !validHistoryWarnings(empty) {
-		return Envelope{}, Failure("invalid_response", "记账来源返回不完整警告，请缩小范围或核对服务。")
-	}
-	if len(empty.Errors) > 0 {
-		// Stable Slurm authorization errors are explicit rejections, even when
-		// REST reports them with HTTP 500. Never expose the upstream text.
-		if sent != nil && strings.TrimPrefix(empty.Meta.Plugin.Parser, "data_parser/") == c.config.Version && empty.Meta.Slurm.Release != "" && len(empty.Meta.Slurm.Release) <= 64 {
-			denied := true
-			ambiguous := strings.HasPrefix(path, "/slurmdb/") && method == http.MethodDelete
-			for _, raw := range empty.Errors {
-				var item struct {
-					Number int `json:"error_number"`
-				}
-				if json.Unmarshal(raw, &item) != nil || item.Number != 9210 {
-					ambiguous = false
-				}
-				if json.Unmarshal(raw, &item) != nil || (item.Number != 2002 && item.Number != 2010) {
-					denied = false
-				}
-			}
-			if ambiguous {
-				// ESLURM_DATA_AMBIGUOUS_MODIFY: Slurm refuses to commit the
-				// singular endpoint when removal would affect several rows.
-				*sent = false
-				return Envelope{}, Failure("operation_rejected", "Slurm 拒绝了多目标记账变更，未提交删除。请先核对并移除分区子关联。")
-			}
-			if denied {
-				*sent = false
-				return Envelope{}, Failure("auth_failed", "Slurm 拒绝固定连接身份，请管理员核实上游身份及动作授权。")
-			}
-		}
-		return Envelope{}, Failure("upstream_error", "Slurm 未完成查询，请检查上游权限与服务状态。")
-	}
-	if response.StatusCode != 200 {
-		return Envelope{}, Failure("unreachable", "Slurm REST 服务未正常响应。")
-	}
-	if strings.TrimPrefix(empty.Meta.Plugin.Parser, "data_parser/") != c.config.Version {
-		return Envelope{}, Failure("api_unsupported", "Slurm 响应 API 版本与配置不一致。")
-	}
-	if empty.Meta.Slurm.Release == "" || len(empty.Meta.Slurm.Release) > 64 {
-		return Envelope{}, Failure("invalid_response", "Slurm 未返回有效版本元数据。")
-	}
-	return empty, nil
+	return consume(ctx, response)
 }
+
 func readToken(path string) (string, error) {
 	failure := Failure("credentials_unavailable", "服务端 Slurm 凭据不可用。")
 	before, err := os.Lstat(path)

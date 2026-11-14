@@ -9,6 +9,7 @@ import (
 	"slices"
 	"slurm-console/backend/internal/slurm/client"
 	"slurm-console/backend/internal/slurm/models"
+	"slurm-console/backend/internal/slurm/protocol"
 	"strconv"
 	"strings"
 )
@@ -151,7 +152,7 @@ func (a *Adapter) GetReservations(ctx context.Context) ([]models.Reservation, er
 		if v.Flags == nil {
 			v.Flags = []string{}
 		}
-		editable := len(v.CoreSpecializations) == 0 && v.MaxStartDelay == 0 && ok && len(names) > 0 && v.Groups == "" && v.Partition == "" && v.Features == "" && v.Licenses == "" && v.BurstBuffer == ""
+		editable := protocol.ReservationWrites(a.version) && len(v.CoreSpecializations) == 0 && v.MaxStartDelay == 0 && ok && len(names) > 0 && v.Groups == "" && v.Partition == "" && v.Features == "" && v.Licenses == "" && v.BurstBuffer == ""
 		for _, flag := range v.Flags {
 			if !slices.Contains([]string{"MAINT", "SPEC_NODES"}, flag) {
 				editable = false

@@ -1,7 +1,12 @@
-import { describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { act, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { ConnectionForm } from "./connection-form"
+import { api } from "@/services/api"
+vi.mock("@/services/api", () => ({ api: vi.fn() }))
+beforeEach(() => {
+  vi.mocked(api).mockReset()
+})
 import {
   connectionFormSchema,
   connectionStatus,
@@ -41,6 +46,86 @@ const configuration: ClusterConfiguration = {
 }
 
 describe("集群连接配置", () => {
+  it("切换连接后丢弃旧连接的检测响应", async () => {
+    let resolve!: (value: unknown) => void
+    vi.mocked(api).mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done
+        })
+    )
+    const user = userEvent.setup()
+    render(
+      <ConnectionForm
+        config={configuration}
+        profiles={[
+          ...profiles,
+          { ...profiles[0], ref: "other", label: "另一集群" },
+        ]}
+        saving={false}
+        error=""
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    )
+    await user.click(screen.getByRole("button", { name: "检测可用 API 版本" }))
+    await user.click(screen.getByLabelText("连接方式"))
+    await user.click(screen.getByRole("option", { name: /另一集群/ }))
+    await act(async () => {
+      resolve({ versions: ["v0.0.40"], recommended: "v0.0.40" })
+    })
+    expect(screen.getByLabelText("REST API 版本")).toHaveTextContent("v0.0.43")
+    expect(screen.queryByRole("status")).not.toBeInTheDocument()
+    expect(vi.mocked(api).mock.calls[0][1]?.signal?.aborted).toBe(true)
+  })
+  it("读取 slurmrestd 可用版本并为旧集群选择 v0.0.40", async () => {
+    vi.mocked(api).mockResolvedValue({
+      versions: ["v0.0.40"],
+      recommended: "v0.0.40",
+    })
+    const save = vi.fn(),
+      user = userEvent.setup()
+    render(
+      <ConnectionForm
+        config={configuration}
+        profiles={[{ ...profiles[0], apiVersions: ["v0.0.43", "v0.0.40"] }]}
+        saving={false}
+        error=""
+        onSave={save}
+        onCancel={vi.fn()}
+      />
+    )
+    await user.click(screen.getByRole("button", { name: "检测可用 API 版本" }))
+    expect(await screen.findByRole("status")).toHaveTextContent("v0.0.40")
+    expect(screen.getByLabelText("REST API 版本")).toHaveTextContent("v0.0.40")
+    await user.click(screen.getByRole("button", { name: "保存配置" }))
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ apiVersion: "v0.0.40", revision: 3 }),
+      expect.anything()
+    )
+    expect(api).toHaveBeenCalledWith(
+      "/cluster-connection-profiles/local/versions",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
+  })
+  it("版本检测失败时保留原版本并允许手动保存", async () => {
+    vi.mocked(api).mockRejectedValue(new Error("unavailable"))
+    const user = userEvent.setup()
+    render(
+      <ConnectionForm
+        config={configuration}
+        profiles={profiles}
+        saving={false}
+        error=""
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    )
+    await user.click(screen.getByRole("button", { name: "检测可用 API 版本" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("版本检测失败")
+    expect(screen.getByLabelText("REST API 版本")).toHaveTextContent("v0.0.43")
+    expect(screen.getByRole("button", { name: "保存配置" })).toBeEnabled()
+  })
   it("拒绝空名称，只提交配置引用和非敏感字段", async () => {
     const user = userEvent.setup()
     const save = vi.fn()

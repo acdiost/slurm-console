@@ -2,6 +2,7 @@ package distribution
 
 import (
 	"bufio"
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/json"
@@ -13,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -22,6 +24,7 @@ import (
 	"slurm-console/backend/internal/maintenance"
 	"slurm-console/backend/internal/platformsettings"
 	"slurm-console/backend/internal/rbac"
+	"slurm-console/backend/internal/slurm/protocol"
 )
 
 type prompts struct {
@@ -202,13 +205,16 @@ func configure(app core.App, configDir string, p *prompts) error {
 		}
 		profile, exists := registry.Profiles[ref]
 		if !exists {
-			profile = clusterconfig.Profile{Label: "默认集群", Endpoint: defaultSocket(), AuthType: "local", LocalUser: "root", Versions: []string{"v0.0.43"}}
+			profile = clusterconfig.Profile{Label: "默认集群", Endpoint: defaultSocket(), AuthType: "local", LocalUser: "root", Versions: protocol.Versions()}
 		}
 		existing, findErr := app.FindFirstRecordByFilter("clusters", "connection_ref = {:ref}", dbx.Params{"ref": ref})
 		if findErr != nil && !errors.Is(findErr, sql.ErrNoRows) {
 			return findErr
 		}
 		defaultVersion := profile.Versions[0]
+		if slices.Contains(profile.Versions, protocol.DefaultVersion) {
+			defaultVersion = protocol.DefaultVersion
+		}
 		if existing != nil {
 			profile.Label = existing.GetString("name")
 			defaultVersion = existing.GetString("api_version")
@@ -221,11 +227,11 @@ func configure(app core.App, configDir string, p *prompts) error {
 		if err != nil {
 			return err
 		}
-		version, err := p.read("Slurm API 版本", defaultVersion, false)
+		version, err := p.read("Slurm API 版本（输入 auto 检测可用版本）", defaultVersion, false)
 		if err != nil {
 			return err
 		}
-		if !slices.Contains(profile.Versions, version) {
+		if version != "auto" && !slices.Contains(profile.Versions, version) {
 			profile.Versions = append(profile.Versions, version)
 		}
 		if strings.HasPrefix(profile.Endpoint, "unix:") {
@@ -262,6 +268,14 @@ func configure(app core.App, configDir string, p *prompts) error {
 		registry, err = clusterconfig.NewRegistry(registry.Profiles)
 		if err != nil {
 			return fmt.Errorf("连接配置无效: %w", err)
+		}
+		if version == "auto" {
+			detected, err := discoverConfiguredProfile(registry.Profiles[ref], token, configDir)
+			if err != nil {
+				return fmt.Errorf("API 版本检测失败，请核对连接或手动指定版本: %w", err)
+			}
+			version = detected.Recommended
+			fmt.Fprintf(p.out, "slurmrestd 可用版本: %s；本次选择 %s。\n", strings.Join(detected.Versions, ", "), version)
 		}
 		in := clusterconfig.Input{Name: profile.Label, Slug: ref, ConnectionRef: ref, APIVersion: version, Enabled: true, TimeoutSeconds: 5}
 		if existing != nil {
@@ -345,6 +359,25 @@ func configure(app core.App, configDir string, p *prompts) error {
 	}
 	fmt.Fprintf(p.out, "配置完成，管理员: %s。未修改其他集成；连接可在登录后检测。\n", email)
 	return nil
+}
+
+func discoverConfiguredProfile(profile clusterconfig.Profile, token, configDir string) (clusterconfig.VersionDiscovery, error) {
+	if token != "" {
+		f, err := os.CreateTemp(configDir, ".discover-token-*")
+		if err != nil {
+			return clusterconfig.VersionDiscovery{}, err
+		}
+		defer os.Remove(f.Name())
+		if _, err = f.WriteString(token); err != nil {
+			f.Close()
+			return clusterconfig.VersionDiscovery{}, err
+		}
+		if err = f.Close(); err != nil {
+			return clusterconfig.VersionDiscovery{}, err
+		}
+		profile.TokenFile = f.Name()
+	}
+	return profile.Discover(context.Background(), 5*time.Second)
 }
 
 func defaultSocket() string {

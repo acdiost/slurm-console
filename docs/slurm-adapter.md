@@ -1,6 +1,6 @@
 # Slurm Adapter
 
-本阶段提供独立于 PocketBase 的只读 Slurm Client/Adapter、统一 DTO、带权限校验的集群 API，以及内存缓存和并发控制。业务查询明确支持 `data_parser/v0.0.43`；不自动猜测格式或降级。连接检测已有的 `v0.0.41`–`v0.0.44` 支持不代表业务 Adapter 已验证这些版本。
+提供独立于 PocketBase 的 Slurm Client/Adapter、统一 DTO、带权限校验的集群 API，以及内存缓存和并发控制。连接检测与业务统一支持 `data_parser/v0.0.40`–`v0.0.44`，通过 slurmrestd 的版本化接口通讯。版本目录及能力边界集中在 `internal/slurm/protocol`；每个集群固定版本，不自动降级或重试写入。版本发现及能力矩阵见[集群连接配置](cluster-connections.md)。
 
 ## 端点
 
@@ -38,7 +38,7 @@
 
 每次读取缓存前复查集群启用状态、当前版本和已批准连接方式；请求期间编辑或停用配置会丢弃旧结果。上游每次响应上限 8 MiB、列表最多 20000 项、超时 1–30 秒；不跟随重定向、不使用环境代理、不自动重试，不接收任意 URL、请求头或 Slurm 用户代理身份。当前 slurmrestd 列表不提供本项目所需的统一分页，因此有界读取上游后在 Go 中分页；超过容量明确失败，后续按集群规模扩展。
 
-所有查询使用部署管理员配置的固定受限 Slurm 身份，平台范围权限不提升该身份的 Slurm 权限。上游 `PrivateData` 等策略决定可见范围；[作业管理](jobs.md) 已增加受保护的显式身份映射、单作业取消及持久操作审计；[节点管理](nodes.md) 已接入受保护的 Drain/Resume，平台审计检索见 [操作审计](audits.md)。没有任意代理端点。记账数据仍由后续 slurmdb Adapter 扩展。
+所有查询使用部署管理员配置的固定 Slurm 身份，本地 socket 为 root；平台权限仍独立校验。上游 `PrivateData` 等策略决定可见范围；[作业管理](jobs.md) 提供受保护的显式身份映射、单作业取消及持久操作审计；[节点管理](nodes.md) 提供受保护的 Drain/Resume，平台审计检索见 [操作审计](audits.md)。没有任意代理端点。记账查询和管理通过同版本 `/slurmdb/{version}` 接口执行。
 
 slurmrestd、LDAP、FreeIPA 等外部服务由管理员负责；本项目只连接现有服务。版本选择依据 [Slurm REST 客户端指南](https://slurm.schedmd.com/rest_clients.html)，具体字段以管理员端点提供的版本化 OpenAPI 为准。
 
@@ -46,6 +46,8 @@ slurmrestd、LDAP、FreeIPA 等外部服务由管理员负责；本项目只连�
 
 节点查询补充系统/Slurmd 启动、状态原因设置时间与用户、备注、特征、预留等信息。平台节点 API 同时返回 CPU/内存/GPU 的调度资源口径，复用总览统计函数；控制确认使用最新原始标准 DTO。
 
-分区约束、状态语义、资源覆盖及权限边界见 [分区查询](partitions.md)。分区内存使用 v0.0.43 的显式 per CPU/per node 字段；未设置、无限和零分别保留。
+分区约束、状态语义、资源覆盖及权限边界见 [分区查询](partitions.md)。分区内存使用各受支持版本共有的显式 per CPU/per node 字段；未设置、无限和零分别保留。旧版本缺失的新字段保留未知值。控制器兼容旧 `pinged/mode` 与新 `responding/primary` 字段，拒绝矛盾状态。
+
+兼容性依据 SchedMD 官方带标签的 data_parser 和 REST 插件源码，而非仅放宽版本白名单。测试覆盖五个版本的核心 DTO、版本固定的读写请求、版本发现授权及旧版本写入拒绝；合成测试样例与源码依据见[契约说明](../backend/internal/slurm/CONTRACTS.md)。这些测试不等同于五套真实 Slurm 服务的完整端到端验收。
 
 [多集群工作台](multi-cluster.md) 复用同一来源缓存和全局并发上限。卡片按集群 ID 与配置版本隔离；多个逻辑连接可能指向同一控制器，因此工作台不将跨集群容量直接相加。

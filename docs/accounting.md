@@ -4,7 +4,7 @@
 
 ## 来源与集群边界
 
-固定对接 v0.0.43 的 `slurmdbd` OpenAPI 插件。连接需同时开放控制器 `slurmctld` 接口，以取得实际 Slurm 集群名；平台集群记录 ID/slug 不能代替记账库的 cluster 名称。服务端按该名称查询并再次过滤 Association，再关联全局 Account/User。其他集群记录不返回；不在所选集群的默认 Account 名称隐藏为 `outside_cluster`。
+按集群所选 `v0.0.40`–`v0.0.44` 版本对接 `slurmdbd` OpenAPI 插件。连接需同时开放控制器 `slurmctld` 接口，以取得实际 Slurm 集群名；平台集群记录 ID/slug 不能代替记账库的 cluster 名称。服务端按该名称查询并再次过滤 Association，再关联全局 Account/User。其他集群记录不返回；不在所选集群的默认 Account 名称隐藏为 `outside_cluster`。
 
 所有读取均经过动作授权，并在返回数据前复查活动身份及权限。缓存按平台集群与连接版本隔离，TTL 60 秒；成功写入会使所有配置集群的记账缓存及进行中的旧查询失效。列表最多接受上游 20000 条记录、8 MiB 响应，超限明确失败。
 
@@ -46,7 +46,7 @@ Slurm REST 不提供跨外部管理员的乐观并发事务；平台在发送前
 
 ## 部署前提
 
-Slurm、SlurmDBD、slurmrestd、数据库和相应认证均由系统管理员安装、配置。仓库不提供这些组件或服务模板。管理员为现有 REST 服务启用 `slurmctld,slurmdbd` 内容插件以及 `v0.0.43` parser，并确保连接身份可以读取所需记账数据；写操作还须具有目标 SlurmDBD 的相应权限。仅控制器接口可用时，页面明确返回 `SLURM_ACCOUNTING_UNAVAILABLE`。
+Slurm、SlurmDBD、slurmrestd、数据库和相应认证均由系统管理员安装、配置。仓库不提供这些组件或服务模板。管理员为现有 REST 服务启用 `slurmctld,slurmdbd` 内容插件以及集群选定的 `v0.0.40`–`v0.0.44` parser，并确保连接身份可以读取所需记账数据；写操作还须具有目标 SlurmDBD 的相应权限。仅控制器接口可用时，页面明确返回 `SLURM_ACCOUNTING_UNAVAILABLE`。
 
 Unix socket 使用 root 对端身份，终端向导显式设置 `localUser: "root"`。旧 profile 的 `localUser` 字段仅保留读取兼容，不再改变请求身份。不允许浏览器指定该身份，HTTPS/JWT profile 禁止使用 `localUser`。HTTPS/JWT 使用原有受保护令牌与 TLS 配置。
 
@@ -60,7 +60,7 @@ Unix socket 使用 root 对端身份，终端向导显式设置 `localUser: "roo
 - `POST /accounting-controls/prepare`、`/accounting-controls/execute`
 - `GET /accounting-operations`、`/accounting-operations/{operationId}`
 
-分页沿用 `page/perPage`；列表支持 `q/sort/order`，Association 另支持精确 `account/user/partition` 和层级 `kind=account|user`。请求、响应及错误详见 [OpenAPI](../api/openapi.yaml)。官方记账语义参见 [Slurm Accounting](https://slurm.schedmd.com/accounting.html)，具体 wire 结构以目标实例生成的 v0.0.43 OpenAPI 为准。
+分页沿用 `page/perPage`；列表支持 `q/sort/order`，Association 另支持精确 `account/user/partition` 和层级 `kind=account|user`。请求、响应及错误详见 [OpenAPI](../api/openapi.yaml)。官方记账语义参见 [Slurm Accounting](https://slurm.schedmd.com/accounting.html)，具体 wire 结构以目标实例生成的所选版本 OpenAPI 为准。
 
 ## 实机验收
 

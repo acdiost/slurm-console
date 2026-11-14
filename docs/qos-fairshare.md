@@ -1,6 +1,6 @@
 # QOS 与 Fairshare
 
-`/policies` 提供 QOS 和 Fairshare 两个视图，保留跨业务页的集群选择，支持服务端筛选、排序、分页及详情。QOS 使用现有 `slurmdbd` REST 插件，Fairshare 使用控制器 `/slurm/v0.0.43/shares`，固定支持已验证的 v0.0.43。
+`/policies` 提供 QOS 和 Fairshare 两个视图，保留跨业务页的集群选择，支持服务端筛选、排序、分页及详情。QOS 使用现有 `slurmdbd` REST 插件，Fairshare 使用控制器 `/slurm/{apiVersion}/shares`，按集群固定选择 `v0.0.40`–`v0.0.44`。
 
 ## 查询与权限
 

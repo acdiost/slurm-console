@@ -23,6 +23,19 @@ func registerConfigurationRoutes(group *router.RouterGroup[*core.RequestEvent]) 
 	managed := group.Group("")
 	managed.Bind(apis.RequireAuth("users")).BindFunc(auth.RequireActiveUser).BindFunc(rbac.Require("platform.clusters.manage", false))
 	managed.GET("/cluster-connection-profiles", func(e *core.RequestEvent) error { return response(e, clusterconfig.For(e.App).Registry.Views()) })
+	managed.GET("/cluster-connection-profiles/{ref}/versions", func(e *core.RequestEvent) error {
+		if err := slurmQuery(e); err != nil {
+			return err
+		}
+		result, err := clusterconfig.For(e.App).Discover(e.Request.Context(), e.Request.PathValue("ref"))
+		if err != nil {
+			if errors.Is(err, clusterconfig.ErrBusy) || errors.Is(err, clusterconfig.ErrNotFound) {
+				return configurationError(e, err)
+			}
+			return slurmFailure(e, err)
+		}
+		return response(e, result)
+	})
 	routes := managed.Group("/cluster-configurations")
 	routes.GET("", func(e *core.RequestEvent) error {
 		page, size, err := pagination(e)

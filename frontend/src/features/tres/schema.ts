@@ -28,6 +28,7 @@ export const targetSchema = z.object({
   partition: z.string(),
   relative: z.boolean(),
   limits: z.record(z.string(), z.array(amountSchema)),
+  unsupportedBuckets: z.array(z.string()).optional(),
 })
 const meta = { fetchedAt: z.string(), cached: z.boolean() }
 export const pageSchema = z.object({

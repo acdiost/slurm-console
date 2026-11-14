@@ -16,6 +16,7 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"slurm-console/backend/internal/confighistory"
+	"slurm-console/backend/internal/slurm/protocol"
 )
 
 const storeKey = "platform.clusterConnections"
@@ -87,6 +88,11 @@ func (m *Manager) View(record *core.Record) Configuration {
 }
 
 func (m *Manager) validate(input *Input) error {
+	version, ok := protocol.Normalize(input.APIVersion)
+	if !ok {
+		return ErrInvalid
+	}
+	input.APIVersion = version
 	input.Name = strings.TrimSpace(input.Name)
 	input.Description = strings.TrimSpace(input.Description)
 	if utf8.RuneCountInString(input.Name) < 2 || utf8.RuneCountInString(input.Name) > 100 || utf8.RuneCountInString(input.Description) > 1000 || len(input.Slug) > 64 || !regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`).MatchString(input.Slug) || input.TimeoutSeconds < 1 || input.TimeoutSeconds > 30 {

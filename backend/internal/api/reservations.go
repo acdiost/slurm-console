@@ -12,6 +12,7 @@ import (
 	"slurm-console/backend/internal/services"
 	"slurm-console/backend/internal/slurm/client"
 	"slurm-console/backend/internal/slurm/models"
+	"slurm-console/backend/internal/slurm/protocol"
 	"strings"
 	"time"
 )
@@ -189,5 +190,13 @@ func listReservations(e *core.RequestEvent) error {
 		}
 		return cmp
 	})
-	return pageResult(e, out, meta, page, size)
+	cluster, err := e.App.FindRecordById("clusters", e.Request.PathValue("clusterId"))
+	if err != nil {
+		return e.InternalServerError("", err)
+	}
+	version, _ := protocol.Normalize(cluster.GetString("api_version"))
+	total := len(out)
+	start := min((page-1)*size, total)
+	end := min(start+size, total)
+	return response(e, map[string]any{"items": out[start:end], "page": page, "perPage": size, "totalItems": total, "fetchedAt": meta.FetchedAt, "cached": meta.Cached, "supportsWrite": protocol.ReservationWrites(version)})
 }

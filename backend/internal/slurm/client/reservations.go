@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"slices"
+	"slurm-console/backend/internal/slurm/protocol"
 	"strings"
 )
 
@@ -50,7 +51,7 @@ func validReservationMutation(m AccountingMutation) bool {
 	return ValidAccountingName(m.Cluster) && m.Reservation != nil && m.Reservation.Valid(m.Action) && m.Account == "" && m.User == "" && m.Partition == "" && m.AssociationID == "" && m.Description == "" && m.Organization == "" && m.QOS == nil && m.TRES == nil && len(m.TRESEntries) == 0 && len(m.TRESLists) == 0 && m.TRESUnmanagedFingerprint == "" && len(m.QOSPreemptModes) == 0 && m.QOSUnmanagedFingerprint == ""
 }
 func reservationWrite(version string, m AccountingMutation) (string, string, []byte, bool) {
-	if !m.Valid() || m.Reservation == nil {
+	if !m.Valid() || m.Reservation == nil || !protocol.ReservationWrites(version) {
 		return "", "", nil, false
 	}
 	v := m.Reservation
@@ -75,6 +76,9 @@ func reservationWrite(version string, m AccountingMutation) (string, string, []b
 	return "POST", prefix, raw, true
 }
 func validReservationWire(r localRequest) bool {
+	if !protocol.ReservationWrites(r.Version) {
+		return false
+	}
 	prefix := "/slurm/" + r.Version + "/reservation"
 	if !r.Write {
 		return false

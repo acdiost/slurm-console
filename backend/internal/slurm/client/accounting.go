@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slurm-console/backend/internal/slurm/protocol"
 	"strings"
 	"unicode/utf8"
 )
@@ -113,6 +114,9 @@ func accountingWrite(version string, m AccountingMutation) (string, string, []by
 	return http.MethodPost, endpoint, raw, true
 }
 func (c *Client) MutateAccounting(ctx context.Context, m AccountingMutation) (bool, error) {
+	if err := c.CheckMutationVersion(m); err != nil {
+		return false, err
+	}
 	method, path, raw, ok := accountingWrite(c.config.Version, m)
 	if !ok {
 		return false, Failure("invalid_request", "记账操作参数不合法。")
@@ -120,4 +124,15 @@ func (c *Client) MutateAccounting(ctx context.Context, m AccountingMutation) (bo
 	sent := false
 	_, err := c.request(ctx, method, path, raw, &sent)
 	return sent, err
+}
+
+// Older parsers do not expose these fields/endpoints. Never send an ignored write.
+func (c *Client) CheckMutationVersion(m AccountingMutation) error {
+	if IsReservation(m.Action) && !protocol.ReservationWrites(c.config.Version) {
+		return Failure("api_unsupported", "此 slurmrestd API 版本仅支持读取 Reservation，写操作需要 v0.0.43 或更新版本。")
+	}
+	if m.Action == "qos_tres_update" && m.TRES != nil && m.TRES.Bucket == "group_minutes" && !protocol.QOSGroupMinutes(c.config.Version) {
+		return Failure("api_unsupported", "此 slurmrestd API 版本未开放 QOS GrpTRESMins，需使用 v0.0.42 或更新版本。")
+	}
+	return nil
 }

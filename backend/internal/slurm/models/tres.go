@@ -16,17 +16,18 @@ type TRESAmount struct {
 	State string `json:"state"`
 }
 type TRESTarget struct {
-	Kind        string                  `json:"kind"`
-	ID          string                  `json:"id"`
-	Name        string                  `json:"name"`
-	Cluster     string                  `json:"cluster"`
-	Account     string                  `json:"account"`
-	User        string                  `json:"user"`
-	Partition   string                  `json:"partition"`
-	Relative    bool                    `json:"relative"`
-	Limits      map[string][]TRESAmount `json:"limits"`
-	Fingerprint string                  `json:"-"`
-	Raw         json.RawMessage         `json:"-"`
+	Kind               string                  `json:"kind"`
+	ID                 string                  `json:"id"`
+	Name               string                  `json:"name"`
+	Cluster            string                  `json:"cluster"`
+	Account            string                  `json:"account"`
+	User               string                  `json:"user"`
+	Partition          string                  `json:"partition"`
+	Relative           bool                    `json:"relative"`
+	Limits             map[string][]TRESAmount `json:"limits"`
+	UnsupportedBuckets []string                `json:"unsupportedBuckets,omitempty"`
+	Fingerprint        string                  `json:"-"`
+	Raw                json.RawMessage         `json:"-"`
 }
 type TRESSnapshot struct {
 	Cluster       string       `json:"cluster"`

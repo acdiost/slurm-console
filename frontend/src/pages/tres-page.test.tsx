@@ -99,10 +99,17 @@ function show(url = "/tres?cluster=alpha&item=4") {
     </QueryClientProvider>
   )
 }
-function mock(qos = false) {
+function mock(qos = false, unsupportedBuckets: string[] = []) {
   let spec: unknown
   const t = qos
-    ? { ...target, kind: "qos", name: "normal", account: "", user: "" }
+    ? {
+        ...target,
+        kind: "qos",
+        name: "normal",
+        account: "",
+        user: "",
+        unsupportedBuckets,
+      }
     : target
   const result = () => ({
     operationId: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -150,6 +157,27 @@ function mock(qos = false) {
     }
   )
 }
+it("旧 QOS 版本缺少分钟字段时不显示为未设置或允许编辑", async () => {
+  role(true, true)
+  mock(true, ["group_minutes"])
+  show("/tres?cluster=alpha&target=qos&item=4&bucket=group_minutes")
+  expect(
+    await screen.findByText("当前 API 版本不支持查询此类限额。")
+  ).toBeVisible()
+  expect(
+    screen.queryByText("本层未设置此类限额，按 Slurm 规则继承。")
+  ).not.toBeInTheDocument()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole("button", { name: "配置 TRES 限额" }))
+  const dialog = screen.getByRole("alertdialog")
+  expect(within(dialog).getByLabelText("限额类型")).not.toHaveTextContent(
+    "累计 TRES 分钟"
+  )
+  await user.click(within(dialog).getByLabelText("限额类型"))
+  expect(
+    screen.queryByRole("option", { name: /GrpTRESMins/ })
+  ).not.toBeInTheDocument()
+})
 it("只读角色查看本层数值、超大内存精度及继承提示", async () => {
   role(false)
   mock()

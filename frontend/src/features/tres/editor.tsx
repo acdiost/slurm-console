@@ -58,12 +58,15 @@ export function TRESEditor({
     [attempted, setAttempted] = useState(false),
     client = useQueryClient()
   const first = resources.find((r) => r.editable)?.id || "",
-    existing = target.limits[initialBucket]?.find((v) => v.id === first)
+    selectedBucket = target.unsupportedBuckets?.includes(initialBucket)
+      ? "group_total"
+      : initialBucket,
+    existing = target.limits[selectedBucket]?.find((v) => v.id === first)
   const form = useForm<z.infer<typeof editSchema>>({
     resolver: zodResolver(editSchema),
     defaultValues: {
       resourceId: first,
-      bucket: initialBucket,
+      bucket: selectedBucket,
       mode: "set",
       value: existing?.state === "finite" ? existing.value : "",
     },
@@ -210,7 +213,11 @@ export function TRESEditor({
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(buckets)
-                    .filter(([, b]) => b[target.kind])
+                    .filter(
+                      ([id, b]) =>
+                        b[target.kind] &&
+                        !target.unsupportedBuckets?.includes(id)
+                    )
                     .map(([id, b]) => (
                       <SelectItem key={id} value={id}>
                         {b.label}

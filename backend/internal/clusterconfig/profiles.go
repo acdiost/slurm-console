@@ -12,10 +12,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"slurm-console/backend/internal/slurm/protocol"
 	"sort"
 )
 
-var SupportedVersions = []string{"v0.0.41", "v0.0.42", "v0.0.43", "v0.0.44"}
+var SupportedVersions = protocol.Versions()
 var keyPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,62}$`)
 
 type Profile struct {
@@ -70,14 +71,25 @@ func NewRegistry(profiles map[string]Profile) (*Registry, error) {
 		return nil, errors.New("too many cluster profiles")
 	}
 	for ref, profile := range profiles {
-		if !keyPattern.MatchString(ref) || profile.Label == "" || len(profile.Label) > 160 || len(profile.Versions) == 0 {
+		if !keyPattern.MatchString(ref) || profile.Label == "" || len(profile.Label) > 160 {
 			return nil, errors.New("invalid cluster profile identity or versions")
 		}
+		if len(profile.Versions) == 0 {
+			profile.Versions = protocol.Versions()
+		}
+		seenVersions := map[string]bool{}
+		versions := make([]string, 0, len(profile.Versions))
 		for _, version := range profile.Versions {
-			if !slices.Contains(SupportedVersions, version) {
+			canonical, ok := protocol.Normalize(version)
+			if !ok {
 				return nil, errors.New("unsupported Slurm REST API version in cluster profile")
 			}
+			if !seenVersions[canonical] {
+				versions = append(versions, canonical)
+				seenVersions[canonical] = true
+			}
 		}
+		profile.Versions = versions
 		u, err := url.Parse(profile.Endpoint)
 		if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 			return nil, errors.New("invalid cluster profile endpoint")
