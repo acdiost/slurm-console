@@ -6,9 +6,9 @@ toolchain go1.27.3
 
 require (
 	filippo.io/age v1.3.2
+	github.com/ebitengine/purego v0.11.3
 	github.com/go-asn1-ber/asn1-ber v1.5.8
 	github.com/go-ldap/ldap/v3 v3.4.15
-	github.com/msteinert/pam/v2 v2.0.0
 	github.com/pocketbase/dbx v1.12.0
 	github.com/pocketbase/pocketbase v0.40.6
 	github.com/spf13/cobra v1.10.2

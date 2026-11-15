@@ -1,29 +1,27 @@
 # Linux PAM 登录
 
-PAM 验证后端所在 Linux 主机的系统身份。当前提供 Rocky Linux 9 / RHEL 9 的 `password-auth` 集成，其他发行版需要管理员适配应用专属 PAM 策略。PAM 不通过 SSH 发送用户密码，也不授予 Slurm 或平台管理权限。
+PAM 验证后端 Linux 主机的系统身份。发布包内置 Linux amd64/arm64 认证组件，支持 glibc 与系统 `libpam.so.0`；RHEL/Rocky 的 `password-auth`、Debian/Ubuntu 的 `common-auth/common-account` 及 `system-auth` 栈可自动识别。PAM 不通过 SSH 发送用户密码，也不授予 Slurm 或平台管理权限。
 
 ## 页面接入引导
 
-管理员从工作台的「开始接入配置」或平台管理的「接入引导」进入 `/setup`，第一步显示主机、helper 和专属 PAM 策略状态。页面的「检查 PAM 环境」会执行不传密码的 helper probe；缺少组件时返回明确准备状态，启用按钮不可用。按下文在后端 Linux 主机准备组件后重新检测，通过后可「检查并启用 PAM」，也可直接跳过并继续配置集群。
+管理员从工作台的「开始接入配置」或平台管理的「接入引导」进入 `/setup`，点击「一键配置并启用 PAM」。后端从当前发布包安装匹配架构的认证组件，自动生成应用专属策略，调用真实 PAM 运行库复核，通过后立即启用，无需重启应用。已有安全的专属策略与显式自定义认证组件会保留。用户无需源码、Go、make、C 编译器或开发头文件；此步骤也可跳过。
 
 网页操作要求 `platform.settings.manage`，不接收任意可执行文件或系统用户密码。启用状态及独立 revision 持久化到平台数据库，立即生效并在重启后恢复；首次显式保存后优先于服务环境中的 `SLURM_CONSOLE_PAM_ENABLED`，未保存过则保留原环境配置。helper 不可用时，PAM 认证拒绝访问，本地管理员仍可登录修复。启用不改变已有账户认证来源；通过完成页的「管理用户与角色」（`/settings?tab=users`）创建或关联 PAM 身份，再分配角色与集群权限。
 
-两文件发布包不包含可独立构建的 helper 源码，需取得同版本完整源码，或提供匹配目标 Linux 架构的 helper。下文 `setup-pam.sh` 本身会启用环境配置并可能重启应用；若网页已保存停用覆盖值，则仍需在页面显式启用。其他 Linux 发行版须先由管理员适配应用专属策略。
+配置要求 Linux amd64/arm64 后端以 root 运行，并具备 glibc、系统 PAM 运行库与已有认证栈；musl/Alpine 不支持此认证组件。缺少运行库、完整发布组件或安全认证栈时，页面会返回具体问题，保留本地管理员登录。组件、策略创建、PAM 检测、启用设置与审计均完成后才报告成功；失败恢复本次创建或替换的文件，保留管理员并发修改。已启用时可点击「重新配置并复核 PAM」更新当前发布组件并检查；「重新检测」只检查状态。
 
-## 构建与安装
+## 发布与命令行配置
 
-在目标 Linux 架构构建应用及 helper，准备 gcc 和 PAM 开发包：
+发布机器执行 `make release TARGET_ARCH=amd64`（或 `arm64`），打包脚本用 `CGO_ENABLED=0` 构建对应 Linux 认证组件并嵌入主程序。仍只交付 `slurm-console` 和 `slurm-console.service`，主程序保持纯 Go；认证组件在独立进程中按需加载系统 PAM 库。
+
+目标主机优先使用页面一键配置。无页面时，可使用同一安装与复核流程：
 
 ```sh
-make install
-make build
-make pam-helper
-sudo bash deploy/install.sh --pam
+sudo /opt/slurm-console/slurm-console pam configure \
+  --dir=/var/lib/slurm-console/pb_data
 ```
 
-安装器仅管理本应用，具体见 [部署说明](deployment.md)。已有安装可以单独运行 `sudo bash deploy/setup-pam.sh`，脚本会安装/更新已构建 helper、生成独立 PAM 策略（已有策略保留）、在统一环境文件中启用 PAM 并设置直接调用，以 root 执行 helper probe；只删除内容完全匹配旧版的本应用 sudo 规则，保留管理员自定义规则。只有配置内容变化且应用正在运行时才重启；连续运行不会重复追加环境变量、角色或用户。
-
-共享 `password-auth/system-auth`、authselect、SSH、Slurm 和目录服务均不修改；其他发行版的策略由管理员适配。已配置的 LDAP 与集群环境项保持不变。脚本拒绝配置目标符号链接，不执行环境文件内容，也不扩大到通用 sudo 权限。
+此命令要求 Linux root，配置数据库中的启用状态，后端服务重启后加载。源码部署的 `sudo bash deploy/install.sh --pam` 与 `deploy/setup-pam.sh` 也调用该命令，已有活动服务会由脚本重启；页面配置直接激活当前进程，不需要重启。部署与备份维护锁串行化主机文件变化；既有 LDAP、集群环境配置、共享 PAM 策略、系统账户与 Slurm 保持原样。
 
 安装后的路径：
 
@@ -90,4 +88,4 @@ PAM 未启用或 helper 故障时，已关联 PAM 的账户会拒绝登录，不
 
 先检查 `journalctl -u slurm-console`、`/var/log/secure`、策略文件和 helper 的所有者/权限。部署保持 SELinux enforcing；先核实服务实际 UID、helper 及策略权限。系统密码锁定后的新登录由 PAM auth 策略拒绝；已有 JWT 是否被 PAM account 策略拒绝取决于系统配置。需要立即撤销平台访问时，将平台 `active` 设为 false；单独 `passwd -l` 不保证撤销已发令牌。
 
-参考：[Linux-PAM 开发接口](https://www.linux-pam.org/Linux-PAM-html/adg-interface.html)、[Go PAM binding v2](https://github.com/msteinert/pam)。
+参考：[Linux-PAM 开发接口](https://www.linux-pam.org/Linux-PAM-html/adg-interface.html)、[purego v0.11.3](https://github.com/ebitengine/purego/tree/v0.11.3)。

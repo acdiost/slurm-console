@@ -48,7 +48,8 @@ func main() {
 		}
 		return
 	}
-	if backup.FirstCommand(os.Args[1:]) != "serve" {
+	command := backup.FirstCommand(os.Args[1:])
+	if command != "serve" && command != "pam" {
 		unlock, err := maintenance.Shared()
 		if err != nil {
 			slog.Error("administration unavailable", "error", err)

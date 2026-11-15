@@ -362,6 +362,45 @@ paths:
           $ref: "#/components/responses/Error"
         "503":
           $ref: "#/components/responses/Error"
+  /api/v1/setup/pam/configure:
+    post:
+      operationId: configurePAMSetup
+      summary: 安装内置 PAM 组件、准备专属策略并复核启用
+      description: 需要 platform.settings.manage、Linux amd64/arm64、root 运行身份及系统 glibc/PAM 运行库。从当前发布包安装认证组件，自动识别 password-auth、common-auth/common-account 或 system-auth；保留已有安全专属策略及显式自定义组件，不修改共享策略或系统账户。真实组件检测通过后持久化启用设置并立即激活，失败恢复本次文件变化。revision 过期返回 409。不接收可执行文件路径、策略文本或系统用户密码。
+      security:
+        - platformToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [revision]
+              properties:
+                revision: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: 已安装、复核并启用的 PAM 状态
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, requestId]
+                properties:
+                  requestId: { type: string }
+                  data:
+                    $ref: "#/components/schemas/PAMSetupStatus"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
   /api/v1/setup/pam:
     patch:
       operationId: savePAMSetup
@@ -11638,7 +11677,7 @@ components:
       properties:
         name: { type: string, minLength: 2, maxLength: 100 }
         slug: { type: string, description: 不可变集群标识，已有标识不可覆盖 }
-        endpoint: { type: string, description: unix:///绝对路径，或不含路径、查询、用户信息的 HTTPS origin }
+        endpoint: { type: string, description: "unix:///绝对路径，或不含路径、查询、用户信息的 HTTPS origin" }
         authType: { type: string, enum: [local, jwt] }
         username: { type: string, maxLength: 63, writeOnly: true, description: HTTPS/JWT 使用的 Slurm 用户名；本机模式留空 }
         token: { type: string, maxLength: 8192, writeOnly: true, description: HTTPS/JWT 必填；本机模式留空 }

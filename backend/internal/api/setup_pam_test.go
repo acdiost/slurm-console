@@ -17,6 +17,7 @@ func TestPAMSetupRequiresSettingsManagementAndStrictInput(t *testing.T) {
 	token := login(t, mux)
 	for _, endpoint := range []struct{ method, path, body string }{
 		{"POST", "/api/v1/setup/pam/check", `{}`},
+		{"POST", "/api/v1/setup/pam/configure", `{"revision":1}`},
 		{"PATCH", "/api/v1/setup/pam", `{"enabled":false,"revision":1}`},
 	} {
 		if result := request(mux, endpoint.method, endpoint.path, endpoint.body, ""); result.Code != 401 {
@@ -35,6 +36,12 @@ func TestPAMSetupRequiresSettingsManagementAndStrictInput(t *testing.T) {
 	}
 	if result := request(mux, "POST", "/api/v1/setup/pam/check", `{"helper":"/PRIVATE/path"}`, token); result.Code != 400 {
 		t.Fatal("check accepted executable input", result.Code, result.Body.String())
+	}
+	for _, body := range []string{`{}`, `null`, `{"revision":0}`, `{"revision":null}`, `{"revision":1,"helper":"/PRIVATE/path"}`, `{"revision":1,"revision":2}`, `{"revision":1,"enabled":true}`} {
+		result := request(mux, "POST", "/api/v1/setup/pam/configure", body, token)
+		if result.Code != 400 || strings.Contains(result.Body.String(), "PRIVATE") {
+			t.Fatal("invalid configure request accepted or disclosed", result.Code, result.Body.String())
+		}
 	}
 	if result := request(mux, "GET", "/api/collections/pam_settings/records", "", token); result.Code != 403 {
 		t.Fatal("native API exposed PAM settings", result.Code, result.Body.String())
@@ -109,6 +116,31 @@ func TestPAMSetupDisablePersistsAndAuditFailureRollsBack(t *testing.T) {
 		t.Fatal("audit failure persisted PAM state", err)
 	}
 	login(t, mux)
+}
+
+func TestPAMConfigureRejectsStaleRevisionBeforeHostPreparation(t *testing.T) {
+	t.Setenv("SLURM_CONSOLE_PAM_HELPER", filepath.Join(t.TempDir(), "PRIVATE-missing-helper"))
+	app, mux, token := settingsActor(t)
+	result := request(mux, "POST", "/api/v1/setup/pam/configure", `{"revision":2}`, token)
+	if result.Code != 409 || strings.Contains(result.Body.String(), "PRIVATE") {
+		t.Fatal("configure did not reject stale revision before checking host", result.Code, result.Body.String())
+	}
+	result = request(mux, "POST", "/api/v1/setup/pam/configure", `{"revision":1}`, token)
+	var failure struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if result.Code != 503 || json.Unmarshal(result.Body.Bytes(), &failure) != nil || failure.Error.Code != "PAM_UNAVAILABLE" || strings.Contains(result.Body.String(), "PRIVATE") || strings.Contains(result.Body.String(), "make ") {
+		t.Fatal("configure unavailable response is not actionable/safe", result.Code, result.Body.String())
+	}
+	record, err := app.FindRecordById("pam_settings", auth.PAMSettingsID)
+	if err != nil || record.GetInt("revision") != 1 || record.GetBool("has_override") {
+		t.Fatal("failed configure persisted settings", err)
+	}
+	if count, _ := app.CountRecords("operation_audits"); count != 0 {
+		t.Fatal("failed configure retained success audit")
+	}
 }
 
 func TestPAMSetupRechecksManagementPrivilegeAtCommit(t *testing.T) {

@@ -25,6 +25,15 @@ func Public() fs.FS {
 	return public
 }
 
+// PAM exposes the architecture-matched worker shipped inside the release.
+func PAM() fs.FS {
+	bundle, err := fs.Sub(payload, "assets/pam")
+	if err != nil {
+		return nil
+	}
+	return bundle
+}
+
 // Dispatch runs before PocketBase opens a database or reads integration config.
 func Dispatch(args []string, configure func(string) error) (bool, error) {
 	if len(args) == 0 || (args[0] != "install" && args[0] != "configure" && args[0] != "uninstall" && args[0] != "configure-data") {
@@ -69,6 +78,9 @@ func install() error {
 	err = fs.WalkDir(payload, "assets", func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
+		}
+		if path == "assets/pam" {
+			return fs.SkipDir
 		}
 		if entry.IsDir() || entry.Name() == ".keep" {
 			return nil

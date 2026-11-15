@@ -13,6 +13,7 @@ import (
 // The setup group already requires an authenticated, active platform user.
 func registerSetupPAMRoutes(group *router.RouterGroup[*core.RequestEvent]) {
 	group.POST("/pam/check", checkSetupPAM).BindFunc(rbac.Require("platform.settings.manage", false))
+	group.POST("/pam/configure", configureSetupPAM).BindFunc(rbac.Require("platform.settings.manage", false))
 	group.PATCH("/pam", saveSetupPAM).BindFunc(rbac.Require("platform.settings.manage", false))
 }
 
@@ -29,6 +30,8 @@ func pamSetupFailure(e *core.RequestEvent, status auth.PAMStatus, err error) err
 	if errors.As(err, &apiError) {
 		return err
 	}
+	e.Set("publicErrorMessage", "PAM 设置未保存，请刷新后重试。")
+	e.Set("publicErrorCode", "PAM_SETUP_FAILED")
 	return e.Error(503, "PAM 设置未保存，请刷新后重试。", nil)
 }
 
@@ -71,6 +74,26 @@ func saveSetupPAM(e *core.RequestEvent) error {
 	}
 	requestID, _ := e.Get("requestId").(string)
 	status, err := auth.SavePAMSetup(e.Request.Context(), e.App, input.Enabled, input.Revision, audit.PlatformActor(e.Auth, requestID), func(tx core.App) error {
+		return platformFresh(e, tx, "platform.settings.manage")
+	})
+	if err != nil {
+		return pamSetupFailure(e, status, err)
+	}
+	return response(e, status)
+}
+
+func configureSetupPAM(e *core.RequestEvent) error {
+	var input struct {
+		Revision int `json:"revision"`
+	}
+	if err := platformBody(e, &input, "revision"); err != nil {
+		return err
+	}
+	if input.Revision < 1 {
+		return e.BadRequestError("PAM 修订号不合法，请刷新后重试。", nil)
+	}
+	requestID, _ := e.Get("requestId").(string)
+	status, err := auth.ConfigurePAMSetup(e.Request.Context(), e.App, input.Revision, audit.PlatformActor(e.Auth, requestID), func(tx core.App) error {
 		return platformFresh(e, tx, "platform.settings.manage")
 	})
 	if err != nil {

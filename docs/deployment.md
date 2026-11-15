@@ -27,7 +27,7 @@ sudo /opt/slurm-console/slurm-console configure
 
 重复执行复用管理员、角色授权、集群记录及凭据，保留未选择的其他集成。现有集群的 API 版本、启停、说明及超时沿用已有值。配置过程有停服窗口；开始前生成并验证升级快照，失败时尝试整体回退。没有数据库的首次安装失败后可直接重新执行。输入 EOF 视为取消，不会把缺失输入当作全部接受默认值。
 
-完整环境配置仍位于 `/etc/slurm-console/slurm-console.env`。LDAP、FreeIPA、监控等可选集成继续按各自文档配置；两文件基础包默认使用平台密码认证，现有 PAM helper 和策略会保留，新启用 PAM 仍使用下面的可选 helper 构建/配置流程。
+完整环境配置仍位于 `/etc/slurm-console/slurm-console.env`。LDAP、FreeIPA、监控等可选集成继续按各自文档配置；两文件发布包默认使用平台密码认证，同时内置匹配架构的 PAM 组件，登录后可在页面一键配置并启用。已有 PAM 策略与组件保留，也可通过页面重新配置并复核。
 
 在开发/发布机器生成交付物：
 
@@ -37,7 +37,7 @@ make release TARGET_ARCH=amd64  # dist/slurm-console-linux-amd64/，x86_64
 make release TARGET_ARCH=arm64  # dist/slurm-console-linux-arm64/，aarch64
 ```
 
-`make release` 自动构建前端并嵌入程序，使用 `CGO_ENABLED=0` 生成 Linux 主程序。不要使用裸 `go build` 制作交付包，它不会更新嵌入资源。交付的 systemd 文件与程序内模板一致，安装命令会自动安装内置模板和备份单元；本机已有 systemd drop-in 保持原样。
+`make release` 自动构建前端和匹配目标架构的 PAM 组件并嵌入程序，使用 `CGO_ENABLED=0` 生成 Linux 主程序及独立认证组件。发布机器无需 C 编译器或 PAM 开发头文件；PAM 组件在目标 glibc Linux 主机运行时加载系统 `libpam.so.0`。不要使用裸 `go build` 制作交付包，它不会更新嵌入资源。交付的 systemd 文件与程序内模板一致，安装命令会自动安装内置模板和备份单元；本机已有 systemd drop-in 保持原样。
 
 已有活动 Super Admin 时，向导默认沿用该账户，包括 PAM/LDAP 等外部认证来源；不会因为缺少本地密码账户而额外创建管理员。外部账户密码留空保留，不能在该向导中修改其密码。
 
@@ -47,7 +47,7 @@ make release TARGET_ARCH=arm64  # dist/slurm-console-linux-arm64/，aarch64
 
 安装时全部采用默认选项、未配置 Slurm 连接后，使用向导创建的管理员登录。集群工作台会显示「开始接入配置」，也可从平台管理的「接入引导」进入 `/setup`。入口依据全局是否存在已启用且引用有效连接方式的集群显示；筛选结果为空不会重新触发。普通用户继续使用授权工作台，不请求管理接入状态。
 
-1. **PAM 系统身份登录（可选）**：页面显示 Linux/root 运行条件、helper 与应用专属策略的准备情况。缺少组件时，按页面给出的目标主机源码构建/安装步骤准备，再点击「检查 PAM 环境」。Rocky/RHEL 的 `setup-pam.sh` 会在环境中启用 PAM，配置变化时可能重启应用；两文件发布包不能独立编译 helper，其他发行版需管理员适配专属策略。条件通过后可在页面启用，也可暂时跳过。启用不转换现有本地管理员账户；随后从「管理用户与角色」创建或关联 PAM 用户并单独授权，详见 [PAM](pam.md)。
+1. **PAM 系统身份登录（可选）**：点击「一键配置并启用 PAM」，后端安装当前发布包内置的认证组件，识别本机认证栈、创建应用专属策略并调用 PAM 库复核，成功后立即启用。支持 glibc Linux amd64/arm64，服务需以 root 运行，系统需已有 PAM 运行库与认证栈。用户无需源码或编译工具；已有专属策略保留，失败恢复本次文件变化。也可暂时跳过。现有本地管理员认证来源保持不变；随后从「管理用户与角色」创建或关联 PAM 用户并单独授权，详见 [PAM](pam.md)。
 2. **连接 slurmrestd**：填写集群名称、不可变标识，选择同机 Unix socket 或远程 HTTPS/JWT。远程连接需要 Slurm 用户名、有效 JWT，可粘贴私有 CA 的 PEM 证书；始终验证 HTTPS 证书和主机名。本机连接使用服务进程的 root 身份。自动模式从上游文档发现支持的最高 API 版本；无法开放 OpenAPI 文档时可手动选版本直接检测。点击「验证连接并保存」，只有连接检测成功才创建受管连接方式、集群及审计；失败可修改后重试，已有标识不会被覆盖。
 3. **进入工作台**：保存后立即生效，无需重启，完成页可直接进入该集群或工作台。已配置集群仍可进入引导添加其他连接；停用或未配置的旧集群可通过「管理现有集群配置」修复。
 
@@ -80,23 +80,22 @@ sudo /opt/slurm-console/slurm-console uninstall
 
 ### 从源码部署及可选 PAM
 
-准备 Node.js 22.16+（22.x）或 24 LTS、npm 10+、Go 1.27.3+、systemd。使用 PAM 时另需 Linux PAM 运行库，构建 helper 需要 gcc 和 PAM 开发包；`--pam` 当前面向 Rocky/RHEL 的 `password-auth` 策略。
+准备 Node.js 22.16+（22.x）或 24 LTS、npm 10+、Go 1.27.3+、systemd。构建流程自动用纯 Go 生成并嵌入 PAM 组件；目标主机使用 PAM 时需要 glibc、系统 PAM 运行库及现有认证栈，无需开发包或编译工具。
 
 ```sh
 make install
 make build
-make pam-helper                 # 仅 PAM；须在目标 Linux 架构构建
 sudo bash deploy/install.sh --pam
 ```
 
-不用 PAM 则省略 `make pam-helper` 和 `--pam`。安装器以 root 运行应用和默认 Slurm 本地 socket 请求，安装应用程序、静态文件和 systemd 单元，启动于 `127.0.0.1:6829`。可重复执行升级；程序、前端或单元变化且已有数据库时，先停服并在 `/var/backups/slurm-console/` 生成加密一致快照。前端资源整套替换，应用必须通过数据库就绪检查；升级失败会尝试恢复升级前快照。直接运行源码安装脚本且没有变化、服务已运行时不重启应用。备份与恢复详见 [加密备份](backups.md)。
+不用 PAM 则省略 `--pam`，也可安装后直接从页面一键配置。安装器以 root 运行应用和默认 Slurm 本地 socket 请求，安装应用程序、静态文件和 systemd 单元，启动于 `127.0.0.1:6829`。可重复执行升级；程序、前端或单元变化且已有数据库时，先停服并在 `/var/backups/slurm-console/` 生成加密一致快照。前端资源整套替换，应用必须通过数据库就绪检查；升级失败会尝试恢复升级前快照。直接运行源码安装脚本且没有变化、服务已运行时不重启应用。备份与恢复详见 [加密备份](backups.md)。
 
 本应用仅使用以下部署文件：
 
 | 文件 | 用途 |
 |---|---|
 | `deploy/install.sh` | 安装/更新应用并启动服务 |
-| `deploy/setup-pam.sh` | 幂等配置并验证本应用 PAM，root 直接调用 helper |
+| `deploy/setup-pam.sh` | 调用发布程序内置的 PAM 配置与复核命令，加载已保存设置 |
 | `deploy/slurm-console.service` | root 运行的应用单元 |
 | `deploy/slurm-console-backup.service`、`.timer` | root 执行的每日加密备份，默认保留 14 份 daily |
 | `deploy/backup.env.example` | 可选独立存储复制目标（不包含密钥内容） |

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -44,6 +45,8 @@ type pamRuntime struct {
 	hooks     sync.Once
 	lifecycle sync.Once
 	inspect   func(context.Context) (PAMStatus, pamauth.Provider)
+	bundle    fs.FS
+	host      *pamHost
 }
 
 func pamState(app core.App) *pamRuntime {
@@ -73,7 +76,7 @@ func pamEnabled(record *core.Record) (bool, error) {
 }
 
 func inspectPAM(ctx context.Context) (PAMStatus, pamauth.Provider) {
-	status := PAMStatus{Supported: runtime.GOOS == "linux" && os.Geteuid() == 0}
+	status := PAMStatus{Supported: defaultPAMHost().supported()}
 	path := os.Getenv("SLURM_CONSOLE_PAM_HELPER")
 	if path == "" {
 		path = "/usr/local/libexec/slurm-console-pam-helper"
@@ -84,9 +87,9 @@ func inspectPAM(ctx context.Context) (PAMStatus, pamauth.Provider) {
 	case runtime.GOOS != "linux":
 		status.Message = "PAM 需要 Linux 后端。请在 Linux 主机安装应用认证组件后重新检测；当前可继续使用本地管理员账户。"
 	case !status.HelperInstalled:
-		status.Message = "PAM helper 缺失或权限不安全。请在后端主机构建 make pam-helper，并以 root 运行 deploy/setup-pam.sh 安装后重新检测。"
+		status.Message = "PAM 认证组件缺失或权限不安全。请使用一键配置安装随完整发行版提供的认证组件；自定义组件需由主机管理员修复权限。"
 	case !status.PolicyInstalled:
-		status.Message = "应用专属 PAM 策略缺失或权限不安全。请以 root 运行 deploy/setup-pam.sh 安装并检查应用策略后重新检测。"
+		status.Message = "应用专属 PAM 策略缺失或权限不安全。请使用一键配置，或请主机管理员修复应用策略权限后重新检测。"
 	default:
 		sudo := os.Geteuid() != 0
 		if raw := os.Getenv("SLURM_CONSOLE_PAM_SUDO"); raw != "" {
@@ -109,7 +112,7 @@ func inspectPAM(ctx context.Context) (PAMStatus, pamauth.Provider) {
 				return status, provider
 			}
 		}
-		status.Message = "PAM helper 探测失败。请确认已安装 Linux CGO/PAM 构建、应用策略和执行权限，检查服务日志后重新检测。"
+		status.Message = "PAM 组件探测失败。请确认主机提供 libpam.so.0、有效的系统认证栈和安全的应用策略；更新完整发行版后重新配置。"
 	}
 	return status, nil
 }
@@ -190,27 +193,35 @@ func SavePAMSetup(ctx context.Context, app core.App, enabled bool, revision int,
 		}
 		return status, fmt.Errorf("%w: %s", ErrPAMUnavailable, status.Message)
 	}
-	err = audit.Mutate(app, actor, func(tx core.App) (audit.Event, error) {
+	return persistPAMSetupLocked(app, enabled, revision, actor, authorize, status, provider)
+}
+
+func persistPAMSetupLocked(app core.App, enabled bool, revision int, actor audit.Actor, authorize func(core.App) error, status PAMStatus, provider pamauth.Provider) (PAMStatus, error) {
+	err := app.RunInTransaction(func(tx core.App) error {
 		if err := authorize(tx); err != nil {
-			return audit.Event{}, err
+			return err
 		}
 		current, err := tx.FindRecordById(pamSettingsCollection, PAMSettingsID)
 		if err != nil {
-			return audit.Event{}, err
+			return err
 		}
 		if current.GetInt("revision") != revision {
-			return audit.Event{}, ErrPAMConflict
+			return ErrPAMConflict
 		}
 		current.Set("has_override", true)
 		current.Set("enabled", enabled)
 		current.Set("revision", revision+1)
 		if err := tx.Save(current); err != nil {
-			return audit.Event{}, err
+			return err
 		}
 		if err := authorize(tx); err != nil {
-			return audit.Event{}, err
+			return err
 		}
-		return audit.Event{Action: "platform.pam.update", TargetType: "pam_settings", TargetID: PAMSettingsID, Message: "已保存系统认证启用状态；本地管理员认证方式保持可用。", Changes: []audit.Change{{Field: "enabled", Before: strconv.FormatBool(status.Configured), After: strconv.FormatBool(enabled)}, {Field: "revision", Before: strconv.Itoa(revision), After: strconv.Itoa(revision + 1)}}}, nil
+		event := audit.Event{Action: "platform.pam.update", TargetType: "pam_settings", TargetID: PAMSettingsID, Message: "已保存系统认证启用状态；本地管理员认证方式保持可用。", Changes: []audit.Change{{Field: "enabled", Before: strconv.FormatBool(status.Configured), After: strconv.FormatBool(enabled)}, {Field: "revision", Before: strconv.Itoa(revision), After: strconv.Itoa(revision + 1)}}}
+		if err := audit.Write(tx, actor, event); err != nil {
+			return err
+		}
+		return authorize(tx)
 	})
 	if err != nil {
 		return status, err

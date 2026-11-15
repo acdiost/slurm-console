@@ -24,25 +24,27 @@ export function PAMSetup({
     base: PAMStatus
     value: PAMStatus
   } | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [operation, setOperation] = useState<"configure" | "check" | null>(null)
+  const busy = operation !== null
   const [error, setError] = useState("")
   const current = checked?.base === status ? checked.value : status
-  async function run(enable: boolean) {
-    setBusy(true)
+  async function run(configure: boolean) {
+    setOperation(configure ? "configure" : "check")
     setError("")
     try {
       const result = pamStatusSchema.parse(
-        await api(enable ? "/setup/pam" : "/setup/pam/check", {
-          method: enable ? "PATCH" : "POST",
-          body: enable ? { enabled: true, revision: current.revision } : {},
+        await api(configure ? "/setup/pam/configure" : "/setup/pam/check", {
+          method: "POST",
+          body: configure ? { revision: current.revision } : {},
         })
       )
       setChecked({ base: status, value: result })
       await invalidateSetupQueries(client)
     } catch (e) {
       setError(setupError(e))
+      await invalidateSetupQueries(client)
     } finally {
-      setBusy(false)
+      setOperation(null)
     }
   }
   return (
@@ -74,15 +76,15 @@ export function PAMSetup({
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">认证 helper</dt>
+          <dt className="text-muted-foreground">认证组件</dt>
           <dd className="mt-1">
-            {current.helperInstalled ? "已安装" : "尚未准备"}
+            {current.helperInstalled ? "已安装" : "可从发布包自动配置"}
           </dd>
         </div>
         <div>
           <dt className="text-muted-foreground">应用专属 PAM 策略</dt>
           <dd className="mt-1">
-            {current.policyInstalled ? "已安装" : "尚未准备"}
+            {current.policyInstalled ? "已准备" : "待自动配置"}
           </dd>
         </div>
       </dl>
@@ -90,40 +92,19 @@ export function PAMSetup({
         {current.message ||
           (current.available
             ? "前置条件已就绪，可以检查并启用。"
-            : "请先准备 helper 和应用专属 PAM 策略。")}
+            : "点击一键配置，系统将准备认证组件和专属 PAM 策略并检测。")}
       </p>
       {!current.configured && (
         <div className="space-y-3 rounded-lg border p-4 text-sm leading-7">
-          <h3 className="font-medium">在后端 Linux 主机上安装 PAM 集成</h3>
+          <h3 className="font-medium">自动配置并复核</h3>
           <p>
-            以下命令适用于已安装本应用、服务以 root 运行且具有
-            /etc/pam.d/password-auth 的 Rocky Linux 9 / RHEL
-            9。先取得与部署版本一致的完整源码，并在源码根目录执行；构建需要
-            Go、make、gcc 和 PAM 开发包。
-          </p>
-          <pre className="overflow-x-auto rounded-md bg-muted p-4 font-mono text-xs leading-6">
-            <code>
-              {
-                "sudo dnf install -y make gcc pam-devel\n# 在完整源码根目录，使用已安装的 Go 工具链\nmake pam-helper\nsudo bash deploy/setup-pam.sh"
-              }
-            </code>
-          </pre>
-          <p>
-            setup-pam.sh 会安装 helper、准备应用专属策略，并在服务环境中启用
-            PAM；配置变化时可能重启正在运行的本应用。若网页中已保存 PAM
-            设置，则以保存值为准：已保存的停用状态会保持停用，直到在本页明确启用。执行后请点击「检查
-            PAM 环境」重新读取状态；若已启用，可直接继续下一步。
+            点击下方按钮后，系统将安装发布包内置的认证组件，基于本机现有认证栈创建应用专属策略，并在检测通过后启用
+            PAM。已有的专属策略会保留，无需重启应用。
           </p>
           <p>
-            只有应用二进制和 service 文件的两文件发行包无法单独编译
-            helper：必须另行取得源码，或由管理员提供匹配目标 Linux 架构的
-            helper。setup-pam.sh 从源码目录的 backend/slurm-console-pam-helper
-            安装 helper；请勿在发行包目录直接运行 make。
-          </p>
-          <p>
-            共享 PAM 策略、系统账户及 Slurm 由管理员维护。其他 Linux
-            发行版需由管理员适配本应用的 /etc/pam.d/slurm-console
-            策略，不能直接套用上述 Rocky/RHEL 脚本。
+            支持 RHEL / Rocky 和 Debian / Ubuntu 的常规 PAM 配置。后端需以 root
+            运行，并具备系统 PAM 运行库；发布包已包含认证组件，用户无需源码、Go
+            或编译工具。
           </p>
         </div>
       )}
@@ -164,19 +145,27 @@ export function PAMSetup({
       <div className="flex flex-wrap gap-3">
         {canManage && (
           <Button
+            disabled={busy || !current.supported}
+            onClick={() => void run(true)}
+          >
+            {operation === "configure" && (
+              <LoaderCircle className="animate-spin" />
+            )}
+            {operation === "configure"
+              ? "正在配置并复核…"
+              : current.configured
+                ? "重新配置并复核 PAM"
+                : "一键配置并启用 PAM"}
+          </Button>
+        )}
+        {canManage && (
+          <Button
             variant="outline"
             disabled={busy}
             onClick={() => void run(false)}
           >
-            {busy && <LoaderCircle className="animate-spin" />}检查 PAM 环境
-          </Button>
-        )}
-        {canManage && !current.configured && (
-          <Button
-            disabled={busy || !current.supported || !current.available}
-            onClick={() => void run(true)}
-          >
-            检查并启用 PAM
+            {operation === "check" && <LoaderCircle className="animate-spin" />}
+            重新检测
           </Button>
         )}
         <Button

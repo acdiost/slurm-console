@@ -11,13 +11,6 @@ for artifact in backend/slurm-console frontend/dist/index.html; do
   [[ -f "$repo_dir/$artifact" && ! -L "$repo_dir/$artifact" ]] || { echo "Missing/unsafe build artifact: $artifact" >&2; exit 1; }
 done
 "$repo_dir/backend/slurm-console" backup --help >/dev/null
-if [[ ${1:-} == --pam ]]; then
-  for cmd in awk; do
-    command -v "$cmd" >/dev/null || { echo "Required command: $cmd" >&2; exit 1; }
-  done
-  [[ -f "$repo_dir/backend/slurm-console-pam-helper" || -x /usr/local/libexec/slurm-console-pam-helper ]] || { echo 'Build the Linux PAM helper: make pam-helper' >&2; exit 1; }
-  [[ -f /etc/pam.d/password-auth ]] || { echo 'Rocky/RHEL password-auth policy is required.' >&2; exit 1; }
-fi
 lock=/run/lock/slurm-console.lock
 [[ ! -L "$lock" && (! -e "$lock" || -f "$lock") ]] || exit 1
 (umask 022; : >> "$lock")

@@ -4,7 +4,7 @@ PocketBase v0.40.6 内嵌 Go 应用，要求 Go 1.27.3+。启动 `go run . serve
 
 `go run . users create --email <邮箱> --name <名称>` 创建平台账户，密码通过隐藏终端输入或 stdin 读取。初始账户没有任何集群授权。`go run . access --help` 查看平台/集群授权命令。认证和权限约定见 `../docs/authentication.md`、`../docs/permissions.md`。
 
-Linux PAM 使用 `cmd/pam-helper`（Linux CGO 构建），由 root Web 服务直接调用，无需 sudo 规则。`users create-pam` 创建关联账户，`users link-pam` 切换已有账户；部署及故障排查见 `../docs/pam.md`。PAM 默认关闭，关联账户不会回退到平台密码。
+PAM 认证使用随发布包内嵌的 `cmd/pam-helper`，通过 purego 在独立 Linux amd64/arm64 子进程中加载系统 `libpam.so.0`；主程序和组件均以 `CGO_ENABLED=0` 构建。页面 `/setup` 一键安装组件、准备专属策略、复核并启用，用户无需源码或编译工具。也可执行 `pam configure --dir=<数据目录>`。`users create-pam` 创建关联账户，`users link-pam` 切换已有账户；部署与故障排查见 `../docs/pam.md`。PAM 默认关闭，关联账户不会回退到平台密码。
 
 LDAP 通过 `SLURM_CONSOLE_LDAP_CONFIG` 指向服务端 JSON 配置，支持 LDAPS / 必须成功的 StartTLS。`users check-ldap` 验证 TLS 与只读查询凭据；`users create-ldap` / `link-ldap` 关联目录唯一标识并保持 RBAC。客户端配置见 `../docs/ldap.md`，目录密码不保存在 PocketBase。
 
