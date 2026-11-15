@@ -45,6 +45,7 @@ import {
 } from "@/features/clusters/cluster-picker"
 import { LinuxUserManagement } from "@/features/linux-users/management"
 import { LinuxUserDetail } from "@/features/linux-users/user-detail"
+import { LinuxUserSourceConfiguration } from "@/features/linux-users/source-configuration"
 import {
   errorMessage,
   kinds,
@@ -216,7 +217,8 @@ export function LinuxUsersPage() {
   const [params, setParams] = useSearchParams(),
     selection = useAccessibleClusters(),
     clusterId = selection.id,
-    [automatic, setAutomatic] = useState(true)
+    [automatic, setAutomatic] = useState(true),
+    [sourceVersion, setSourceVersion] = useState(0)
   const page = pageNumber(params.get("page")),
     perPage = [20, 50, 100].includes(Number(params.get("perPage")))
       ? Number(params.get("perPage"))
@@ -387,8 +389,14 @@ export function LinuxUsersPage() {
         )}
       {clusterId && (
         <>
+          <LinuxUserSourceConfiguration
+            key={`source:${clusterId}`}
+            clusterId={clusterId}
+            clusterName={selection.current?.name || clusterId}
+            onChanged={() => setSourceVersion((value) => value + 1)}
+          />
           <LinuxUserManagement
-            key={`management:${clusterId}`}
+            key={`management:${clusterId}:${sourceVersion}`}
             clusterId={clusterId}
             operationId={params.get("operation") || ""}
             onOperation={(operation) => update({ operation })}
@@ -569,7 +577,7 @@ export function LinuxUsersPage() {
             </section>
           )}
           <LinuxUserDetail
-            key={clusterId + ":" + name}
+            key={clusterId + ":" + name + ":" + sourceVersion}
             clusterId={clusterId}
             name={name}
             operationId={params.get("operation") || ""}

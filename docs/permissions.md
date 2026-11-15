@@ -35,7 +35,7 @@ Adapter 的健康、作业、节点、分区端点分别要求对应集群的 `c
 
 `GET /operation-audits` 及详情要求平台范围 `platform.audit.read`，可检索已停用/删除集群的历史；不依赖实时资源权限，也不授予资源操作权限。原生审计 Collection CRUD 仍锁定。详见 [操作审计](audits.md)。
 
-Linux 身份列表及精确详情要求对应集群的 `linux_users.read`，来源访问前和返回数据前分别复查权限。该权限不包含账户创建、密码锁定/解锁、平台账户或 Slurm Association 管理；内置四类角色显式加入读取动作，自定义角色不会隐式获得。见 [Linux 系统用户查询](linux-users.md)。
+Linux 身份列表及精确详情要求对应集群的 `linux_users.read`，来源访问前和返回数据前分别复查权限。网页来源配置另需 `platform.settings.manage` 与该集群读取权限，配置验证后在事务内重新授权，并保存审计与修订号；普通查询用户不会读取管理配置或 SSH 凭据。读取权限不包含账户创建、锁定/解锁、平台账户或 Slurm Association 管理；内置四类角色显式加入读取动作，自定义角色不会隐式获得。见 [Linux 系统用户查询](linux-users.md)。
 
 本机 Linux 账户写操作独立要求 `linux_users.create/lock/unlock`，显式绑定 Super Admin/Cluster Admin，Operator/Viewer 不获得这些动作。系统管理员还须启用本机来源及 root UID 策略；集群权限不会绕过主机保护名单、账户来源或到期状态检查。写前确认、持久审计及主机幂等日志共同控制执行边界。
 

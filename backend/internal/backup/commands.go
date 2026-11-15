@@ -96,11 +96,15 @@ func service(args ...string) error {
 func active() (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "systemctl", "show", "slurm-console", "--property=ActiveState", "--value").Output()
+	out, err := exec.CommandContext(ctx, "systemctl", "show", "slurm-console", "--property=ActiveState").Output()
 	if err != nil {
 		return false, err
 	}
-	switch strings.TrimSpace(string(out)) {
+	state, found := strings.CutPrefix(strings.TrimSpace(string(out)), "ActiveState=")
+	if !found {
+		return false, fmt.Errorf("application service state response is invalid")
+	}
+	switch state {
 	case "active":
 		return true, nil
 	case "inactive", "failed":

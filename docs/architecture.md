@@ -28,7 +28,7 @@
 
 备份/恢复命令在 PocketBase 自动初始化之前独立分流，避免在故障数据库上启动框架。服务短暂停止后生成加密文件快照，恢复校验和路径限制见 [备份与恢复](backups.md)。
 
-`internal/linuxusers` 查询受保护配置中按集群 ID 映射的本机或固定 SSH 身份主机，reader 只输出公开 NSS 元数据；独立 `linux_users.read` 授权和来源后的权限/版本复查不依赖 Slurm REST 身份。系统账户不保存为 PocketBase 业务表；`/linux-users` 与其他业务页共享集群上下文。见 [Linux 系统用户查询](linux-users.md)。
+`internal/linuxusers` 从数据库读取按集群 ID 配置的本机或固定 SSH 身份主机；来源设置与 SSH 凭据由具备平台设置管理及集群读取权限的管理员在网页维护，真实查询验证后事务保存并立即生效。旧来源文件仅一次性导入，后续不作为运行时来源。reader 只输出公开 NSS 元数据，独立 `linux_users.read` 授权及来源后的权限/版本复查不依赖 Slurm REST 身份。系统账户本身不保存为 PocketBase 业务表；`/linux-users` 与其他业务页共享集群上下文。见 [Linux 系统用户查询](linux-users.md)。
 
 Linux 本地账户写入通过固定 root 子命令和 root 所有的 UID 策略隔离；平台先持久审计，主机再记录意图与结果。平台或主机未知结果只读取核实，绝不自动重发 OS 命令。主机恢复状态独立于应用数据库生命周期。
 

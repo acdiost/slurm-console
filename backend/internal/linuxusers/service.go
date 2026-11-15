@@ -10,7 +10,7 @@ import (
 
 type Service struct {
 	app           core.App
-	registry      *Registry
+	sourceMu      sync.RWMutex
 	provider      Provider
 	admin         AdminProvider
 	ctx           context.Context
@@ -19,16 +19,13 @@ type Service struct {
 	busy          sync.Map
 }
 
-func Register(app core.App, registry *Registry, provider Provider) *Service {
-	if registry == nil {
-		registry = &Registry{Clusters: map[string]Profile{}}
-	}
+func Register(app core.App, provider Provider) *Service {
 	if provider == nil {
 		provider = NewProcess()
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error { cancel(); return e.Next() })
-	s := &Service{app: app, registry: registry, provider: provider, admin: NewAdminProcess(), ctx: ctx, confirmations: map[string]confirmation{}}
+	s := &Service{app: app, provider: provider, admin: NewAdminProcess(), ctx: ctx, confirmations: map[string]confirmation{}}
 	app.Store().Set("linuxUsers", s)
 	return s
 }
@@ -41,7 +38,7 @@ func For(app core.App) *Service {
 	if s, ok := app.Store().Get("linuxUsers").(*Service); ok {
 		return s
 	}
-	return Register(app, nil, nil)
+	return Register(app, nil)
 }
 
 type Result struct {
@@ -58,10 +55,15 @@ func (s *Service) Read(ctx context.Context, id, name string) (Result, error) {
 	if !record.GetBool("enabled") {
 		return Result{}, fail("disabled")
 	}
-	profile, ok := s.registry.Clusters[id]
+	source, err := sourceRecord(s.app, id)
+	if err != nil {
+		return Result{}, err
+	}
+	profile, ok := sourceProfile(source)
 	if !ok {
 		return Result{}, fail("not_configured")
 	}
+	sourceVersion := sourceRevision(source)
 	revision := record.GetInt("revision")
 	result, err := s.provider.Read(ctx, profile, Request{Version: 1, Name: name})
 	if err != nil {
@@ -80,11 +82,13 @@ func (s *Service) Read(ctx context.Context, id, name string) (Result, error) {
 	if current.GetInt("revision") != revision || !current.GetBool("enabled") {
 		return Result{}, fail("changed")
 	}
+	currentSource, err := sourceRecord(s.app, id)
+	if err != nil || sourceRevision(currentSource) != sourceVersion {
+		return Result{}, fail("changed")
+	}
 	return Result{result, profile.Label, revision}, nil
 }
 func IsFailure(err error, code string) bool {
 	var e *Failure
 	return errors.As(err, &e) && e.Code == code
 }
-
-func (s *Service) ConfiguredCount() int { return len(s.registry.Clusters) }

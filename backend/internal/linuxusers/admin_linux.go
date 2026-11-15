@@ -239,7 +239,7 @@ func ServeAdmin(input io.Reader, output io.Writer) int {
 	}
 	result := adminDenied("unavailable", "主机账户管理暂不可用。")
 	var policy AdminPolicy
-	if diskGet(AdminPolicyPath, &policy) != nil || policy.CallerUID == 0 || policy.MinUID < 1000 || policy.MaxUID > 60000 || policy.MinUID > policy.MaxUID {
+	if diskGet(AdminPolicyPath, &policy) != nil || policy.MinUID < 1000 || policy.MaxUID > 60000 || policy.MinUID > policy.MaxUID {
 		_ = json.NewEncoder(output).Encode(result)
 		return 0
 	}

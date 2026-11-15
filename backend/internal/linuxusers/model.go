@@ -49,6 +49,14 @@ type Failure struct{ Code, Message string }
 
 func (e *Failure) Error() string { return e.Message }
 func fail(code string) error {
+	switch code {
+	case "invalid_source":
+		return &Failure{code, "Linux 身份来源参数不合法，请检查来源、SSH 凭据和本地管理选项。"}
+	case "probe_failed":
+		return &Failure{code, "无法验证身份来源，原配置已保留。请检查连接、主机密钥及查询权限。"}
+	case "import_failed":
+		return &Failure{code, "Linux 身份来源旧配置导入失败，请检查受保护的旧配置和凭据文件。"}
+	}
 	messages := map[string]string{"management_disabled": "此来源未启用本地账户管理。", "forbidden": "无权操作此集群的本地账户。", "invalid_request": "请输入有效账户参数、完整用户名及 2–300 字单行原因。", "confirmation_invalid": "操作确认无效，请重新校验。", "confirmation_expired": "操作确认已过期，请重新校验。", "audit_unavailable": "无法保存审计，未发送主机写请求。", "not_configured": "尚未配置此集群的 Linux 身份查询来源。", "disabled": "集群连接已停用。", "unavailable": "暂时无法读取 Linux 身份来源。", "invalid_response": "Linux 身份来源响应不合法或超过查询上限。", "not_found": "该 Linux 用户不存在或对查询来源不可见。", "busy": "Linux 身份查询繁忙，请稍后重试。", "changed": "集群或身份来源配置已变化，请刷新后重试。"}
 	return &Failure{code, messages[code]}
 }

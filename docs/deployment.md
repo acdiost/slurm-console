@@ -132,9 +132,9 @@ make build
 
 部署使用系统自带的 `flock` 串行化维护操作。加密密钥首次生成在 `/var/lib/slurm-console-backup/identity.txt`，保留已有密钥；后续安装保留已有备份 timer 的启停选择。安装后用 `systemctl status slurm-console`、`systemctl list-timers slurm-console-backup.timer` 及 `journalctl -u slurm-console-backup.service` 验收。
 
-Linux 系统用户查询的构建、来源映射及受限 SSH 配置见 [Linux 系统用户查询](linux-users.md)。查询器复用应用二进制的独立子命令；本机随 root 服务运行，固定 SSH 来源仍使用专用普通查询身份，无需 sudo。只有确实位于集群身份主机的应用才配置本机来源，远端集群必须指定其身份来源。
+Linux 系统用户来源在网页 **Linux 系统用户 → 配置身份来源** 中设置并存入数据库，支持本机 NSS 和固定 SSH，验证保存后立即生效，无需来源 JSON 或环境变量。查询器复用应用二进制的独立子命令；本机随 root 服务运行，SSH 使用专用普通查询身份及严格主机密钥校验。只有确实位于集群身份主机的应用才配置本机来源，详见 [Linux 系统用户查询](linux-users.md)。
 
-如启用本机账户写操作，升级应用后执行 `sudo bash deploy/setup-linux-users.sh <集群记录ID>`，建立限定子命令、UID 范围与保护名单的主机策略。默认部署继续只读；不安装 LDAP/FreeIPA/Slurm 等外部组件，见 [本地账户管理](linux-users.md#本地账户创建锁定与解锁)。
+如启用本机账户写操作，先执行 `sudo bash deploy/setup-linux-users.sh` 准备 UID 范围与保护名单的 root 主机策略，再在网页来源配置中显式启用本地账户管理。脚本不再写入来源 JSON 或环境变量，已有主机策略保留；默认只开放查询，不安装 LDAP/FreeIPA/Slurm 等外部组件，见 [本地账户管理](linux-users.md#本地账户创建锁定与解锁)。
 
 ### root 运行与旧版迁移
 

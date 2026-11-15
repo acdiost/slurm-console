@@ -6,8 +6,17 @@ import { MemoryRouter, useLocation } from "react-router"
 import { ClientResponseError } from "pocketbase"
 import { api } from "@/services/api"
 import { cluster } from "@/features/overview/fixtures.test-support"
+import { useAuth } from "@/stores/auth"
 import { LinuxUsersPage } from "./linux-users-page"
 vi.mock("@/services/api", () => ({ api: vi.fn() }))
+vi.stubGlobal(
+  "ResizeObserver",
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+)
 let client: QueryClient
 const metadata = {
   fetchedAt: "2026-10-27T03:00:00Z",
@@ -35,8 +44,27 @@ beforeEach(() => {
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
   vi.mocked(api).mockReset()
+  useAuth.setState({
+    status: "authenticated",
+    message: "",
+    user: {
+      id: "reader",
+      email: "reader@example.test",
+      name: "Reader",
+      username: "reader",
+      authSource: "local",
+      access: {
+        platformRoles: [],
+        platformPermissions: [],
+        clusters: [{ cluster, roles: [], permissions: ["linux_users.read"] }],
+      },
+    },
+  })
 })
-afterEach(() => client.clear())
+afterEach(() => {
+  client.clear()
+  useAuth.setState({ user: null, status: "anonymous" })
+})
 function Location() {
   return <output aria-label="当前查询">{useLocation().search}</output>
 }
@@ -73,6 +101,14 @@ it("枚举查询分页、筛选和排序使用 URL，明确显示来源及 UID �
   const table = await screen.findByRole("region", { name: "Linux 用户列表" })
   expect(within(table).getByText("worker")).toBeVisible()
   expect(within(table).getByText("本地匹配")).toBeVisible()
+  expect(
+    screen.queryByRole("button", { name: "配置身份来源" })
+  ).not.toBeInTheDocument()
+  expect(
+    vi
+      .mocked(api)
+      .mock.calls.some(([path]) => path.endsWith("/linux-user-source"))
+  ).toBe(false)
   expect(within(table).getByText(/Alpha NSS/)).toHaveTextContent("UID_MIN 1000")
   await user.click(screen.getByRole("button", { name: "下一页 Linux 用户" }))
   await waitFor(() =>
@@ -194,4 +230,47 @@ it("无数据与未知 UID_MIN 保持未知，不假定普通用户范围", asyn
   expect(await screen.findByText("本页没有匹配的枚举记录")).toBeVisible()
   expect(screen.getByText(/UID_MIN 未知/)).toBeVisible()
   expect(screen.getByText(/目录服务可能关闭枚举/)).toBeVisible()
+})
+
+it("平台设置管理员可为所选集群配置缺少的身份来源", async () => {
+  const current = useAuth.getState().user!
+  useAuth.setState({
+    user: {
+      ...current,
+      access: {
+        ...current.access,
+        platformPermissions: ["platform.settings.manage"],
+      },
+    },
+  })
+  mockSources((path) =>
+    path.endsWith("/linux-user-source")
+      ? {
+          configured: false,
+          revision: 0,
+          label: "",
+          transport: "local",
+          host: "",
+          port: 0,
+          username: "",
+          knownHosts: "",
+          privateKeyConfigured: false,
+          manageLocal: false,
+        }
+      : page()
+  )
+  show()
+  const panel = await screen.findByRole("region", { name: "身份来源配置" })
+  expect(await within(panel).findByText(/此集群尚未配置身份来源/)).toBeVisible()
+  await userEvent
+    .setup()
+    .click(within(panel).getByRole("button", { name: "配置身份来源" }))
+  expect(await within(panel).findByLabelText("来源名称")).toBeVisible()
+  expect(
+    within(panel).getByRole("button", { name: "验证并保存" })
+  ).toBeEnabled()
+  expect(api).toHaveBeenCalledWith(
+    "/clusters/alpha/linux-user-source",
+    expect.objectContaining({ signal: expect.anything() })
+  )
 })

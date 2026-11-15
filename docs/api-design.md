@@ -22,7 +22,7 @@
 
 `GET /clusters/{clusterId}/overview` 返回来源级的健康、作业、节点、分区汇总；各项有 `status/item/code/message/fetchedAt/cached`，失败或缺权为 null，其他数据仍可用。接口不接受列表筛选参数，避免将过滤后的子集误当集群总量；详细口径见 [集群总览](overview.md)。
 
-Linux 系统用户查询为 `GET /clusters/{clusterId}/linux-users` 及 `/linux-users/{username}`，独立使用 `linux_users.read`。身份来源只能来自部署管理员的配置，浏览器不能指定 SSH 目标或命令；枚举与精确查找范围不同，见 [Linux 用户契约](linux-users.md)。
+Linux 系统用户查询为 `GET /clusters/{clusterId}/linux-users` 及 `/linux-users/{username}`，独立使用 `linux_users.read`。来源管理为 `GET/PUT/DELETE /clusters/{clusterId}/linux-user-source`，另需 `platform.settings.manage`。网页可配置本机或固定 SSH 身份主机、私钥及可信主机公钥内容，禁止任意命令和服务器凭据路径。真实查询通过后，配置、凭据与审计事务存入数据库并立即生效；修订冲突返回 409，验证失败保留原配置。私钥不进入响应、错误或审计；旧文件仅一次性迁移，详细契约见 OpenAPI 0.35.0 和 [Linux 用户契约](linux-users.md)。
 
 记账身份读取和确认操作端点见 [Account 与 Association](accounting.md)，对接集群所选的 slurmdbd `v0.0.40`–`v0.0.44` 接口。全局身份变更需独立平台权限，关联操作按实际集群隔离；已发起写操作没有自动重试路径。
 

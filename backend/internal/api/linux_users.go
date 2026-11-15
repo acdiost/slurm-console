@@ -17,6 +17,7 @@ import (
 )
 
 func registerLinuxUserRoutes(group *router.RouterGroup[*core.RequestEvent]) {
+	registerLinuxSourceRoutes(group)
 	routes := group.Group("/clusters/{clusterId}/linux-users")
 	routes.Bind(apis.RequireAuth("users")).BindFunc(auth.RequireActiveUser).BindFunc(rbac.Require("linux_users.read", true))
 	routes.GET("", listLinuxUsers)
@@ -34,7 +35,7 @@ func linuxUserFailure(e *core.RequestEvent, err error) error {
 	switch failure.Code {
 	case "not_found":
 		status = 404
-	case "invalid_request":
+	case "invalid_request", "invalid_source":
 		status = 400
 	case "forbidden":
 		status = 403

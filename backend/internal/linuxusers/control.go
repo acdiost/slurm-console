@@ -71,7 +71,11 @@ func (s *Service) manageable(cluster string) (int, error) {
 	if !r.GetBool("enabled") {
 		return 0, fail("disabled")
 	}
-	p, ok := s.registry.Clusters[cluster]
+	source, err := sourceRecord(s.app, cluster)
+	if err != nil {
+		return 0, err
+	}
+	p, ok := sourceProfile(source)
 	if !ok || !p.ManageLocal || p.Transport != "local" {
 		return 0, fail("management_disabled")
 	}
@@ -96,7 +100,8 @@ func (s *Service) Capabilities(ctx context.Context, actor, cluster string) (Capa
 	for _, row := range rows {
 		result.RecentOperations = append(result.RecentOperations, operationView(row))
 	}
-	if _, err := s.manageable(cluster); err != nil {
+	revision, err := s.manageable(cluster)
+	if err != nil {
 		return result, nil
 	}
 	for _, action := range []string{"create", "lock", "unlock"} {
@@ -110,6 +115,10 @@ func (s *Service) Capabilities(ctx context.Context, actor, cluster string) (Capa
 	v, err := s.admin.Run(ctx, AdminRequest{Mode: "capabilities"})
 	if err != nil {
 		return result, err
+	}
+	latest, err := s.manageable(cluster)
+	if err != nil || latest != revision {
+		return result, fail("changed")
 	}
 	if !v.Allowed {
 		result.Actions = []string{}
@@ -334,6 +343,8 @@ func (s *Service) Execute(actor, cluster, requestID string, input ControlInput) 
 		}
 		return operationView(r), nil
 	}
+	s.sourceMu.RLock()
+	defer s.sourceMu.RUnlock()
 	latest, e := s.manageable(cluster)
 	if e != nil || latest != revision || s.authorize(actor, cluster, p.Action) != nil || time.Now().After(p.Expires) {
 		return finish("failed", "权限、配置或确认已变化，未发送主机写请求。")

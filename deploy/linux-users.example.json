@@ -1,8 +1,0 @@
-{
-  "clusters": {
-    "replaceClusterId": {
-      "label": "控制节点 NSS 身份",
-      "transport": "local"
-    }
-  }
-}

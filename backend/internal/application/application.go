@@ -59,10 +59,6 @@ func New() (*pocketbase.PocketBase, error) {
 	if err != nil {
 		return nil, err
 	}
-	linuxRegistry, err := linuxusers.LoadRegistry(os.Getenv("SLURM_CONSOLE_LINUX_USERS_PROFILES"))
-	if err != nil {
-		return nil, err
-	}
 	metricsRegistry, err := gpumetrics.LoadRegistry(os.Getenv("SLURM_CONSOLE_METRICS_PROFILES"))
 	if err != nil {
 		return nil, err
@@ -73,7 +69,7 @@ func New() (*pocketbase.PocketBase, error) {
 	}
 	app.Store().Set("platform.aiBase", aiConfig)
 	gpumetrics.Register(app, metricsRegistry)
-	linuxusers.Register(app, linuxRegistry, nil)
+	linuxusers.Register(app, nil)
 	connections := clusterconfig.Register(app, registry)
 	connectionContext, cancelConnections := context.WithCancel(context.Background())
 	app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error { cancelConnections(); return e.Next() })
@@ -86,6 +82,9 @@ func New() (*pocketbase.PocketBase, error) {
 	app.RootCmd.AddCommand(backup.Commands(), backup.HealthCommand())
 	app.RootCmd.AddCommand(distribution.Command(distribution.Configure).Commands()...)
 	app.OnServe().BindFunc(func(event *core.ServeEvent) error {
+		if err := linuxusers.ImportLegacy(app, os.Getenv("SLURM_CONSOLE_LINUX_USERS_PROFILES")); err != nil {
+			return err
+		}
 		if err := clusterconfig.LoadManaged(app); err != nil {
 			return err
 		}

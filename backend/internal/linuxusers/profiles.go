@@ -5,21 +5,31 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strconv"
-	"strings"
 	"time"
 )
 
 const ReaderPath = "/opt/slurm-console/slurm-console"
 const ReaderCommand = "linux-users-reader"
 
+// Profile contains database-backed source settings. Credentials are never serialized.
 type Profile struct {
+	ManageLocal bool   `json:"manageLocal"`
+	Label       string `json:"label"`
+	Transport   string `json:"transport"`
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	Username    string `json:"username"`
+	PrivateKey  string `json:"-"`
+	KnownHosts  string `json:"knownHosts"`
+}
+
+// Legacy paths are accepted only by the one-time import, never by the API or runtime.
+type legacyProfile struct {
 	ManageLocal    bool   `json:"manageLocal,omitempty"`
 	Label          string `json:"label"`
 	Transport      string `json:"transport"`
@@ -28,9 +38,6 @@ type Profile struct {
 	Username       string `json:"username,omitempty"`
 	IdentityFile   string `json:"identityFile,omitempty"`
 	KnownHostsFile string `json:"knownHostsFile,omitempty"`
-}
-type Registry struct {
-	Clusters map[string]Profile `json:"clusters"`
 }
 
 func restricted(path string, limit int64, secret bool) ([]byte, error) {
@@ -52,54 +59,42 @@ func restricted(path string, limit int64, secret bool) ([]byte, error) {
 	}
 	return raw, nil
 }
-func LoadRegistry(path string) (*Registry, error) {
-	registry := &Registry{Clusters: map[string]Profile{}}
-	if path == "" {
-		return registry, nil
-	}
-	raw, err := restricted(path, 65536, false)
-	if err != nil {
-		return nil, fail("unavailable")
-	}
-	if StrictJSON(raw, registry) != nil || registry.Clusters == nil || len(registry.Clusters) > 100 {
-		return nil, fail("invalid_response")
-	}
-	for id, p := range registry.Clusters {
-		if !regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`).MatchString(id) || p.Label == "" || len(p.Label) > 160 || strings.ContainsAny(p.Label, "\r\n\t") {
-			return nil, fail("invalid_response")
-		}
-		switch p.Transport {
-		case "local":
-			if p.Host != "" || p.Port != 0 || p.Username != "" || p.IdentityFile != "" || p.KnownHostsFile != "" {
-				return nil, fail("invalid_response")
-			}
-		case "ssh":
-			if p.ManageLocal {
-				return nil, fail("invalid_response")
-			}
-			if p.Username == "root" || !regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`).MatchString(p.Username) || p.Port < 1 || p.Port > 65535 || (net.ParseIP(p.Host) == nil && !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$`).MatchString(p.Host)) {
-				return nil, fail("invalid_response")
-			}
-			if key, err := restricted(p.IdentityFile, 65536, true); err != nil {
-				return nil, fail("unavailable")
-			} else {
-				clear(key)
-			}
-			if _, err := restricted(p.KnownHostsFile, 1048576, false); err != nil {
-				return nil, fail("unavailable")
-			}
-		default:
-			return nil, fail("invalid_response")
-		}
-	}
-	return registry, nil
-}
 
 type Process struct{ slots chan struct{} }
 
 func NewProcess() *Process { return &Process{slots: make(chan struct{}, 4)} }
-func SSHArgs(p Profile) []string {
-	return []string{"-F", "/dev/null", "-T", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "IdentitiesOnly=yes", "-o", "IdentityAgent=none", "-o", "PasswordAuthentication=no", "-o", "KbdInteractiveAuthentication=no", "-o", "PermitLocalCommand=no", "-o", "ClearAllForwardings=yes", "-o", "ProxyCommand=none", "-o", "ProxyJump=none", "-o", "ConnectionAttempts=1", "-o", "ConnectTimeout=5", "-o", "GlobalKnownHostsFile=/dev/null", "-o", "UserKnownHostsFile=" + p.KnownHostsFile, "-i", p.IdentityFile, "-l", p.Username, "-p", strconv.Itoa(p.Port), "--", p.Host, ReaderPath + " " + ReaderCommand}
+func SSHArgs(p Profile, identityFile, knownHostsFile string) []string {
+	return []string{"-F", "/dev/null", "-T", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "IdentitiesOnly=yes", "-o", "IdentityAgent=none", "-o", "PasswordAuthentication=no", "-o", "KbdInteractiveAuthentication=no", "-o", "PermitLocalCommand=no", "-o", "ClearAllForwardings=yes", "-o", "ProxyCommand=none", "-o", "ProxyJump=none", "-o", "ConnectionAttempts=1", "-o", "ConnectTimeout=5", "-o", "GlobalKnownHostsFile=/dev/null", "-o", "UserKnownHostsFile=" + knownHostsFile, "-i", identityFile, "-l", p.Username, "-p", strconv.Itoa(p.Port), "--", p.Host, ReaderPath + " " + ReaderCommand}
+}
+
+func writeSSHFile(path, content string) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	_, err = io.WriteString(f, content)
+	closeErr := f.Close()
+	if err != nil {
+		return err
+	}
+	return closeErr
+}
+
+func sshFiles(profile Profile) (identity, hosts string, cleanup func(), err error) {
+	dir, err := os.MkdirTemp("", "slurm-console-linux-source-")
+	if err != nil {
+		return "", "", nil, fail("unavailable")
+	}
+	cleanup = func() { _ = os.RemoveAll(dir) }
+	identity, hosts = filepath.Join(dir, "identity"), filepath.Join(dir, "known_hosts")
+	if err = writeSSHFile(identity, profile.PrivateKey); err == nil {
+		err = writeSSHFile(hosts, profile.KnownHosts)
+	}
+	if err != nil {
+		cleanup()
+		return "", "", nil, fail("unavailable")
+	}
+	return identity, hosts, cleanup, nil
 }
 func (p *Process) Read(ctx context.Context, profile Profile, request Request) (Snapshot, error) {
 	select {
@@ -118,15 +113,12 @@ func (p *Process) Read(ctx context.Context, profile Profile, request Request) (S
 		}
 		cmd = exec.CommandContext(ctx, ReaderPath, ReaderCommand)
 	} else if profile.Transport == "ssh" {
-		if key, err := restricted(profile.IdentityFile, 65536, true); err != nil {
-			return Snapshot{}, fail("unavailable")
-		} else {
-			clear(key)
+		identity, hosts, cleanup, err := sshFiles(profile)
+		if err != nil {
+			return Snapshot{}, err
 		}
-		if _, err := restricted(profile.KnownHostsFile, 1048576, false); err != nil {
-			return Snapshot{}, fail("unavailable")
-		}
-		cmd = exec.CommandContext(ctx, "/usr/bin/ssh", SSHArgs(profile)...)
+		defer cleanup()
+		cmd = exec.CommandContext(ctx, "/usr/bin/ssh", SSHArgs(profile, identity, hosts)...)
 	} else {
 		return Snapshot{}, fail("unavailable")
 	}

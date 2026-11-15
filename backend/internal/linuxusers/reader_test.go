@@ -51,8 +51,8 @@ func TestReaderUnknownMetadataAndExactNonEnumeratedUser(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-func TestPasswdParserRejectsDuplicatesInvalidValuesAndBounds(t *testing.T) {
-	for _, raw := range []string{"bad", "worker:x:-1:1::/:/bin/bash\n", "worker:x:4294967296:1::/:/bin/bash\n", "worker:x:1:1::/:/bin/bash\nworker:x:2:2::/:/bin/bash\n", strings.Repeat("x", MaxBytes+1)} {
+func TestPasswdParserRejectsInvalidValuesAndBounds(t *testing.T) {
+	for _, raw := range []string{"bad", "worker:x:-1:1::/:/bin/bash\n", "worker:x:4294967296:1::/:/bin/bash\n", strings.Repeat("x", MaxBytes+1)} {
 		if _, err := ParsePasswd([]byte(raw)); err == nil {
 			t.Fatal("accepted invalid NSS response")
 		}
@@ -79,5 +79,55 @@ func TestReaderProtocolRejectsUnknownFieldsAndTrailingInput(t *testing.T) {
 		if ServeReader(strings.NewReader(raw), &out) == 0 || out.Len() != 0 {
 			t.Fatal("invalid protocol accepted")
 		}
+	}
+}
+
+func TestReaderResolvesRepeatedNamesUsingAuthoritativeNSSLookup(t *testing.T) {
+	lookups := 0
+	r := Reader{Run: func(_ context.Context, args ...string) ([]byte, error) {
+		if len(args) == 1 {
+			return []byte("shared:x:1001:1001:Local:/home/local:/bin/bash\nother:x:2001:2001:Other:/home/other:/bin/bash\nshared:x:3001:3001:Directory:/home/directory:/bin/bash\nshared:x:4001:4001:Another:/home/another:/bin/bash\n"), nil
+		}
+		if strings.Join(args, " ") != "passwd shared" {
+			t.Fatal(args)
+		}
+		lookups++
+		return []byte("shared:x:3001:3001:Directory:/home/directory:/bin/bash\n"), nil
+	}, File: func(path string) ([]byte, error) {
+		if path == "/etc/login.defs" {
+			return []byte("UID_MIN 1000\n"), nil
+		}
+		return []byte("shared:x:1001:1001:Local:/home/local:/bin/bash\n"), nil
+	}}
+	result, err := r.Read(context.Background(), Request{Version: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lookups != 1 || len(result.Items) != 2 || result.Items[0].Name != "shared" || result.Items[0].UID != 3001 || result.Items[0].GID != 3001 || result.Items[0].Home != "/home/directory" || result.Items[0].Source != "nss" || result.Items[1].Name != "other" {
+		t.Fatalf("NSS lookup precedence was not preserved: %+v, lookups=%d", result, lookups)
+	}
+}
+
+func TestReaderDoesNotReturnAmbiguousIdentitiesWhenResolutionFails(t *testing.T) {
+	for _, sample := range []struct {
+		name, lookup, code string
+		err                error
+	}{
+		{"missing", "", "unavailable", errors.New("NSS lookup failed")},
+		{"different-user", "other:x:2001:2001::/home/other:/bin/bash\n", "invalid_response", nil},
+		{"still-ambiguous", "shared:x:1001:1001::/home/local:/bin/bash\nshared:x:3001:3001::/home/directory:/bin/bash\n", "invalid_response", nil},
+	} {
+		t.Run(sample.name, func(t *testing.T) {
+			r := Reader{Run: func(_ context.Context, args ...string) ([]byte, error) {
+				if len(args) == 1 {
+					return []byte("shared:x:1001:1001::/home/local:/bin/bash\nshared:x:3001:3001::/home/directory:/bin/bash\n"), nil
+				}
+				return []byte(sample.lookup), sample.err
+			}}
+			result, err := r.Read(context.Background(), Request{Version: 1})
+			if !IsFailure(err, sample.code) || len(result.Items) != 0 {
+				t.Fatalf("ambiguous identity escaped: %+v, %v", result, err)
+			}
+		})
 	}
 }

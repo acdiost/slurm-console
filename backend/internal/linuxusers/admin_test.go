@@ -194,3 +194,25 @@ func TestLocalAccountPolicyStaleProofAndAuditDiskFailurePreventWrites(t *testing
 		t.Fatal("replaced identity unlocked")
 	}
 }
+
+func TestRootCallerPolicyPreservesAccountProtections(t *testing.T) {
+	e, h, _ := fixtureEngine()
+	e.Policy.CallerUID = 0
+	ctx := context.Background()
+	spec := CreateSpec{Name: "worker", UID: 10001, Shell: "/bin/bash"}
+	r := execution(t, e, "create", spec, "operation_root_12345")
+	if v := e.Execute(ctx, r); v.Status != "confirmed" || h.writes != 1 {
+		t.Fatal(v)
+	}
+	for _, bad := range []CreateSpec{{Name: "root", UID: 10002, Shell: "/bin/bash"}, {Name: "consoleadmin", UID: 10002, Shell: "/bin/bash"}, {Name: "outside", UID: 999, Shell: "/bin/bash"}} {
+		if e.Prepare(ctx, AdminRequest{Mode: "prepare", Action: "create", Spec: bad}).Allowed {
+			t.Fatal("root caller bypassed account policy")
+		}
+	}
+	u := h.users["worker"]
+	u.Privileged = true
+	h.users["worker"] = u
+	if e.Prepare(ctx, AdminRequest{Mode: "prepare", Action: "lock", Spec: CreateSpec{Name: "worker"}}).Allowed {
+		t.Fatal("root caller bypassed privileged-account guard")
+	}
+}

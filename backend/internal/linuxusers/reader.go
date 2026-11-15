@@ -50,13 +50,12 @@ func ParsePasswd(raw []byte) ([]User, error) {
 		return nil, fail("invalid_response")
 	}
 	values := []User{}
-	seen := map[string]bool{}
 	for _, line := range strings.Split(string(raw), "\n") {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 		fields := strings.Split(line, ":")
-		if len(fields) != 7 || !ValidName(fields[0]) || seen[fields[0]] || len(values) >= MaxUsers {
+		if len(fields) != 7 || !ValidName(fields[0]) || len(values) >= MaxUsers {
 			return nil, fail("invalid_response")
 		}
 		uid, err := strconv.ParseUint(fields[2], 10, 32)
@@ -67,7 +66,6 @@ func ParsePasswd(raw []byte) ([]User, error) {
 		if err != nil {
 			return nil, fail("invalid_response")
 		}
-		seen[fields[0]] = true
 		values = append(values, User{Name: fields[0], UID: uint32(uid), GID: uint32(gid), Comment: fields[4], Home: fields[5], Shell: fields[6], Source: "unknown", Kind: "unknown"})
 	}
 	return values, nil
@@ -107,13 +105,43 @@ func (r Reader) Read(ctx context.Context, request Request) (Snapshot, error) {
 	if err != nil {
 		return result, err
 	}
+	if request.Name == "" {
+		// Enumeration can include the same name from multiple NSS modules.
+		// Resolve collisions through getpwnam semantics instead of choosing a UID.
+		positions := make(map[string]int, len(values))
+		unique := values[:0]
+		for _, user := range values {
+			position, exists := positions[user.Name]
+			if !exists {
+				positions[user.Name] = len(unique) + 1
+				unique = append(unique, user)
+				continue
+			}
+			if position < 0 {
+				continue
+			}
+			lookupRaw, lookupErr := r.Run(ctx, "passwd", user.Name)
+			if lookupErr != nil {
+				return result, fail("unavailable")
+			}
+			resolved, lookupErr := ParsePasswd(lookupRaw)
+			if lookupErr != nil || len(resolved) != 1 || resolved[0].Name != user.Name {
+				return result, fail("invalid_response")
+			}
+			unique[position-1] = resolved[0]
+			positions[user.Name] = -position
+		}
+		values = unique
+	}
 	locals := map[string]User{}
 	known := false
 	if localRaw, e := r.File("/etc/passwd"); e == nil {
 		if local, e := ParsePasswd(localRaw); e == nil {
 			known = true
 			for _, u := range local {
-				locals[u.Name] = u
+				if _, exists := locals[u.Name]; !exists {
+					locals[u.Name] = u
+				}
 			}
 		}
 	}

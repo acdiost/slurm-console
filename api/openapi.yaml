@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.34.0
+  version: 0.35.0
   description: 平台密码/PAM/LDAP/FreeIPA 认证和基础 RBAC。FreeIPA 目录管理及直接成员组角色映射由独立平台权限控制。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -2295,13 +2295,86 @@ paths:
             },
         },
     }
+  /api/v1/clusters/{clusterId}/linux-user-source:
+    parameters:
+      - in: path
+        name: clusterId
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getLinuxUserSource
+      summary: 查询集群 Linux 身份来源配置
+      description: 需要 platform.settings.manage 及该集群 linux_users.read。配置来自数据库；从未配置时 configured=false、revision=0，移除后保留递增修订号。返回可信主机公钥内容及私钥是否已配置，不返回私钥。
+      security:
+        - platformToken: []
+      responses:
+        "200":
+          $ref: "#/components/responses/LinuxUserSourceConfiguration"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: saveLinuxUserSource
+      summary: 验证并保存集群 Linux 身份来源
+      description: 需要 platform.settings.manage 及该集群 linux_users.read。验证真实 NSS 来源后，配置、SSH 私钥和可信 known_hosts 内容与审计事务提交到数据库，立即生效且重启保留。已有 SSH 私钥留空表示保留，切换到本机清除 SSH 配置及凭据。失败保留原配置；修订号过期返回 409。来源变更使旧来源查询和账户操作确认失效。不接受任意命令、可执行文件或服务器凭据路径。
+      security:
+        - platformToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinuxUserSourceInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/LinuxUserSourceConfiguration"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: removeLinuxUserSource
+      summary: 移除集群 Linux 身份来源及凭据
+      description: 需要 platform.settings.manage 及该集群 linux_users.read。按 revision 清除配置与私钥，保留递增修订号和审计；旧 JSON 不会重新覆盖或恢复已移除来源。不删除主机账户。
+      security:
+        - platformToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Revision"
+      responses:
+        "200":
+          $ref: "#/components/responses/LinuxUserSourceConfiguration"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
   /api/v1/clusters/{clusterId}/linux-users:
     {
       "get":
         {
           "operationId": "listLinuxUsers",
           "summary": "分页查询指定集群身份主机的 NSS 可枚举用户",
-          "description": "要求独立集群权限 linux_users.read。授权在访问来源前及返回结果前复查。来源仅由部署管理员配置；无来源返回 LINUX_USERS_NOT_CONFIGURED，不回退到本机。目录可能关闭枚举，因此 totalItems 只是本次枚举筛选后的总量。无缓存，最多 4 个并发来源和 20000 记录、8 MiB 响应。未知或重复查询参数返回 400。",
+          "description": "要求独立集群权限 linux_users.read。授权在访问来源前及返回结果前复查。来源由具有平台设置管理权限的管理员在网页配置并持久化数据库；无来源返回 LINUX_USERS_NOT_CONFIGURED，不回退到本机。目录可能关闭枚举，因此 totalItems 只是本次枚举筛选后的总量。无缓存，最多 4 个并发来源和 20000 记录、8 MiB 响应。未知或重复查询参数返回 400。",
           "security": [{ "platformToken": [] }],
           "parameters":
             [
@@ -11493,6 +11566,17 @@ components:
       schema:
         type: string
   responses:
+    LinuxUserSourceConfiguration:
+      description: 数据库中的 Linux 身份来源配置，不含私钥
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data, requestId]
+            properties:
+              requestId: { type: string }
+              data:
+                $ref: "#/components/schemas/LinuxUserSource"
     Error:
       description: 平台错误响应，Cache-Control 为 no-store
       headers:
@@ -13413,6 +13497,35 @@ components:
             "canManage": { "type": "boolean" },
           },
       }
+    LinuxUserSource:
+      type: object
+      additionalProperties: false
+      required: [configured, revision, label, transport, host, port, username, knownHosts, privateKeyConfigured, manageLocal]
+      properties:
+        configured: { type: boolean }
+        revision: { type: integer, minimum: 0 }
+        label: { type: string }
+        transport: { type: string, enum: [local, ssh] }
+        host: { type: string }
+        port: { type: integer, minimum: 0, maximum: 65535 }
+        username: { type: string }
+        knownHosts: { type: string, description: 仅向来源管理员返回的可信 SSH 主机公钥内容 }
+        privateKeyConfigured: { type: boolean }
+        manageLocal: { type: boolean, description: 仅本机来源可启用，仍受独立 root 主机策略与操作权限约束 }
+    LinuxUserSourceInput:
+      type: object
+      additionalProperties: false
+      required: [revision, label, transport, host, port, username, privateKey, knownHosts, manageLocal]
+      properties:
+        revision: { type: integer, minimum: 0 }
+        label: { type: string, minLength: 1, maxLength: 160, description: 来源名称，最多 160 UTF-8 字节 }
+        transport: { type: string, enum: [local, ssh] }
+        host: { type: string, description: SSH 来源必填主机名或 IP，不接受 URL }
+        port: { type: integer, minimum: 0, maximum: 65535, description: SSH 来源使用 1–65535 }
+        username: { type: string, description: SSH 来源必填专用非 root 用户名 }
+        privateKey: { type: string, maxLength: 65536, writeOnly: true, description: SSH 私钥内容；已有 SSH 来源留空保留 }
+        knownHosts: { type: string, maxLength: 1048576, description: 经可信渠道核对的 known_hosts 内容；SSH 来源必填 }
+        manageLocal: { type: boolean, default: false }
     LinuxUser:
       {
         "type": "object",

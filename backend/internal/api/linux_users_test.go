@@ -23,6 +23,24 @@ func linuxCluster(t *testing.T, app core.App, slug string) *core.Record {
 	return c
 }
 
+func linuxSourceFixture(t *testing.T, app core.App, profiles map[string]linuxusers.Profile, provider linuxusers.Provider) *linuxusers.Service {
+	t.Helper()
+	collection, err := app.FindCollectionByNameOrId("linux_user_sources")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for cluster, p := range profiles {
+		r := core.NewRecord(collection)
+		for k, v := range map[string]any{"cluster": cluster, "configured": true, "revision": 1, "label": p.Label, "transport": p.Transport, "host": p.Host, "port": p.Port, "username": p.Username, "private_key": p.PrivateKey, "known_hosts": p.KnownHosts, "manage_local": p.ManageLocal} {
+			r.Set(k, v)
+		}
+		if err := app.Save(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return linuxusers.Register(app, provider)
+}
+
 type linuxReaderFunc func(context.Context, linuxusers.Profile, linuxusers.Request) (linuxusers.Snapshot, error)
 
 func (f linuxReaderFunc) Read(ctx context.Context, p linuxusers.Profile, r linuxusers.Request) (linuxusers.Snapshot, error) {
@@ -44,7 +62,7 @@ func TestLinuxUsersScopesPermissionsAndNeverExposesConnectionDetails(t *testing.
 	b := linuxCluster(t, app, "beta")
 	person := user(t, app, "users")
 	var calls atomic.Int32
-	linuxusers.Register(app, &linuxusers.Registry{Clusters: map[string]linuxusers.Profile{a.Id: {Label: "Alpha NSS", Transport: "local"}, b.Id: {Label: "Secret endpoint", Transport: "ssh", Host: "192.0.2.99", IdentityFile: "/private/key"}}}, linuxReaderFunc(func(_ context.Context, p linuxusers.Profile, r linuxusers.Request) (linuxusers.Snapshot, error) {
+	linuxSourceFixture(t, app, map[string]linuxusers.Profile{a.Id: {Label: "Alpha NSS", Transport: "local"}, b.Id: {Label: "Secret endpoint", Transport: "ssh", Host: "192.0.2.99", PrivateKey: "private-key-secret"}}, linuxReaderFunc(func(_ context.Context, p linuxusers.Profile, r linuxusers.Request) (linuxusers.Snapshot, error) {
 		calls.Add(1)
 		if p.Label != "Alpha NSS" {
 			t.Fatal("unauthorized source accessed")
@@ -61,7 +79,7 @@ func TestLinuxUsersScopesPermissionsAndNeverExposesConnectionDetails(t *testing.
 	if r.Code != 200 || calls.Load() != 1 || !strings.Contains(r.Body.String(), `"sourceLabel":"Alpha NSS"`) {
 		t.Fatal(r.Body.String())
 	}
-	for _, v := range []string{"IdentityFile", "192.0.2.99", "/private/key", "password", "shadow"} {
+	for _, v := range []string{"privateKey", "192.0.2.99", "private-key-secret", "password", "shadow"} {
 		if strings.Contains(r.Body.String(), v) {
 			t.Fatal("sensitive metadata leaked")
 		}
@@ -84,7 +102,7 @@ func TestLinuxUsersFilterSortPaginationAndExactDirectoryLookup(t *testing.T) {
 	c := linuxCluster(t, app, "alpha")
 	person := user(t, app, "users")
 	grant(t, app, person.Id, "viewer", c.Id)
-	linuxusers.Register(app, &linuxusers.Registry{Clusters: map[string]linuxusers.Profile{c.Id: {Label: "NSS", Transport: "local"}}}, linuxReaderFunc(func(_ context.Context, _ linuxusers.Profile, r linuxusers.Request) (linuxusers.Snapshot, error) {
+	linuxSourceFixture(t, app, map[string]linuxusers.Profile{c.Id: {Label: "NSS", Transport: "local"}}, linuxReaderFunc(func(_ context.Context, _ linuxusers.Profile, r linuxusers.Request) (linuxusers.Snapshot, error) {
 		return linuxSnapshot(r), nil
 	}))
 	token := login(t, mux)
@@ -126,7 +144,7 @@ func TestLinuxUsersRejectInvalidQueriesAndUnconfiguredOrDisabledSources(t *testi
 		calls.Add(1)
 		return linuxSnapshot(r), nil
 	})
-	linuxusers.Register(app, &linuxusers.Registry{Clusters: map[string]linuxusers.Profile{c.Id: {Label: "NSS", Transport: "local"}}}, provider)
+	linuxSourceFixture(t, app, map[string]linuxusers.Profile{c.Id: {Label: "NSS", Transport: "local"}}, provider)
 	token := login(t, mux)
 	path := "/api/v1/clusters/" + c.Id + "/linux-users"
 	for _, query := range []string{"page=0", "perPage=101", "q=x&q=y", "source=ldap", "kind=admin", "sort=home", "order=invalid", "command=id", "q=%00", "q=" + strings.Repeat("x", 129)} {
@@ -149,7 +167,14 @@ func TestLinuxUsersRejectInvalidQueriesAndUnconfiguredOrDisabledSources(t *testi
 	}
 	c.Set("enabled", true)
 	_ = app.Save(c)
-	linuxusers.Register(app, nil, provider)
+	source, err := app.FindFirstRecordByData("linux_user_sources", "cluster", c.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = app.Delete(source); err != nil {
+		t.Fatal(err)
+	}
+	linuxusers.Register(app, provider)
 	r = request(mux, "GET", path, "", token)
 	if r.Code != 503 || !strings.Contains(r.Body.String(), "LINUX_USERS_NOT_CONFIGURED") || calls.Load() != 0 {
 		t.Fatal(r.Body.String())
@@ -162,7 +187,7 @@ func TestLinuxUsersDiscardChangedAuthorizationOrConfigurationDuringRead(t *testi
 			c := linuxCluster(t, app, "alpha")
 			person := user(t, app, "users")
 			binding := grant(t, app, person.Id, "viewer", c.Id)
-			linuxusers.Register(app, &linuxusers.Registry{Clusters: map[string]linuxusers.Profile{c.Id: {Label: "NSS", Transport: "local"}}}, linuxReaderFunc(func(_ context.Context, _ linuxusers.Profile, r linuxusers.Request) (linuxusers.Snapshot, error) {
+			linuxSourceFixture(t, app, map[string]linuxusers.Profile{c.Id: {Label: "NSS", Transport: "local"}}, linuxReaderFunc(func(_ context.Context, _ linuxusers.Profile, r linuxusers.Request) (linuxusers.Snapshot, error) {
 				result := linuxSnapshot(r)
 				switch mode {
 				case "permission":

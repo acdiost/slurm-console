@@ -30,6 +30,19 @@ export const linuxUserDetailSchema = z.object({
   item: linuxUserSchema,
   ...metadata,
 })
+export const linuxUserSourceSchema = z.object({
+  configured: z.boolean(),
+  revision: z.number().int().nonnegative(),
+  label: z.string(),
+  transport: z.enum(["local", "ssh"]),
+  host: z.string(),
+  port: z.number().int(),
+  username: z.string(),
+  knownHosts: z.string(),
+  privateKeyConfigured: z.boolean(),
+  manageLocal: z.boolean(),
+})
+export type LinuxUserSource = z.infer<typeof linuxUserSourceSchema>
 export const sources = {
   local: "本地匹配",
   nss: "NSS 非本地匹配",

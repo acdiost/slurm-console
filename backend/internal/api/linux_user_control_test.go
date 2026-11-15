@@ -51,8 +51,12 @@ func controlFixture(t *testing.T, role string) (core.App, http.Handler, string, 
 	app, mux := setup(t)
 	c := linuxCluster(t, app, "alpha")
 	person := user(t, app, "users")
-	grant(t, app, person.Id, role, c.Id)
-	s := linuxusers.Register(app, &linuxusers.Registry{Clusters: map[string]linuxusers.Profile{c.Id: {Label: "local", Transport: "local", ManageLocal: true}}}, nil)
+	scope := c.Id
+	if role == "super_admin" {
+		scope = ""
+	}
+	grant(t, app, person.Id, role, scope)
+	s := linuxSourceFixture(t, app, map[string]linuxusers.Profile{c.Id: {Label: "local", Transport: "local", ManageLocal: true}}, nil)
 	f := &adminFixture{app: app}
 	s.SetAdminProvider(f)
 	return app, mux, c.Id, login(t, mux), f
@@ -143,7 +147,7 @@ func TestLinuxUserUnknownResultSurvivesRestartAndOnlyReconcilesByRead(t *testing
 	if r.Code != 200 || body.Data.Status != "unknown" || f.execute != 1 {
 		t.Fatal(r.Body.String())
 	}
-	s := linuxusers.Register(app, &linuxusers.Registry{Clusters: map[string]linuxusers.Profile{cid: {Transport: "local", ManageLocal: true}}}, nil)
+	s := linuxusers.Register(app, nil)
 	s.SetAdminProvider(f)
 	r = request(mux, "GET", "/api/v1/clusters/"+cid+"/linux-user-operations/"+p.OperationID, "", token)
 	_ = json.Unmarshal(r.Body.Bytes(), &body)
