@@ -27,7 +27,7 @@ func Public() fs.FS {
 
 // Dispatch runs before PocketBase opens a database or reads integration config.
 func Dispatch(args []string, configure func(string) error) (bool, error) {
-	if len(args) == 0 || (args[0] != "install" && args[0] != "configure" && args[0] != "configure-data") {
+	if len(args) == 0 || (args[0] != "install" && args[0] != "configure" && args[0] != "uninstall" && args[0] != "configure-data") {
 		return false, nil
 	}
 	root := Command(configure)
@@ -53,7 +53,7 @@ func Command(configure func(string) error) *cobra.Command {
 		return configure(dir)
 	}}
 	internal.Flags().StringVar(&dir, "dir", "/var/lib/slurm-console/pb_data", "Application database directory")
-	root.AddCommand(internal)
+	root.AddCommand(internal, uninstallCommand())
 	return root
 }
 

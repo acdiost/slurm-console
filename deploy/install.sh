@@ -90,7 +90,7 @@ chmod -R go-w "$release"
 chmod 0755 "$release"
 if "$changed"; then
   if "$was_active"; then systemctl stop slurm-console; stopped=true; fi
-  if [[ -f /var/lib/slurm-console/pb_data/data.db ]]; then
+  if [[ -f /var/lib/slurm-console/pb_data/data.db && -f /opt/slurm-console/slurm-console && -f /etc/systemd/system/slurm-console.service ]]; then
     backup="/var/backups/slurm-console/upgrade-$(date -u +%Y%m%dT%H%M%S)-$$.tar.gz.age"
     "$repo_dir/backend/slurm-console" backup create --kind upgrade --file "$backup"
   fi
@@ -110,6 +110,12 @@ for unit in slurm-console.service slurm-console-backup.service slurm-console-bac
   install -o root -g root -m 0644 "$repo_dir/deploy/$unit" "/etc/systemd/system/$unit"
 done
 systemctl daemon-reload
+# After uninstall, retained data has no program or unit to snapshot yet. Restore
+# those files first, then protect the retained database before configuration.
+if "$changed" && [[ -z "$backup" && -f /var/lib/slurm-console/pb_data/data.db ]]; then
+  backup="/var/backups/slurm-console/upgrade-$(date -u +%Y%m%dT%H%M%S)-$$.tar.gz.age"
+  "$repo_dir/backend/slurm-console" backup create --kind upgrade --file "$backup"
+fi
 if [[ ${1:-} == --configure ]]; then
   "$repo_dir/backend/slurm-console" configure-data --dir=/var/lib/slurm-console/pb_data
 fi

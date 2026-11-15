@@ -113,9 +113,11 @@ func TestCapacityReadCollectionBoundsAndSourceIsolation(t *testing.T) {
 		}
 	}
 	// Changing an administrator-owned profile without editing the cluster record cannot mix history.
-	p := m.Registry.Profiles["local-test"]
+	p, _ := m.Registry.Get("local-test")
 	p.Label = "changed profile"
-	m.Registry.Profiles["local-test"] = p
+	if err := m.Registry.Set("local-test", p); err != nil {
+		t.Fatal(err)
+	}
 	newKey, _, e := capacity.Key(app, a.ID)
 	if e != nil || newKey == key {
 		t.Fatal("profile not bound", e)

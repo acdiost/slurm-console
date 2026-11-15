@@ -11,7 +11,7 @@ func TestInstallationRequiresLinuxRootAndInternalCommandRequiresLock(t *testing.
 	called := false
 	configure := func(string) error { called = true; return nil }
 	if runtime.GOOS != "linux" || os.Geteuid() != 0 {
-		for _, command := range []string{"install", "configure"} {
+		for _, command := range []string{"install", "configure", "uninstall"} {
 			handled, err := Dispatch([]string{command}, configure)
 			if !handled || err == nil || !strings.Contains(err.Error(), "root") {
 				t.Fatal("unprivileged installation accepted", command, err)

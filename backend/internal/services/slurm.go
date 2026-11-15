@@ -207,7 +207,7 @@ func ConnectionFor(app core.App, clusterID string) (Connection, error) {
 	}
 	manager := clusterconfig.For(app)
 	view := manager.View(record)
-	profile, ok := manager.Registry.Profiles[view.ConnectionRef]
+	profile, ok := manager.Registry.Get(view.ConnectionRef)
 	if !ok {
 		return Connection{}, client.Failure("profile_unavailable", "服务端集群连接方式不可用。")
 	}

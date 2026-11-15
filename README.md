@@ -9,6 +9,10 @@
 
 Linux 简化交付支持两个文件：内嵌前端的 `slurm-console` 和 `slurm-console.service`。在发布机器执行 `make release TARGET_ARCH=amd64`（ARM64 使用 `arm64`），交付目标目录后以 root 执行 `./slurm-console install`，通过终端向导配置并启动。重复执行保留未填写的已有值，应用和 Slurm 本地 socket 均使用 root。详见 [两文件部署](docs/deployment.md#两文件交付与终端引导推荐)。
 
+默认安装未接入集群时，管理员登录后可点击工作台的「开始接入配置」，进入 `/setup` 完成可选 PAM 环境检查与启用，再通过本机 Unix socket 或 HTTPS/JWT 接入 slurmrestd；验证成功后即可进入集群。详见 [首次接入引导](docs/deployment.md#首次登录后的接入引导)。
+
+卸载使用 `sudo /opt/slurm-console/slurm-console uninstall`，交互选择是否保留平台数据、配置与凭据、加密备份与密钥，默认全部保留；输入 `UNINSTALL` 后清理程序和专属服务配置，详见 [卸载说明](docs/deployment.md#卸载与关键数据保留)。
+
 已完成阶段一全部十一项：项目初始化及 UI 设计系统、PocketBase Go 框架与认证、基础 RBAC 及集群权限、集群连接配置、Slurm Adapter、集群总览、作业列表/详情/取消、节点查询与控制、分区查询、操作审计、基础部署与备份，并按实施顺序提前接入 Linux PAM 和 LDAP。V1 已接入多集群工作台、Linux 系统用户、本地账户、Slurm 记账身份以及 QOS / Fairshare、TRES 限额、Reservation 及 GPU 监控接入。当前支持用户名或邮箱登录、会话刷新、退出、按动作及集群授权的查询，以及 `/history`、`/gpu`、`/reservations`、`/tres`、`/policies`、`/accounts`、`/linux-users`、`/fleet`、`/overview`、`/jobs`、`/nodes`、`/partitions`、`/audits`、`/design-system`、`/access` 和 `/clusters` 页面。
 
 要求 Node.js 22.16+（22.x）或 24 LTS、npm 10+、Go 1.27.3+（Go 的自动工具链可按 `go.mod` 下载）。PocketBase 固定为 v0.40.6：

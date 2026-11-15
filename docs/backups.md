@@ -6,7 +6,7 @@
 
 | 路径 | 内容 |
 |---|---|
-| `/var/lib/slurm-console/pb_data` | PocketBase 数据库、用户、RBAC、身份映射、操作审计及其他应用数据 |
+| `/var/lib/slurm-console/pb_data` | PocketBase 数据库、用户、RBAC、身份映射、操作审计、PAM 网页覆盖设置，以及 `managed-slurm/` 内的受管 JWT/CA 文件 |
 | `/opt/slurm-console` | 与数据库同一时间点的后端程序和前端资源 |
 | `/etc/slurm-console` | 应用环境、LDAP/FreeIPA 客户端、批准的集群连接方式及放在此处的凭据 |
 | `/etc/systemd/system/slurm-console*.service`、备份 timer | 仅本项目的三个固定服务/定时器文件 |

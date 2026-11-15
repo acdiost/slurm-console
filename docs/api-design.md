@@ -16,6 +16,8 @@
 
 集群配置管理接口要求平台范围 `platform.clusters.manage`：`GET /cluster-connection-profiles`、`GET/POST /cluster-configurations`、`PATCH /cluster-configurations/{clusterId}`、`POST /cluster-configurations/{clusterId}/test` 和 `/disable`。列表采用相同分页约束；POST/PATCH 为完整配置（新建 revision=0），test/disable 只接受 revision。拒绝未知字段和任意 endpoint/凭据输入，配置冲突或检测繁忙返回 409 `CONFLICT`。Slurm 检测失败仍以 200 返回结构化 `lastProbe`；详细状态见 OpenAPI 和 [部署说明](cluster-connections.md)。
 
+首次接入新增 `GET /setup/status`、`POST /setup/pam/check`、`PATCH /setup/pam` 和 `POST /setup/slurm`。状态读取要求平台设置或集群管理权限，PAM 操作要求 `platform.settings.manage`，Slurm 操作要求 `platform.clusters.manage`，提交时再次复查。PAM 检测以 200 返回实际准备状态，启用条件不满足返回 503 `PAM_UNAVAILABLE`，修订冲突返回 409。Slurm 引导是新建连接方式的管理员入口，接受 Unix socket 或经过证书验证的 HTTPS/JWT，自动发现或手动指定 API 版本，ping 成功后才保存并立即发布；失败返回安全的 `SLURM_SETUP_UNAVAILABLE`，已有标识返回 409。普通集群配置接口仍拒绝任意 endpoint/凭据输入。JWT 只写受保护文件，不写响应、数据库或审计；详细契约为 OpenAPI 0.34.0。
+
 集群只读业务查询已通过 Slurm Adapter 实现：`GET /clusters/{clusterId}/health`、`/jobs`、`/jobs/{jobId}`、`/nodes`、`/nodes/{nodeName}`、`/partitions`。它们按对应集群动作鉴权，返回统一 DTO 与缓存时间，不暴露原始 Slurm 响应；接口、分页、筛选和错误码详见 [Adapter 契约](slurm-adapter.md)。
 
 `GET /clusters/{clusterId}/overview` 返回来源级的健康、作业、节点、分区汇总；各项有 `status/item/code/message/fetchedAt/cached`，失败或缺权为 null，其他数据仍可用。接口不接受列表筛选参数，避免将过滤后的子集误当集群总量；详细口径见 [集群总览](overview.md)。

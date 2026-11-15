@@ -34,7 +34,7 @@ func Key(app core.App, id string) (string, *core.Record, error) {
 	}
 	m := clusterconfig.For(app)
 	v := m.View(r)
-	p, ok := m.Registry.Profiles[v.ConnectionRef]
+	p, ok := m.Registry.Get(v.ConnectionRef)
 	if !ok {
 		return "", r, client.Failure("profile_unavailable", "集群连接方式不可用。")
 	}

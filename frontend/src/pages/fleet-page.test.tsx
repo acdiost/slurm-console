@@ -5,6 +5,7 @@ import { MemoryRouter, useLocation } from "react-router"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ClientResponseError } from "pocketbase"
 import { api } from "@/services/api"
+import { useAuth } from "@/stores/auth"
 import {
   fixtureFleetItem,
   fixtureFleetPage,
@@ -17,8 +18,12 @@ beforeEach(() => {
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
   vi.mocked(api).mockReset()
+  useAuth.setState({ user: null, status: "anonymous" })
 })
-afterEach(() => client.clear())
+afterEach(() => {
+  client.clear()
+  useAuth.setState({ user: null, status: "anonymous" })
+})
 function Location() {
   const l = useLocation()
   return <output aria-label="当前查询">{l.search}</output>
@@ -165,4 +170,80 @@ it("空授权范围不显示伪造集群，页码越界可回到第一页", asyn
   await waitFor(() =>
     expect(screen.getByLabelText("当前查询")).toHaveTextContent("page=1")
   )
+})
+
+it.each([false, true])(
+  "uses authoritative setup status for a filtered empty fleet (needsSetup=%s)",
+  async (needsSetup) => {
+    useAuth.setState({
+      status: "authenticated",
+      user: {
+        id: "manager",
+        email: "manager@example.test",
+        name: "管理员",
+        username: "",
+        authSource: "local",
+        access: {
+          platformRoles: [],
+          platformPermissions: ["platform.clusters.manage"],
+          clusters: [],
+        },
+      },
+    })
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path === "/setup/status")
+        return {
+          needsSetup,
+          pam: {
+            revision: 0,
+            configured: false,
+            supported: false,
+            available: false,
+            helperInstalled: false,
+            policyInstalled: false,
+            message: "",
+          },
+          slurm: { configured: !needsSetup, profileCount: 1, clusterCount: 1 },
+        }
+      return { ...fixtureFleetPage(), items: [], totalItems: 0 }
+    })
+    show("/fleet?q=missing")
+    await screen.findByText("没有符合条件的可访问集群")
+    await waitFor(() => expect(client.isFetching()).toBe(0))
+    expect(
+      screen
+        .queryAllByRole("link")
+        .some((link) => link.getAttribute("href") === "/setup")
+    ).toBe(needsSetup)
+    expect(screen.getByLabelText("当前查询")).toHaveTextContent("q=missing")
+  }
+)
+
+it("does not request restricted setup status for an ordinary user with an empty fleet", async () => {
+  useAuth.setState({
+    status: "authenticated",
+    user: {
+      id: "viewer",
+      email: "viewer@example.test",
+      name: "普通用户",
+      username: "",
+      authSource: "local",
+      access: { platformRoles: [], platformPermissions: [], clusters: [] },
+    },
+  })
+  vi.mocked(api).mockResolvedValue({
+    ...fixtureFleetPage(),
+    items: [],
+    totalItems: 0,
+  })
+  show()
+  await screen.findByText("没有符合条件的可访问集群")
+  expect(
+    screen
+      .queryAllByRole("link")
+      .some((link) => link.getAttribute("href") === "/setup")
+  ).toBe(false)
+  expect(
+    vi.mocked(api).mock.calls.some(([path]) => path === "/setup/status")
+  ).toBe(false)
 })

@@ -12,6 +12,8 @@ LDAP 通过 `SLURM_CONSOLE_LDAP_CONFIG` 指向服务端 JSON 配置，支持 LDA
 
 通过根目录 `make build` 或 `make release TARGET_ARCH=amd64`（ARM64 使用 `arm64`） 构建时，前端及安装器会嵌入程序。发布包只含 `slurm-console` 和 `slurm-console.service`，目标 Linux 主机以 root 执行 `./slurm-console install` 即可通过终端向导安装、初始化管理员并启动；`configure` 可重复执行，空输入保留已有值及外部认证来源。向导沿用维护锁、升级快照、失败回退和每日备份，见 [部署说明](../docs/deployment.md)。
 
+`uninstall` 在加载数据库和集成配置之前分发，要求 Linux root；交互确认保留平台数据、配置与凭据、加密备份与密钥（默认全部保留）后，停止并移除专属服务、程序和 PAM 配置，删除未保留的数据。EOF 或未输入 `UNINSTALL` 则取消，详见 [卸载说明](../docs/deployment.md#卸载与关键数据保留)。
+
 未设置 `SLURM_CONSOLE_PUBLIC_DIR` 时，后端优先使用内嵌前端；未准备内嵌资源的开发构建回退到 `../frontend/dist`。显式设置该环境变量时使用指定目录。未知 `/api` 请求始终返回 API 错误，不回退到 HTML。
 
 - `internal/api`：平台 `/api/v1` 路由。

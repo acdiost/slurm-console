@@ -58,7 +58,39 @@ def main():
         assert db.execute("SELECT count(*) FROM user_platform_roles").fetchone()[0] == 1
     assert list(Path("/var/backups/slurm-console").glob("upgrade-*.tar.gz.age"))
     assert command("systemctl", "is-active", "slurm-console-backup.timer").strip() == "active"
-    print("PASS: root installation, embedded frontend, repeat configuration, retained credentials, upgrade snapshot, backup timer")
+    data = Path("/var/lib/slurm-console/pb_data/data.db")
+    config = Path("/etc/slurm-console/slurm-console.env")
+    key = Path("/var/lib/slurm-console-backup/identity.txt")
+    config_before, key_before = config.read_bytes(), key.read_bytes()
+    snapshots = sorted(Path("/var/backups/slurm-console").glob("*.age"))
+    # Cancellation, EOF and invalid integration config must not stop the service.
+    uninstall_env = dict(os.environ, SLURM_CONSOLE_AI_CONFIG="/nonexistent/uninstall-config.json")
+    command(binary, "uninstall", input="n\nn\nn\n\n", env=uninstall_env)
+    cancelled = subprocess.run([binary, "uninstall"], input="n\nn\nn\n", text=True, capture_output=True, env=uninstall_env)
+    assert cancelled.returncode != 0
+    assert command("systemctl", "is-active", "slurm-console").strip() == "active"
+    assert data.is_file() and config.read_bytes() == config_before and key.read_bytes() == key_before
+    # Run the installed binary while deleting its own program directory.
+    command("/opt/slurm-console/slurm-console", "uninstall", input="\n\n\nUNINSTALL\n", env=uninstall_env)
+    assert not Path("/opt/slurm-console").exists()
+    assert config.read_bytes() == config_before and key.read_bytes() == key_before
+    assert all(path.is_file() for path in snapshots)
+    with sqlite3.connect(data) as db:
+        assert db.execute("SELECT count(*) FROM users").fetchone()[0] == 1
+    for unit in ("slurm-console.service", "slurm-console-backup.service", "slurm-console-backup.timer"):
+        assert not Path("/etc/systemd/system", unit).exists()
+        assert subprocess.run(["systemctl", "is-active", "--quiet", unit]).returncode != 0
+    # Reinstallation must reuse retained credentials; complete removal is repeatable.
+    command(binary, "install", input="\n" * 5)
+    assert json.loads(request("/api/collections/users/auth-with-password", {
+        "identity": "admin@example.com", "password": password,
+    }))["token"]
+    command(binary, "uninstall", input="n\nn\nn\nUNINSTALL\n")
+    command(binary, "uninstall", input="n\nn\nn\nUNINSTALL\n")
+    for path in ("/opt/slurm-console", "/etc/slurm-console", "/var/lib/slurm-console",
+                 "/var/backups/slurm-console", "/var/lib/slurm-console-backup"):
+        assert not Path(path).exists(), f"uninstall left {path}"
+    print("PASS: installation, retained credentials, cancellation, uninstall retention, reinstall, complete removal")
 
 
 if __name__ == "__main__":

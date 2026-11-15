@@ -103,7 +103,8 @@ func TestConfigureLocalConnectionRerunPreservesVersionSecretsAndOtherEnv(t *test
 		t.Fatal("rerun changed version or duplicated cluster", err)
 	}
 	registry, err := clusterconfig.LoadRegistry(filepath.Join(dir, "cluster-profiles.json"))
-	if err != nil || registry.Profiles["primary"].LocalUser != "root" {
+	profile, _ := registry.Get("primary")
+	if err != nil || profile.LocalUser != "root" {
 		t.Fatal("socket is not configured as root", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "slurm-console.env"))

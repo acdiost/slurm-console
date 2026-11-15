@@ -22,6 +22,9 @@ import {
   SessionLifecycle,
   RequireSession,
 } from "@/features/auth/session-boundary"
+const SetupPage = lazy(() =>
+  import("@/pages/setup-page").then((m) => ({ default: m.SetupPage }))
+)
 const FreeIPAPage = lazy(() =>
   import("@/pages/freeipa-page").then((m) => ({ default: m.FreeIPAPage }))
 )
@@ -151,6 +154,7 @@ export function App() {
                 <Route element={<ConsoleLayout />}>
                   <Route index element={<Navigate to="/fleet" replace />} />
                   <Route path="settings" element={<PlatformSettingsPage />} />
+                  <Route path="setup" element={<SetupPage />} />
                   <Route path="directory" element={<FreeIPAPage />} />
                   <Route path="fleet" element={<FleetPage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
@@ -265,7 +269,7 @@ function RouteTitle() {
                                                     : pathname === "/access"
                                                       ? "我的权限"
                                                       : "设计系统"
-    document.title = `${title} · ${platformName}`
+    document.title = `${pathname === "/setup" ? "首次接入引导" : title} · ${platformName}`
   }, [pathname, platformName])
   return null
 }

@@ -85,6 +85,7 @@ func Register(routes *router.Router[*core.RequestEvent], publicDir string, bundl
 	}).Bind(apis.RequireAuth("users")).BindFunc(auth.RequireActiveUser)
 	registerPlatformSettingsRoutes(group)
 	registerPlatformUserRoutes(group)
+	registerSetupRoutes(group)
 	registerFreeIPARoutes(group)
 	registerClusterRoutes(group)
 	registerFleetRoutes(group)

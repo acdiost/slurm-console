@@ -19,7 +19,9 @@ func fleetRegistry(t *testing.T, a, b http.HandlerFunc) *clusterconfig.Registry 
 	t.Helper()
 	first := connectionRegistry(t, a)
 	second := connectionRegistry(t, b)
-	combined, err := clusterconfig.NewRegistry(map[string]clusterconfig.Profile{"first": first.Profiles["local-test"], "second": second.Profiles["local-test"]})
+	firstProfile, _ := first.Get("local-test")
+	secondProfile, _ := second.Get("local-test")
+	combined, err := clusterconfig.NewRegistry(map[string]clusterconfig.Profile{"first": firstProfile, "second": secondProfile})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,16 +2,22 @@
 
 平台设置 → **集群配置**（`/clusters`）支持服务端分页、新建、编辑、启停、连接检测和结果持久化。要求活动用户具备平台范围的 `platform.clusters.manage`；Cluster Admin、Operator、Viewer 无法读取连接详情或修改配置。普通授权查询 `/api/v1/clusters` 仍只返回 `id/name/slug/description`。
 
+## 首次接入引导
+
+默认安装后，管理员可从工作台点击「开始接入配置」进入 `/setup`。PAM 为可选步骤，可跳过。slurmrestd 步骤直接填写已有服务的 Unix socket 或 HTTPS/JWT 地址、集群名称与标识；HTTPS 可粘贴私有 CA 的 PEM。自动发现版本或手动选择版本后，点击「验证连接并保存」。只有 ping 成功才原子保存连接方式、集群、历史和审计，失败不遗留新集群或凭据；同名标识返回冲突，不覆盖旧记录。
+
+受管连接保存后立即被现有工作台和业务查询使用，服务重启后自动恢复；原有服务器环境连接方式保留。只有此管理员引导入口接受新 endpoint 和 JWT，常规 `/clusters` 表单仍只选择已注册的连接引用。JWT 只在当前表单内暂存，保存成功或离开步骤即清空；服务端将 JWT/CA 写入应用数据目录 `managed-slurm/` 的私有文件（JWT 为 0600），数据库仅存非敏感配置和文件引用。这些文件随平台数据一起备份或在卸载时选择保留。凭据轮换、上游权限和令牌续期由管理员维护。
+
 ## 连接方式与凭据
 
-可信部署管理员先创建服务端 JSON，再通过 `SLURM_CONSOLE_CLUSTER_PROFILES` 指定其绝对路径。模板见 [profiles.example.json](../deploy/cluster-profiles.example.json)。删除不用的示例条目，填写实际 endpoint、允许的 API 版本及凭据文件路径。配置文件不允许符号链接或组/其他用户写入；推荐 `root:root 0640`，父目录由 root 控制。配置错误会阻止启动；不设置环境变量则页面显示暂无连接方式。
+也可由可信部署管理员先创建服务端 JSON，再通过 `SLURM_CONSOLE_CLUSTER_PROFILES` 指定其绝对路径。模板见 [profiles.example.json](../deploy/cluster-profiles.example.json)。删除不用的示例条目，填写实际 endpoint、允许的 API 版本及凭据文件路径。配置文件不允许符号链接或组/其他用户写入；推荐 `root:root 0640`，父目录由 root 控制。配置错误会阻止启动；未设置环境变量且未通过引导创建连接方式时，页面显示暂无连接方式。
 
 集群业务通过 slurmrestd 通讯，优先使用远程 HTTPS + JWT；也支持同机 Unix socket。支持两种连接：
 
 - **本机 Unix socket + `rest_auth/local`**：`endpoint` 使用 `unix:///run/slurm-console-rest/rest.sock`，`authType` 为 `local`。root 平台直接以 root 访问 socket；终端向导保存 `localUser: "root"`。不配置 JWT、远程用户名或 CA。旧 `localUser` 字段保留读取兼容，不再选择其他请求身份；该字段不接受浏览器修改，也不用于 HTTPS/JWT。slurmrestd 的服务身份、socket 权限及 root 客户端准入由系统管理员配置，本项目不安装或修改该外部服务。
 - **远程 HTTPS + JWT**：`authType` 为 `jwt`，设置固定 `username`、绝对 `tokenFile`，可选私有 `caFile`。只接受 HTTPS origin，无路径、查询、URL 用户信息或片段；验证证书和主机名，TLS 最低 1.2。JWT 文件只允许服务用户读取（推荐 `root:root 0640`），每次检测重新读取，支持原子替换轮换。JWT 的签发、续期和目标 Slurm 权限由可信管理员负责，不会自动提权或续期。
 
-浏览器只选择已批准的连接引用，不接收任意 endpoint 或凭据。数据库保存引用、版本、超时、启停及检测结果，不保存 JWT；API 不返回 JWT、用户名、凭据路径或原始上游响应。修改连接方式、CA 后需重启平台；JWT 文件轮换无需重启。凭据缺失会得到 `credentials_unavailable`，不会回退其他认证。
+常规集群配置页面只选择已注册的连接引用，首次接入引导允许具有平台集群管理权限的管理员建立新的受管连接方式。数据库保存引用、版本、超时、启停及检测结果，不保存 JWT；API 不返回 JWT、用户名、凭据路径或原始上游响应。修改环境文件连接方式或其 CA 后需重启平台；网页引导保存的受管连接立即生效。JWT 文件轮换无需重启。凭据缺失会得到 `credentials_unavailable`，不会回退其他认证。
 
 将 `SLURM_CONSOLE_CLUSTER_PROFILES=/etc/slurm-console/cluster-profiles.json` 加入应用统一环境文件 `/etc/slurm-console/slurm-console.env`，重启应用即可。slurmrestd 的安装、监听、认证、证书与 JWT 签发由系统管理员维护，详见 [外部组件要求](deployment.md)。本应用不会配置、安装或重启第三方服务。
 

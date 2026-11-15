@@ -44,7 +44,8 @@ func tlsProfile(t *testing.T, handler http.HandlerFunc) (Profile, *atomic.Int32)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return registry.Profiles["fixture"], calls
+	profile, _ := registry.Get("fixture")
+	return profile, calls
 }
 
 func TestProbeVerifiesTLSAndNormalizesOnlySafeFields(t *testing.T) {
@@ -126,7 +127,7 @@ func TestLoadRegistryRejectsUnsafeFilesAndTrailingJSON(t *testing.T) {
 	if err := os.WriteFile(path, []byte(valid), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if registry, err := LoadRegistry(path); err != nil || len(registry.Profiles) != 1 {
+	if registry, err := LoadRegistry(path); err != nil || len(registry.Views()) != 1 {
 		t.Fatalf("load valid registry: %v", err)
 	}
 	if err := os.Chmod(path, 0666); err != nil {

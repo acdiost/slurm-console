@@ -36,9 +36,11 @@ func TestSlurmRoutesReadAllReviewedVersionsAndCanonicalizeLegacyNames(t *testing
 		w.WriteHeader(response.Code)
 		fmt.Fprint(w, strings.ReplaceAll(response.Body.String(), "v0.0.43", version))
 	})
-	p := registry.Profiles["local-test"]
+	p, _ := registry.Get("local-test")
 	p.Versions = protocol.Versions()
-	registry.Profiles["local-test"] = p
+	if err := registry.Set("local-test", p); err != nil {
+		t.Fatal(err)
+	}
 	manager := clusterconfig.Register(app, registry)
 	u := user(t, app, "users")
 	grant(t, app, u.Id, "super_admin", "")
@@ -89,9 +91,11 @@ func TestVersionDiscoveryRequiresPlatformAccessAndHonorsApprovedVersions(t *test
 		}
 		fmt.Fprint(w, `{"openapi":"3.0.2","paths":{`+strings.Join(paths, ",")+`}}`)
 	})
-	p := registry.Profiles["local-test"]
+	p, _ := registry.Get("local-test")
 	p.Versions = []string{"v0.0.40"}
-	registry.Profiles["local-test"] = p
+	if err := registry.Set("local-test", p); err != nil {
+		t.Fatal(err)
+	}
 	clusterconfig.Register(app, registry)
 	u := user(t, app, "users")
 	c := cluster(t, app, "alpha")

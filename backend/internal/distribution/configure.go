@@ -175,7 +175,7 @@ func configure(app core.App, configDir string, p *prompts) error {
 	if profilesPath == "" {
 		profilesPath = filepath.Join(configDir, "cluster-profiles.json")
 	}
-	registry := &clusterconfig.Registry{Profiles: map[string]clusterconfig.Profile{}}
+	registry, _ := clusterconfig.NewRegistry(nil)
 	if _, err := os.Lstat(profilesPath); err == nil {
 		registry, err = clusterconfig.LoadRegistry(profilesPath)
 		if err != nil {
@@ -203,7 +203,10 @@ func configure(app core.App, configDir string, p *prompts) error {
 		if err != nil {
 			return err
 		}
-		profile, exists := registry.Profiles[ref]
+		if strings.HasPrefix(ref, "managed-") {
+			return fmt.Errorf("managed- 连接标识由网页向导管理；请使用其他连接标识")
+		}
+		profile, exists := registry.Get(ref)
 		if !exists {
 			profile = clusterconfig.Profile{Label: "默认集群", Endpoint: defaultSocket(), AuthType: "local", LocalUser: "root", Versions: protocol.Versions()}
 		}
@@ -264,13 +267,12 @@ func configure(app core.App, configDir string, p *prompts) error {
 				return fmt.Errorf("HTTPS 连接需要 JWT；首次配置不能留空")
 			}
 		}
-		registry.Profiles[ref] = profile
-		registry, err = clusterconfig.NewRegistry(registry.Profiles)
-		if err != nil {
+		if err = registry.Set(ref, profile); err != nil {
 			return fmt.Errorf("连接配置无效: %w", err)
 		}
 		if version == "auto" {
-			detected, err := discoverConfiguredProfile(registry.Profiles[ref], token, configDir)
+			profile, _ = registry.Get(ref)
+			detected, err := discoverConfiguredProfile(profile, token, configDir)
 			if err != nil {
 				return fmt.Errorf("API 版本检测失败，请核对连接或手动指定版本: %w", err)
 			}

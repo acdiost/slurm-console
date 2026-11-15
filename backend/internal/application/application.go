@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"os"
 
 	"github.com/pocketbase/pocketbase"
@@ -82,6 +84,15 @@ func New() (*pocketbase.PocketBase, error) {
 	app.RootCmd.AddCommand(backup.Commands(), backup.HealthCommand())
 	app.RootCmd.AddCommand(distribution.Command(distribution.Configure).Commands()...)
 	app.OnServe().BindFunc(func(event *core.ServeEvent) error {
+		if err := clusterconfig.LoadManaged(app); err != nil {
+			return err
+		}
+		if err := auth.ApplyPAMSetup(app); err != nil {
+			if !errors.Is(err, auth.ErrPAMUnavailable) {
+				return err
+			}
+			slog.Warn("PAM unavailable; platform administrator can repair it through setup")
+		}
 		publicDir := os.Getenv("SLURM_CONSOLE_PUBLIC_DIR")
 		if publicDir == "" {
 			publicDir = "../frontend/dist"

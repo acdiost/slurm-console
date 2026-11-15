@@ -65,7 +65,7 @@ func TestConfigurationPreviewAndVersionComparisonStayReadOnlyAndScoped(t *testin
 	}
 	second, _ := app.FindFirstRecordByFilter("cluster_config_versions", "cluster_id={:id} && revision=2", map[string]any{"id": id})
 	// Registry changes do not resolve or rewrite historical profile fields.
-	manager.Registry.Profiles = map[string]clusterconfig.Profile{}
+	manager.Registry, _ = clusterconfig.NewRegistry(nil)
 	q := "?from=" + first.Id + "&to=" + second.Id
 	r = request(mux, "GET", base+"/"+id+"/compare"+q, "", token)
 	if r.Code != 200 || !strings.Contains(r.Body.String(), `"field":"description"`) || !strings.Contains(r.Body.String(), `"changed":true`) || strings.Contains(r.Body.String(), "endpoint") || strings.Contains(r.Body.String(), "lastProbe") {

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.33.0
+  version: 0.34.0
   description: 平台密码/PAM/LDAP/FreeIPA 认证和基础 RBAC。FreeIPA 目录管理及直接成员组角色映射由独立平台权限控制。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
 servers:
   - url: /
@@ -303,6 +303,140 @@ paths:
           $ref: "#/components/responses/NativeError"
         "503":
           $ref: "#/components/responses/NativeError"
+  /api/v1/setup/status:
+    get:
+      operationId: getSetupStatus
+      summary: 查询首次接入状态
+      description: 需要活动账户及 platform.settings.manage 或 platform.clusters.manage。按全局已启用且引用有效连接方式的集群判断 needsSetup，不受工作台筛选影响，不请求上游服务。
+      security:
+        - platformToken: []
+      responses:
+        "200":
+          description: PAM 主机准备情况与集群接入状态，不含凭据
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, requestId]
+                properties:
+                  requestId: { type: string }
+                  data:
+                    $ref: "#/components/schemas/SetupStatus"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+  /api/v1/setup/pam/check:
+    post:
+      operationId: checkPAMSetup
+      summary: 检测 PAM helper 与应用专属策略是否就绪
+      description: 需要 platform.settings.manage。只检测现有主机准备情况，不安装软件、不修改共享 PAM 策略。
+      security:
+        - platformToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        "200":
+          description: 检测结果；available 为 false 时 message 说明下一步
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, requestId]
+                properties:
+                  requestId: { type: string }
+                  data:
+                    $ref: "#/components/schemas/PAMSetupStatus"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+  /api/v1/setup/pam:
+    patch:
+      operationId: savePAMSetup
+      summary: 保存并应用 PAM 认证设置
+      description: 需要 platform.settings.manage；启用前检查真实 helper。显式保存的设置覆盖环境默认值，立即生效并在重启后恢复。保留初始本地管理员的认证来源，不接收系统用户密码。
+      security:
+        - platformToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled, revision]
+              properties:
+                enabled: { type: boolean }
+                revision: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: 已保存并应用的 PAM 状态
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, requestId]
+                properties:
+                  requestId: { type: string }
+                  data:
+                    $ref: "#/components/schemas/PAMSetupStatus"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+  /api/v1/setup/slurm:
+    post:
+      operationId: configureSlurmFromSetup
+      summary: 检测并保存新的 slurmrestd 接入
+      description: 需要 platform.clusters.manage。支持本机 Unix socket 或校验证书的 HTTPS/JWT。auto 从上游文档发现受支持版本；ping 成功后才保存受管连接方式、集群与审计，不覆盖已有集群。JWT 只保存到服务端私有文件，不写入响应、数据库或审计。连接立即可用并在服务重启后恢复。失败不保留新集群或凭据。
+      security:
+        - platformToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlurmSetupInput"
+      responses:
+        "200":
+          description: 连接检测成功且集群已保存
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, requestId]
+                properties:
+                  requestId: { type: string }
+                  data:
+                    $ref: "#/components/schemas/ClusterConfiguration"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
   /api/v1/cluster-connection-profiles:
     {
       "get":
@@ -11469,6 +11603,48 @@ components:
         access:
           $ref: "#/components/schemas/Access"
 
+    PAMSetupStatus:
+      type: object
+      additionalProperties: false
+      required: [revision, configured, available, supported, helperInstalled, policyInstalled, message]
+      properties:
+        revision: { type: integer, minimum: 1 }
+        configured: { type: boolean, description: 当前进程已启用 PAM provider }
+        available: { type: boolean, description: 主机准备情况；显式 check 会执行 helper probe }
+        supported: { type: boolean, description: 当前为 Linux root 服务 }
+        helperInstalled: { type: boolean }
+        policyInstalled: { type: boolean }
+        message: { type: string }
+    SetupStatus:
+      type: object
+      additionalProperties: false
+      required: [needsSetup, pam, slurm]
+      properties:
+        needsSetup: { type: boolean }
+        pam:
+          $ref: "#/components/schemas/PAMSetupStatus"
+        slurm:
+          type: object
+          additionalProperties: false
+          required: [configured, profileCount, clusterCount]
+          properties:
+            configured: { type: boolean }
+            profileCount: { type: integer, minimum: 0 }
+            clusterCount: { type: integer, minimum: 0 }
+    SlurmSetupInput:
+      type: object
+      additionalProperties: false
+      required: [name, slug, endpoint, authType, apiVersion, timeoutSeconds]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        slug: { type: string, description: 不可变集群标识，已有标识不可覆盖 }
+        endpoint: { type: string, description: unix:///绝对路径，或不含路径、查询、用户信息的 HTTPS origin }
+        authType: { type: string, enum: [local, jwt] }
+        username: { type: string, maxLength: 63, writeOnly: true, description: HTTPS/JWT 使用的 Slurm 用户名；本机模式留空 }
+        token: { type: string, maxLength: 8192, writeOnly: true, description: HTTPS/JWT 必填；本机模式留空 }
+        caPem: { type: string, maxLength: 8192, writeOnly: true, description: 可选 PEM CA；留空使用系统信任库 }
+        apiVersion: { type: string, description: auto 或支持的 v0.0.40 至 v0.0.44；支持省略 v }
+        timeoutSeconds: { type: integer, minimum: 1, maximum: 30 }
     ClusterConfigurationInput:
       {
         "type": "object",

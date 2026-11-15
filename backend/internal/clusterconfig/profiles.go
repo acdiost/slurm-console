@@ -14,6 +14,7 @@ import (
 	"slices"
 	"slurm-console/backend/internal/slurm/protocol"
 	"sort"
+	"sync"
 )
 
 var SupportedVersions = protocol.Versions()
@@ -38,12 +39,15 @@ type ProfileView struct {
 	Versions []string `json:"apiVersions"`
 }
 type Registry struct {
-	Profiles map[string]Profile `json:"profiles"`
+	mu       sync.RWMutex
+	mutation sync.Mutex
+	profiles map[string]Profile
+	managed  map[string]bool
 }
 
 func LoadRegistry(path string) (*Registry, error) {
 	if path == "" {
-		return &Registry{Profiles: map[string]Profile{}}, nil
+		return NewRegistry(nil)
 	}
 	if !filepath.IsAbs(path) {
 		return nil, errors.New("cluster profiles path must be absolute")
@@ -52,7 +56,9 @@ func LoadRegistry(path string) (*Registry, error) {
 	if err != nil {
 		return nil, errors.New("cannot read cluster connection profiles")
 	}
-	var registry Registry
+	var registry struct {
+		Profiles map[string]Profile `json:"profiles"`
+	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(&registry) != nil {
@@ -66,7 +72,7 @@ func LoadRegistry(path string) (*Registry, error) {
 }
 
 func NewRegistry(profiles map[string]Profile) (*Registry, error) {
-	result := &Registry{Profiles: map[string]Profile{}}
+	result := &Registry{profiles: map[string]Profile{}}
 	if len(profiles) > 100 {
 		return nil, errors.New("too many cluster profiles")
 	}
@@ -132,9 +138,52 @@ func NewRegistry(profiles map[string]Profile) (*Registry, error) {
 			return nil, errors.New("cluster endpoints must use verified HTTPS or local Unix sockets")
 		}
 		profile.Versions = slices.Clone(profile.Versions)
-		result.Profiles[ref] = profile
+		result.profiles[ref] = profile
 	}
 	return result, nil
+}
+
+// Get returns an isolated snapshot; callers cannot mutate live profiles.
+func (registry *Registry) Get(ref string) (Profile, bool) {
+	if registry == nil {
+		return Profile{}, false
+	}
+	registry.mu.RLock()
+	defer registry.mu.RUnlock()
+	p, ok := registry.profiles[ref]
+	p.Versions = slices.Clone(p.Versions)
+	return p, ok
+}
+
+// Set validates a profile before atomically replacing its live snapshot.
+func (registry *Registry) Set(ref string, profile Profile) error {
+	validated, err := NewRegistry(map[string]Profile{ref: profile})
+	if err != nil {
+		return err
+	}
+	registry.mutation.Lock()
+	defer registry.mutation.Unlock()
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+	if registry.managed[ref] {
+		return ErrConflict
+	}
+	if registry.profiles == nil {
+		registry.profiles = map[string]Profile{}
+	}
+	if _, exists := registry.profiles[ref]; !exists && len(registry.profiles) >= 100 {
+		return ErrInvalid
+	}
+	registry.profiles[ref] = validated.profiles[ref]
+	return nil
+}
+
+func (registry *Registry) MarshalJSON() ([]byte, error) {
+	registry.mu.RLock()
+	defer registry.mu.RUnlock()
+	return json.Marshal(struct {
+		Profiles map[string]Profile `json:"profiles"`
+	}{registry.profiles})
 }
 
 func (registry *Registry) Views() []ProfileView {
@@ -142,7 +191,9 @@ func (registry *Registry) Views() []ProfileView {
 	if registry == nil {
 		return views
 	}
-	for ref, profile := range registry.Profiles {
+	registry.mu.RLock()
+	defer registry.mu.RUnlock()
+	for ref, profile := range registry.profiles {
 		views = append(views, ProfileView{Ref: ref, Label: profile.Label, Endpoint: profile.Endpoint, AuthType: profile.AuthType, Versions: slices.Clone(profile.Versions)})
 	}
 	sort.Slice(views, func(i, j int) bool { return views[i].Ref < views[j].Ref })

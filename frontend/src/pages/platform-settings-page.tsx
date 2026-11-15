@@ -1,3 +1,5 @@
+import { Link, useSearchParams } from "react-router"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useAuth } from "@/stores/auth"
 import { BasicSettings } from "@/features/platform-settings/basic"
@@ -5,13 +7,28 @@ import { IntegrationSettings } from "@/features/platform-settings/ai"
 import { UserSettings } from "@/features/platform-settings/users"
 import { RuntimeSettings } from "@/features/platform-settings/runtime"
 export function PlatformSettingsPage() {
+  const [params, setParams] = useSearchParams()
   const user = useAuth((s) => s.user),
     permissions = user?.access.platformPermissions || []
   const read = permissions.includes("platform.settings.read"),
     manage = permissions.includes("platform.settings.manage"),
     users = permissions.includes("platform.users.manage"),
     roles = permissions.includes("platform.roles.manage")
-  if (!user || (!read && !users && !roles))
+  const canSetup = manage || permissions.includes("platform.clusters.manage")
+  const requestedTab = params.get("tab")
+  const availableTabs = [
+    ...(read ? ["basic", "integrations", "runtime"] : []),
+    ...(users || roles ? ["users"] : []),
+  ]
+  const activeTab =
+    requestedTab && availableTabs.includes(requestedTab)
+      ? requestedTab
+      : read
+        ? "basic"
+        : users || roles
+          ? "users"
+          : ""
+  if (!user || (!read && !users && !roles && !canSetup))
     return (
       <div role="alert" className="p-8 text-sm">
         当前没有平台设置或用户授权管理权限。
@@ -30,39 +47,55 @@ export function PlatformSettingsPage() {
         <p className="mt-2 text-sm leading-7 text-muted-foreground">
           维护平台信息、集成配置、用户授权，并查看当前运行状态。
         </p>
+        {canSetup && (
+          <Button asChild variant="outline" className="mt-4">
+            <Link to="/setup">接入引导 · PAM 与 slurmrestd</Link>
+          </Button>
+        )}
       </header>
-      <Tabs defaultValue={read ? "basic" : "users"}>
-        <TabsList className="h-auto flex-wrap" aria-label="平台设置分类">
+      {availableTabs.length > 0 && (
+        <Tabs
+          value={activeTab}
+          onValueChange={(tab) =>
+            setParams((previous) => {
+              const next = new URLSearchParams(previous)
+              next.set("tab", tab)
+              return next
+            })
+          }
+        >
+          <TabsList className="h-auto flex-wrap" aria-label="平台设置分类">
+            {read && (
+              <>
+                <TabsTrigger value="basic">基础信息</TabsTrigger>
+                <TabsTrigger value="integrations">集成配置</TabsTrigger>
+              </>
+            )}
+            {(users || roles) && (
+              <TabsTrigger value="users">用户与角色</TabsTrigger>
+            )}
+            {read && <TabsTrigger value="runtime">运行信息</TabsTrigger>}
+          </TabsList>
           {read && (
             <>
-              <TabsTrigger value="basic">基础信息</TabsTrigger>
-              <TabsTrigger value="integrations">集成配置</TabsTrigger>
+              <TabsContent value="basic" className="mt-4">
+                <BasicSettings actor={user.id} manage={manage} />
+              </TabsContent>
+              <TabsContent value="integrations" className="mt-4">
+                <IntegrationSettings actor={user.id} manage={manage} />
+              </TabsContent>
+              <TabsContent value="runtime" className="mt-4">
+                <RuntimeSettings actor={user.id} />
+              </TabsContent>
             </>
           )}
           {(users || roles) && (
-            <TabsTrigger value="users">用户与角色</TabsTrigger>
+            <TabsContent value="users" className="mt-4">
+              <UserSettings actor={user.id} canUsers={users} canRoles={roles} />
+            </TabsContent>
           )}
-          {read && <TabsTrigger value="runtime">运行信息</TabsTrigger>}
-        </TabsList>
-        {read && (
-          <>
-            <TabsContent value="basic" className="mt-4">
-              <BasicSettings actor={user.id} manage={manage} />
-            </TabsContent>
-            <TabsContent value="integrations" className="mt-4">
-              <IntegrationSettings actor={user.id} manage={manage} />
-            </TabsContent>
-            <TabsContent value="runtime" className="mt-4">
-              <RuntimeSettings actor={user.id} />
-            </TabsContent>
-          </>
-        )}
-        {(users || roles) && (
-          <TabsContent value="users" className="mt-4">
-            <UserSettings actor={user.id} canUsers={users} canRoles={roles} />
-          </TabsContent>
-        )}
-      </Tabs>
+        </Tabs>
+      )}
     </div>
   )
 }

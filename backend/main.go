@@ -17,7 +17,7 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	if handled, err := distribution.Dispatch(os.Args[1:], distribution.Configure); handled {
 		if err != nil {
-			slog.Error("installation/configuration failed", "error", err)
+			slog.Error("deployment command failed", "error", err)
 			os.Exit(1)
 		}
 		return

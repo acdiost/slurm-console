@@ -35,6 +35,7 @@ import { pageNumber } from "@/features/clusters/cluster-picker"
 import { timestamp } from "@/features/overview/schema"
 import { FleetCard } from "@/features/fleet/fleet-card"
 import { errorMessage, fleetPageSchema } from "@/features/fleet/schema"
+import { useSetupStatus } from "@/features/setup/status"
 const filterSchema = z.object({
   q: z.string().trim().max(128, "最多 128 个字符"),
   configuration: z.string(),
@@ -119,6 +120,7 @@ function FleetFilters({
   )
 }
 export function FleetPage() {
+  const setup = useSetupStatus()
   const [params, setParams] = useSearchParams(),
     [automatic, setAutomatic] = useState(true)
   const page = pageNumber(params.get("page")),
@@ -207,6 +209,32 @@ export function FleetPage() {
           )}
         </div>
       </header>
+      {setup.allowed &&
+        setup.query.data?.needsSetup &&
+        !setup.query.isError && (
+          <section
+            className="panel space-y-4 border-primary/30 bg-primary/5 p-5 sm:p-7"
+            aria-labelledby="fleet-welcome-title"
+          >
+            <h2 id="fleet-welcome-title" className="text-lg font-semibold">
+              欢迎使用集群工作台
+            </h2>
+            <p className="text-sm leading-7 text-muted-foreground">
+              通过接入引导连接已有的 slurmrestd
+              服务，开始查看集群资源与作业；也可按需启用 Linux 系统身份登录。
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild>
+                <Link to="/setup">开始接入配置</Link>
+              </Button>
+              {setup.canSlurm && setup.query.data.slurm.clusterCount > 0 && (
+                <Button asChild variant="outline">
+                  <Link to="/clusters">检查现有集群配置</Link>
+                </Button>
+              )}
+            </div>
+          </section>
+        )}
       <FleetFilters
         key={JSON.stringify(filters)}
         initial={filters}

@@ -94,10 +94,12 @@ function role(permissions = perms) {
     },
   })
 }
-function show() {
+function show(path = "/settings") {
   render(
     <QueryClientProvider client={client}>
-      <PlatformSettingsPage />
+      <MemoryRouter initialEntries={[path]}>
+        <PlatformSettingsPage />
+      </MemoryRouter>
     </QueryClientProvider>
   )
 }
@@ -217,6 +219,26 @@ it("reviews AI configuration and requires exact typed confirmation before a meta
     vi.mocked(api).mock.calls.some(([path]) => path.includes("/explain"))
   ).toBe(false)
 })
+it("opens user management from a tab URL without reading basic settings", async () => {
+  vi.mocked(api).mockImplementation(async (path) => {
+    if (path.startsWith("/platform-users?"))
+      return { items: [target], page: 1, perPage: 20, totalItems: 1 }
+    if (path === "/platform-role-catalog") return catalog
+    throw Error(path)
+  })
+  show("/settings?tab=users")
+  expect(
+    await screen.findByRole("button", { name: "管理 普通用户" })
+  ).toBeVisible()
+  expect(screen.getByRole("tab", { name: "用户与角色" })).toHaveAttribute(
+    "aria-selected",
+    "true"
+  )
+  expect(
+    vi.mocked(api).mock.calls.some(([path]) => path === "/platform-settings")
+  ).toBe(false)
+})
+
 it("lists users and confirms status changes without changing authentication identity", async () => {
   const u = userEvent.setup()
   vi.mocked(api).mockImplementation(async (path, options) => {

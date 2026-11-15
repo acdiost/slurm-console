@@ -41,7 +41,7 @@ func (p Profile) Discover(ctx context.Context, timeout time.Duration) (VersionDi
 }
 
 func (m *Manager) Discover(ctx context.Context, ref string) (VersionDiscovery, error) {
-	p, ok := m.Registry.Profiles[ref]
+	p, ok := m.Registry.Get(ref)
 	if !ok {
 		return VersionDiscovery{}, ErrNotFound
 	}

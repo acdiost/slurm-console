@@ -90,6 +90,10 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
     false
   const canReadAudit =
     user?.access.platformPermissions.includes("platform.audit.read") ?? false
+  const canSetup =
+    canManage ||
+    (user?.access.platformPermissions.includes("platform.settings.manage") ??
+      false)
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-20 shrink-0 items-center gap-3 px-5">
@@ -221,6 +225,18 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                 <span>告警通知</span>
               </NavLink>
             )}
+            {section.label === "平台管理" && canSetup && (
+              <NavLink
+                to="/setup"
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
+                }
+              >
+                <Settings2 />
+                <span>接入引导</span>
+              </NavLink>
+            )}
             {section.label === "平台管理" && canManage && (
               <NavLink
                 to="/clusters"
@@ -324,6 +340,8 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
               user?.access.platformPermissions.some((p) =>
                 [
                   "platform.settings.read",
+                  "platform.settings.manage",
+                  "platform.clusters.manage",
                   "platform.users.manage",
                   "platform.roles.manage",
                 ].includes(p)
@@ -563,7 +581,10 @@ export function ConsoleLayout() {
                                                           : pathname ===
                                                               "/access"
                                                             ? "我的权限"
-                                                            : "设计系统"}
+                                                            : pathname ===
+                                                                "/setup"
+                                                              ? "接入引导"
+                                                              : "设计系统"}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
