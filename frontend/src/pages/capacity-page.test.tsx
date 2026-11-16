@@ -152,10 +152,6 @@ it("shows capacity and headroom separately from utilization with nullable GPU co
   expect(screen.getByText(/1 个节点的 GPU/)).toBeInTheDocument()
   expect(screen.getByText(/两个最大值分别计算/)).toBeInTheDocument()
   expect(screen.getByText(/共享节点会出现在多个分区/)).toBeInTheDocument()
-  expect(screen.getByRole("link", { name: "查看节点" })).toHaveAttribute(
-    "href",
-    "/nodes?cluster=alpha&partition=cpu&filterMode=custom"
-  )
   expect(vi.mocked(api).mock.calls.every(([, o]) => !o?.method)).toBe(true)
 })
 it("shows explicit coverage and actual gaps rather than zero filled samples", async () => {

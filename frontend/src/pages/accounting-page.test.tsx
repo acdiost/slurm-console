@@ -7,6 +7,7 @@ import { ClientResponseError } from "pocketbase"
 import { api } from "@/services/api"
 import { useAuth } from "@/stores/auth"
 import { cluster } from "@/features/overview/fixtures.test-support"
+import { ClusterPickerTestLayout } from "@/features/clusters/cluster-picker.test-support"
 import { emptySpec } from "@/features/accounting/schema"
 import { AccountingPage } from "./accounting-page"
 vi.mock("@/services/api", () => ({ api: vi.fn() }))
@@ -72,8 +73,10 @@ function show(url = "/accounts?cluster=alpha") {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[url]}>
-        <AccountingPage />
-        <RouteState />
+        <ClusterPickerTestLayout>
+          <AccountingPage />
+          <RouteState />
+        </ClusterPickerTestLayout>
       </MemoryRouter>
     </QueryClientProvider>
   )
@@ -289,5 +292,35 @@ it("编辑 Account 保留只读名称，字段变化后必须重新校验", asyn
   await user.type(within(dialog).getByLabelText("组织"), "2")
   expect(
     within(dialog).queryByRole("button", { name: "确认编辑 Account" })
+  ).not.toBeInTheDocument()
+})
+it("导航切换集群清除记账筛选和旧集群操作结果", async () => {
+  role(true)
+  mock()
+  const beta = { ...cluster, id: "beta", name: "备用集群" }
+  const fallback = vi.mocked(api).getMockImplementation()!
+  vi.mocked(api).mockImplementation(async <T,>(path: string) => {
+    if (path.startsWith("/clusters?"))
+      return {
+        items: [cluster, beta],
+        page: 1,
+        perPage: 20,
+        totalItems: 2,
+      } as T
+    return fallback(path) as Promise<T>
+  })
+  show(
+    `/accounts?cluster=alpha&q=research&page=2&operation=${result.operationId}`
+  )
+  await screen.findByRole("region", { name: "记账操作结果" })
+  const user = userEvent.setup()
+  await user.click(screen.getByRole("button", { name: /^选择记账集群/ }))
+  await user.click(await screen.findByRole("option", { name: "备用集群" }))
+  expect(screen.getByLabelText("当前查询")).toHaveTextContent("cluster=beta")
+  expect(screen.getByLabelText("当前查询").textContent).not.toMatch(
+    /[?&](q|page|operation)=/
+  )
+  expect(
+    screen.queryByRole("region", { name: "记账操作结果" })
   ).not.toBeInTheDocument()
 })

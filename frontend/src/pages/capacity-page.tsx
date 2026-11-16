@@ -399,7 +399,7 @@ export function CapacityPage() {
                               {p.name && (
                                 <Link
                                   className="text-primary underline underline-offset-4"
-                                  to={`/nodes?${new URLSearchParams({ cluster: id, partition: p.name, filterMode: "custom" })}`}
+                                  to={`/nodes?${new URLSearchParams({ cluster: id, partition: p.name })}`}
                                 >
                                   查看节点
                                 </Link>

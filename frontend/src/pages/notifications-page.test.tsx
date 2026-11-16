@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, it, expect, vi } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
@@ -8,6 +8,7 @@ import { NotificationsPage } from "./notifications-page"
 import { api } from "@/services/api"
 import { useAuth } from "@/stores/auth"
 import { cluster } from "@/features/overview/fixtures.test-support"
+import { ClusterPickerTestLayout } from "@/features/clusters/cluster-picker.test-support"
 import { parseHints } from "@/features/notifications/feed"
 vi.mock("@/services/api", () => ({ api: vi.fn() }))
 vi.stubGlobal(
@@ -53,7 +54,7 @@ const notice = {
   samples: ["node1"],
   read: false,
   createdAt: "2026-10-31T01:00:00Z",
-  href: "/nodes?cluster=alpha&filterMode=custom",
+  href: "/nodes?cluster=alpha",
 }
 function role(allowed = true) {
   useAuth.setState({
@@ -107,7 +108,9 @@ function show() {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={["/notifications?cluster=alpha"]}>
-        <NotificationsPage />
+        <ClusterPickerTestLayout>
+          <NotificationsPage />
+        </ClusterPickerTestLayout>
       </MemoryRouter>
     </QueryClientProvider>
   )
@@ -178,6 +181,62 @@ it("creates a personal rule with explicit threshold and continuous hold", async 
         threshold: 1,
         holdMinutes: 0,
       },
+    })
+  )
+})
+it("新建规则在表单内选择目标集群并保存该目标", async () => {
+  const beta = { ...cluster, id: "beta", name: "备用集群" }
+  const current = useAuth.getState().user!
+  useAuth.setState({
+    user: {
+      ...current,
+      access: {
+        ...current.access,
+        clusters: [
+          ...current.access.clusters,
+          { ...current.access.clusters[0], cluster: beta },
+        ],
+      },
+    },
+  })
+  mock([], [])
+  const fallback = vi.mocked(api).getMockImplementation()!
+  vi.mocked(api).mockImplementation(
+    async <T,>(path: string, options?: SendOptions) => {
+      if (path.startsWith("/clusters?"))
+        return {
+          items: [cluster, beta],
+          page: 1,
+          perPage: 20,
+          totalItems: 2,
+        } as T
+      return fallback(path, options) as Promise<T>
+    }
+  )
+  show()
+  const user = userEvent.setup()
+  await screen.findByText("尚未创建告警规则。")
+  await user.click(screen.getByRole("button", { name: "新建规则" }))
+  const form = screen.getByRole("dialog", { name: "新建告警规则" })
+  await user.type(
+    within(form).getByLabelText("规则名称", { exact: true }),
+    "备用集群巡检"
+  )
+  await user.click(
+    within(form).getByRole("combobox", { name: "选择告警规则集群" })
+  )
+  await user.click(await screen.findByRole("option", { name: "备用集群" }))
+  expect(within(form).getByLabelText("规则名称", { exact: true })).toHaveValue(
+    "备用集群巡检"
+  )
+  await user.click(within(form).getByRole("button", { name: "保存规则" }))
+  await waitFor(() =>
+    expect(vi.mocked(api)).toHaveBeenCalledWith("/notification-rules", {
+      method: "POST",
+      body: expect.objectContaining({
+        clusterId: "beta",
+        name: "备用集群巡检",
+      }),
     })
   )
 })

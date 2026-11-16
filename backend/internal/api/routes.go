@@ -109,7 +109,6 @@ func Register(routes *router.Router[*core.RequestEvent], publicDir string, bundl
 	registerJobDiagnosticRoutes(group)
 	registerAIRoutes(group)
 	registerBulkControlRoutes(group)
-	registerSavedFilterRoutes(group)
 	registerNotificationRoutes(group)
 	registerCapacityRoutes(group)
 	registerOperationTemplateRoutes(group)

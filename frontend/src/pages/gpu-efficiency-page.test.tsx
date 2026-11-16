@@ -137,10 +137,6 @@ it("shows physical telemetry evidence, independent field coverage, and read-only
   expect(screen.getAllByText("48 / 60 点")).toHaveLength(2)
   expect(screen.getByText("0 / 60 点")).toBeInTheDocument()
   expect(screen.getByText(/不代表作业产出/)).toBeInTheDocument()
-  expect(screen.getByRole("link", { name: "查看趋势" })).toHaveAttribute(
-    "href",
-    "/gpu?cluster=alpha&node=node1&gpu=GPU-test&range=1h&filterMode=custom"
-  )
   expect(vi.mocked(api).mock.calls.every(([, o]) => !o?.method)).toBe(true)
 })
 it("keeps unknown trend points disconnected while preserving zero", async () => {

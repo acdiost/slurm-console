@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { MemoryRouter, useNavigate } from "react-router"
+import { MemoryRouter } from "react-router"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ClientResponseError } from "pocketbase"
 import { api } from "@/services/api"
 import { useAuth } from "@/stores/auth"
+import { ClusterPickerTestLayout } from "@/features/clusters/cluster-picker.test-support"
 import {
   cluster,
   fixtureOverview,
@@ -26,8 +27,10 @@ function show(path = "/overview", extra?: React.ReactNode) {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
-        <OverviewPage />
-        {extra}
+        <ClusterPickerTestLayout>
+          <OverviewPage />
+          {extra}
+        </ClusterPickerTestLayout>
       </MemoryRouter>
     </QueryClientProvider>
   )
@@ -105,7 +108,12 @@ describe("集群总览", () => {
     let delayOld = false
     let release: (() => void) | undefined
     vi.mocked(api).mockImplementation(async <T,>(path: string) => {
-      if (!path.includes("/overview")) return inventory as T
+      if (!path.includes("/overview"))
+        return {
+          ...inventory,
+          items: [cluster, { ...cluster, id: "beta", name: "备用集群" }],
+          totalItems: 2,
+        } as T
       if (path.includes("alpha") && delayOld)
         await new Promise<void>((resolve) => {
           release = resolve
@@ -125,21 +133,14 @@ describe("集群总览", () => {
       }
       return fixtureOverview() as T
     })
-    function Switch() {
-      const navigate = useNavigate()
-      return (
-        <button onClick={() => navigate("/overview?cluster=beta")}>
-          切换测试集群
-        </button>
-      )
-    }
     const user = userEvent.setup()
-    show("/overview?cluster=alpha", <Switch />)
+    show("/overview?cluster=alpha")
     await screen.findByText("控制器在线")
     delayOld = true
     await user.click(screen.getByRole("button", { name: "刷新总览" }))
     await waitFor(() => expect(release).toBeDefined())
-    await user.click(screen.getByRole("button", { name: "切换测试集群" }))
+    await user.click(screen.getByRole("button", { name: /^选择总览集群/ }))
+    await user.click(await screen.findByRole("option", { name: "备用集群" }))
     expect(await screen.findByText("RESTD second-version")).toBeVisible()
     release?.()
     await waitFor(() =>

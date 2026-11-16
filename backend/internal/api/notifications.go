@@ -61,7 +61,7 @@ func notificationView(r *core.Record) map[string]any {
 		sample = []string{}
 	}
 	path := map[string]string{"cluster_health": "overview", "node_unavailable": "nodes", "job_pending": "jobs", "gpu_temperature": "gpu"}[r.GetString("kind")]
-	href := "/" + path + "?cluster=" + r.GetString("cluster") + "&filterMode=custom"
+	href := "/" + path + "?cluster=" + r.GetString("cluster")
 	if path == "jobs" {
 		href += "&state=PENDING"
 	}

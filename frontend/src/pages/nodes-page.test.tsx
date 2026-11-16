@@ -1,12 +1,13 @@
 import { beforeEach, afterEach, expect, it, vi } from "vitest"
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { MemoryRouter, useLocation, useNavigate } from "react-router"
+import { MemoryRouter, useLocation } from "react-router"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ClientResponseError } from "pocketbase"
 import { api } from "@/services/api"
 import { useAuth } from "@/stores/auth"
 import { cluster } from "@/features/overview/fixtures.test-support"
+import { ClusterPickerTestLayout } from "@/features/clusters/cluster-picker.test-support"
 import {
   fixtureNode,
   fixtureContext,
@@ -15,7 +16,13 @@ import {
 import { NodesPage } from "./nodes-page"
 vi.mock("@/services/api", () => ({ api: vi.fn() }))
 let client: QueryClient
-const inventory = { items: [cluster], page: 1, perPage: 20, totalItems: 1 }
+const beta = { ...cluster, id: "beta", name: "备用集群" }
+const inventory = {
+  items: [cluster, beta],
+  page: 1,
+  perPage: 20,
+  totalItems: 2,
+}
 const nodes = {
   items: [fixtureNode()],
   page: 1,
@@ -33,23 +40,16 @@ beforeEach(() => {
 })
 afterEach(() => client.clear())
 function RouteState() {
-  const location = useLocation(),
-    navigate = useNavigate()
-  return (
-    <>
-      <output aria-label="当前查询">{location.search}</output>
-      <button onClick={() => navigate("/nodes?cluster=beta")}>
-        切换测试集群
-      </button>
-    </>
-  )
+  return <output aria-label="当前查询">{useLocation().search}</output>
 }
 function show(path = "/nodes?cluster=alpha") {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
-        <NodesPage />
-        <RouteState />
+        <ClusterPickerTestLayout>
+          <NodesPage />
+          <RouteState />
+        </ClusterPickerTestLayout>
       </MemoryRouter>
     </QueryClientProvider>
   )
@@ -149,7 +149,9 @@ it("本页批量选择最多十个节点，切换集群不保留选择或旧数�
   expect(
     screen.getByRole("checkbox", { name: "选择节点 node11" })
   ).toBeDisabled()
-  await user.click(screen.getByRole("button", { name: "切换测试集群" }))
+  await user.click(screen.getByRole("button", { name: /^选择节点集群/ }))
+  await user.click(await screen.findByRole("option", { name: "备用集群" }))
+  expect(screen.getByLabelText("当前查询")).toHaveTextContent("cluster=beta")
   expect(await screen.findByText("已选 0 / 10 · 仅本页选择")).toBeVisible()
   expect(
     screen.queryByRole("button", { name: "node1" })

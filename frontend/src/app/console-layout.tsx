@@ -1,9 +1,8 @@
 import { usePlatformIdentity } from "@/features/platform-settings/identity"
 import { NotificationBell } from "@/features/notifications/feed"
-import { SavedFiltersOutlet } from "@/features/saved-filters/outlet"
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { useLocation } from "react-router"
+import { Outlet, useLocation } from "react-router"
 import {
   Bell,
   ScrollText,
@@ -59,6 +58,10 @@ import { usePreferences, type Theme } from "@/stores/preferences"
 import { logout, useAuth } from "@/stores/auth"
 import { api } from "@/services/api"
 import { ClusterNavLink as NavLink } from "@/features/clusters/cluster-navigation"
+import {
+  ClusterPickerNavigationProvider,
+  ClusterPickerNavigationTarget,
+} from "@/features/clusters/cluster-picker"
 
 const sections = [
   {
@@ -481,6 +484,14 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function ConsoleLayout() {
+  return (
+    <ClusterPickerNavigationProvider>
+      <ConsoleLayoutContent />
+    </ClusterPickerNavigationProvider>
+  )
+}
+
+function ConsoleLayoutContent() {
   const platformName = usePlatformIdentity((s) => s.name)
   const { pathname } = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -498,7 +509,7 @@ export function ConsoleLayout() {
         <Navigation />
       </aside>
       <div className="min-w-0 lg:pl-62">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-card/95 px-4 backdrop-blur-sm sm:px-8">
+        <header className="sticky top-0 z-30 flex h-16 min-w-0 items-center gap-2 border-b bg-card/95 px-3 backdrop-blur-sm sm:gap-3 sm:px-8">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button
@@ -527,12 +538,12 @@ export function ConsoleLayout() {
             className="hidden size-4 text-muted-foreground lg:block"
             aria-hidden="true"
           />
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex min-w-0 flex-1 items-center gap-2 text-xs">
             <span className="hidden text-muted-foreground sm:inline">
               工作空间
             </span>
             <ChevronRight className="hidden size-3 text-muted-foreground sm:inline" />
-            <span>
+            <span className="truncate">
               {pathname === "/directory"
                 ? "FreeIPA 目录"
                 : pathname === "/settings"
@@ -587,26 +598,32 @@ export function ConsoleLayout() {
                                                               : "设计系统"}
             </span>
           </div>
-          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
+            <ClusterPickerNavigationTarget />
             <NotificationBell />
             <Badge
               variant="outline"
-              className="hidden gap-1.5 font-normal sm:flex"
+              className="hidden gap-1.5 font-normal md:flex"
             >
               <span className="size-1.5 rounded-full bg-[var(--blue-9)]" />
               已登录
             </Badge>
-            <div className="hidden h-4 w-px bg-border sm:block" />
-            <ThemeIcon
-              className="size-3.5 text-muted-foreground"
-              aria-hidden="true"
-            />
+            <div className="hidden h-4 w-px bg-border md:block" />
             <Select
               value={theme}
               onValueChange={(value) => setTheme(value as Theme)}
             >
-              <SelectTrigger aria-label="界面主题" className="w-25">
-                <SelectValue />
+              <SelectTrigger
+                aria-label="界面主题"
+                className="w-7 justify-center px-1 sm:w-25 sm:justify-between sm:px-2 [&>svg:last-child]:hidden sm:[&>svg:last-child]:block"
+              >
+                <ThemeIcon
+                  className="size-3.5 text-muted-foreground sm:hidden"
+                  aria-hidden="true"
+                />
+                <span className="hidden sm:contents">
+                  <SelectValue />
+                </span>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="system">跟随系统</SelectItem>
@@ -620,6 +637,7 @@ export function ConsoleLayout() {
                   variant="ghost"
                   size="icon"
                   aria-label="查看设计规范"
+                  className="hidden sm:inline-flex"
                   asChild
                 >
                   <a
@@ -640,7 +658,7 @@ export function ConsoleLayout() {
           </div>
         </header>
         <main id="main-content" tabIndex={-1}>
-          <SavedFiltersOutlet />
+          <Outlet />
         </main>
       </div>
     </div>

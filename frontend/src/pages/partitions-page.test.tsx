@@ -7,6 +7,7 @@ import { ClientResponseError } from "pocketbase"
 import { api } from "@/services/api"
 import { useAuth } from "@/stores/auth"
 import { cluster } from "@/features/overview/fixtures.test-support"
+import { ClusterPickerTestLayout } from "@/features/clusters/cluster-picker.test-support"
 import {
   fixturePartition,
   fixtureDetail,
@@ -39,8 +40,10 @@ function show(path = "/partitions?cluster=alpha") {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
-        <PartitionsPage />
-        <RouteState />
+        <ClusterPickerTestLayout>
+          <PartitionsPage />
+          <RouteState />
+        </ClusterPickerTestLayout>
       </MemoryRouter>
     </QueryClientProvider>
   )
@@ -179,4 +182,28 @@ it("无授权集群时不会构造分区请求", async () => {
   expect(
     vi.mocked(api).mock.calls.some(([path]) => path.includes("/partitions"))
   ).toBe(false)
+})
+it("导航切换集群后不沿用分区筛选或分页", async () => {
+  mock()
+  const beta = { ...cluster, id: "beta", name: "备用集群" }
+  const fallback = vi.mocked(api).getMockImplementation()!
+  vi.mocked(api).mockImplementation(async <T,>(path: string) => {
+    if (path.startsWith("/clusters?"))
+      return {
+        items: [cluster, beta],
+        page: 1,
+        perPage: 20,
+        totalItems: 2,
+      } as T
+    return fallback(path) as Promise<T>
+  })
+  show("/partitions?cluster=alpha&q=normal&page=2&sort=maxTime")
+  await screen.findByRole("button", { name: "normal" })
+  const user = userEvent.setup()
+  await user.click(screen.getByRole("button", { name: /^选择分区集群/ }))
+  await user.click(await screen.findByRole("option", { name: "备用集群" }))
+  expect(screen.getByLabelText("当前查询")).toHaveTextContent("cluster=beta")
+  expect(screen.getByLabelText("当前查询").textContent).not.toMatch(
+    /[?&](q|page|sort)=/
+  )
 })

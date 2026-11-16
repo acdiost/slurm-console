@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { api } from "@/services/api"
 import { useAuth } from "@/stores/auth"
 import { cluster } from "@/features/overview/fixtures.test-support"
+import { ClusterPickerTestLayout } from "@/features/clusters/cluster-picker.test-support"
 import { GPUPage } from "./gpu-page"
 vi.mock("@/services/api", () => ({ api: vi.fn() }))
 let client: QueryClient
@@ -71,8 +72,10 @@ function show(url = "/gpu?cluster=alpha") {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[url]}>
-        <GPUPage />
-        <Location />
+        <ClusterPickerTestLayout>
+          <GPUPage />
+          <Location />
+        </ClusterPickerTestLayout>
       </MemoryRouter>
     </QueryClientProvider>
   )
@@ -195,4 +198,36 @@ it("节点权限独立，分页保留集群", async () => {
     "cluster=alpha"
   )
   expect(screen.getByLabelText("当前 GPU 查询")).toHaveTextContent("page=2")
+})
+it("导航切换集群清除旧 GPU 筛选和趋势窗口，隐藏无权读取的新集群指标", async () => {
+  mock()
+  const beta = { ...cluster, id: "beta", name: "备用集群" }
+  const fallback = vi.mocked(api).getMockImplementation()!
+  vi.mocked(api).mockImplementation(async <T,>(path: string) => {
+    if (path.startsWith("/clusters?"))
+      return {
+        items: [cluster, beta],
+        page: 1,
+        perPage: 20,
+        totalItems: 2,
+      } as T
+    return fallback(path) as Promise<T>
+  })
+  show("/gpu?cluster=alpha&q=node1&page=2&status=partial&range=6h")
+  await screen.findByRole("button", { name: "GPU-test" })
+  const user = userEvent.setup()
+  await user.click(screen.getByRole("button", { name: /^选择GPU集群/ }))
+  await user.click(await screen.findByRole("option", { name: "备用集群" }))
+  expect(screen.getByLabelText("当前 GPU 查询")).toHaveTextContent(
+    "cluster=beta"
+  )
+  expect(screen.getByLabelText("当前 GPU 查询").textContent).not.toMatch(
+    /[?&](q|page|status|range)=/
+  )
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "没有此集群的监控读取权限"
+  )
+  expect(
+    screen.queryByRole("button", { name: "GPU-test" })
+  ).not.toBeInTheDocument()
 })

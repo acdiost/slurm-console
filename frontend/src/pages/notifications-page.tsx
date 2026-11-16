@@ -549,7 +549,13 @@ function RuleForm({
       (kind !== "gpu_temperature" || (value >= 30 && value <= 120))
   return (
     <>
-      {!initial && <ClusterPicker selection={selection} label="告警规则" />}
+      {!initial && (
+        <ClusterPicker
+          selection={selection}
+          label="告警规则"
+          placement="inline"
+        />
+      )}
       <form
         className="space-y-5"
         onSubmit={(e) => {

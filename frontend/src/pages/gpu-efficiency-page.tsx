@@ -343,7 +343,7 @@ export function GPUEfficiencyPage() {
                               <td className="p-3">
                                 <Link
                                   className="text-primary underline underline-offset-4"
-                                  to={`/gpu?${new URLSearchParams({ cluster: id, node: d.node, gpu: d.uuid, range, filterMode: "custom" })}`}
+                                  to={`/gpu?${new URLSearchParams({ cluster: id, node: d.node, gpu: d.uuid, range })}`}
                                 >
                                   查看趋势
                                 </Link>
