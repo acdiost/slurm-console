@@ -82,7 +82,7 @@ func TestConfigureLocalConnectionRerunPreservesVersionSecretsAndOtherEnv(t *test
 		t.Fatal(err)
 	}
 	password := "wizard-fixture-password"
-	out, err := runWizard(app, dir, "Research Console", "operator@example.com", "Operator", password, password, "y", "", "Alpha", "unix:///run/test.sock", "v0.0.44", "")
+	out, err := runWizard(app, dir, "Research Console", "operator@example.com", "Operator", password, password, "y", "", "ldap", "Alpha", "unix:///run/test.sock", "v0.0.44", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestConfigureLocalConnectionRerunPreservesVersionSecretsAndOtherEnv(t *test
 		t.Fatal("password echoed")
 	}
 	for range 2 {
-		if _, err = runWizard(app, dir, "", "", "", "", "y", "", "", "", "", ""); err != nil {
+		if _, err = runWizard(app, dir, "", "", "", "", "y", "", "", "", "", "", ""); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -99,8 +99,8 @@ func TestConfigureLocalConnectionRerunPreservesVersionSecretsAndOtherEnv(t *test
 		t.Fatal("blank password changed credentials")
 	}
 	clusters, err := app.FindAllRecords("clusters")
-	if err != nil || len(clusters) != 1 || clusters[0].GetString("api_version") != "v0.0.44" {
-		t.Fatal("rerun changed version or duplicated cluster", err)
+	if err != nil || len(clusters) != 1 || clusters[0].GetString("api_version") != "v0.0.44" || clusters[0].GetString("authentication_method") != "ldap" {
+		t.Fatal("rerun changed version or authentication method, or duplicated cluster", err)
 	}
 	registry, err := clusterconfig.LoadRegistry(filepath.Join(dir, "cluster-profiles.json"))
 	profile, _ := registry.Get("primary")
@@ -120,7 +120,7 @@ func TestConfigureLocalConnectionRerunPreservesVersionSecretsAndOtherEnv(t *test
 func TestConfigureJWTStoredPrivatelyWithoutEchoAndBlankPreservesIt(t *testing.T) {
 	app, dir := wizardApp(t), t.TempDir()
 	jwt := "fixture.jwt.credential"
-	out, err := runWizard(app, dir, "", "", "", "", "y", "", "", "https://slurm.example.com", "", "slurm", "", jwt, "")
+	out, err := runWizard(app, dir, "", "", "", "", "y", "", "", "", "https://slurm.example.com", "", "slurm", "", jwt, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestConfigureJWTStoredPrivatelyWithoutEchoAndBlankPreservesIt(t *testing.T)
 	if info.Mode().Perm() != 0600 {
 		t.Fatal("credential permissions are not private")
 	}
-	if _, err = runWizard(app, dir, "", "", "", "", "y", "", "", "", "", "", "", "", ""); err != nil {
+	if _, err = runWizard(app, dir, "", "", "", "", "y", "", "", "", "", "", "", "", "", ""); err != nil {
 		t.Fatal(err)
 	}
 	data, _ = os.ReadFile(path)
@@ -168,7 +168,7 @@ func TestConfigureAutoDiscoversLegacyVersionUsingNewPrivateJWT(t *testing.T) {
 	if err := os.WriteFile(caPath, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}), 0600); err != nil {
 		t.Fatal(err)
 	}
-	out, err := runWizard(app, dir, "", "", "", "", "y", "", "", server.URL, "auto", "slurm", caPath, jwt, "")
+	out, err := runWizard(app, dir, "", "", "", "", "y", "", "freeipa", "", server.URL, "auto", "slurm", caPath, jwt, "")
 	if err != nil || !strings.Contains(out, "本次选择 v0.0.40") || strings.Contains(out, jwt) {
 		t.Fatal("auto version selection failed or leaked JWT", err)
 	}
@@ -186,7 +186,7 @@ func TestConfigureAutoDiscoversLegacyVersionUsingNewPrivateJWT(t *testing.T) {
 		}
 	}
 	// A blank version on rerun preserves the detected selection, without discovery.
-	if _, err := runWizard(app, dir, "", "", "", "", "y", "", "", "", "", "", "", "", ""); err != nil {
+	if _, err := runWizard(app, dir, "", "", "", "", "y", "", "", "", "", "", "", "", "", ""); err != nil {
 		t.Fatal(err)
 	}
 	current, _ := app.FindRecordById("clusters", clusters[0].Id)
@@ -228,7 +228,7 @@ func TestConfigureReusesExternalAdministratorWithoutCreatingLocalAccount(t *test
 func TestConfigureInvalidPasswordDoesNotCommitPartialChanges(t *testing.T) {
 	app, dir := wizardApp(t), t.TempDir()
 	before, _ := platformsettings.Read(app)
-	_, err := runWizard(app, dir, "Changed name", "", "", "short", "short", "y", "", "", "", "", "")
+	_, err := runWizard(app, dir, "Changed name", "", "", "short", "short", "y", "", "", "", "", "", "")
 	if err == nil {
 		t.Fatal("weak password accepted")
 	}

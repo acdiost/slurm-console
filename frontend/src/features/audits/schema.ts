@@ -134,6 +134,7 @@ export const fields: Record<string, string> = {
   enabled: "启用连接",
   apiVersion: "API 版本",
   connectionRef: "受保护连接方式引用",
+  authenticationMethod: "身份认证方式",
   timeoutSeconds: "超时（秒）",
   revision: "配置版本",
   authSource: "认证来源",

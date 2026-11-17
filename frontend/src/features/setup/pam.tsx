@@ -13,11 +13,13 @@ export function PAMSetup({
   canManage,
   canUsers,
   onContinue,
+  onBack,
 }: {
   status: PAMStatus
   canManage: boolean
   canUsers: boolean
   onContinue: () => void
+  onBack: () => void
 }) {
   const client = useQueryClient()
   const [checked, setChecked] = useState<{
@@ -55,7 +57,7 @@ export function PAMSetup({
       <div className="flex flex-wrap items-center gap-3">
         <ShieldCheck className="size-5 text-primary" />
         <h2 id="pam-setup-title" className="text-lg font-semibold">
-          系统身份登录（可选）
+          准备 PAM 系统认证
         </h2>
         <Badge variant="outline">
           {current.configured ? "已启用 PAM" : "未启用 PAM"}
@@ -143,6 +145,9 @@ export function PAMSetup({
         </div>
       )}
       <div className="flex flex-wrap gap-3">
+        <Button variant="ghost" disabled={busy} onClick={onBack}>
+          返回选择身份认证方式
+        </Button>
         {canManage && (
           <Button
             disabled={busy || !current.supported}

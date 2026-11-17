@@ -12,10 +12,11 @@ import (
 )
 
 type Cluster struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Slug        string `json:"slug"`
-	Description string `json:"description"`
+	ID                   string `json:"id"`
+	Name                 string `json:"name"`
+	Slug                 string `json:"slug"`
+	Description          string `json:"description"`
+	AuthenticationMethod string `json:"authenticationMethod"`
 }
 type ClusterAccess struct {
 	Cluster     Cluster  `json:"cluster"`
@@ -23,13 +24,14 @@ type ClusterAccess struct {
 	Permissions []string `json:"permissions"`
 }
 type Access struct {
-	PlatformRoles       []string        `json:"platformRoles"`
-	PlatformPermissions []string        `json:"platformPermissions"`
-	Clusters            []ClusterAccess `json:"clusters"`
+	PlatformRoles          []string        `json:"platformRoles"`
+	PlatformPermissions    []string        `json:"platformPermissions"`
+	Clusters               []ClusterAccess `json:"clusters"`
+	authenticationClusters map[string]struct{}
 }
 
 func ClusterDTO(record *core.Record) Cluster {
-	return Cluster{ID: record.Id, Name: record.GetString("name"), Slug: record.GetString("slug"), Description: record.GetString("description")}
+	return Cluster{ID: record.Id, Name: record.GetString("name"), Slug: record.GetString("slug"), Description: record.GetString("description"), AuthenticationMethod: record.GetString("authentication_method")}
 }
 
 // Resolve reads authoritative grants for each request; no permissions are trusted
@@ -42,6 +44,20 @@ func Resolve(app core.App, userID string) (Access, error) {
 	}
 	if !user.GetBool("active") {
 		return result, nil
+	}
+	if source := user.GetString("auth_source"); source != "local" {
+		var clusters []struct {
+			ID string `db:"id"`
+		}
+		if source == "pam" || source == "ldap" || source == "freeipa" {
+			if err := app.RecordQuery("clusters").Select("id").Where(dbx.HashExp{"authentication_method": source}).All(&clusters); err != nil {
+				return result, err
+			}
+		}
+		result.authenticationClusters = make(map[string]struct{}, len(clusters))
+		for _, cluster := range clusters {
+			result.authenticationClusters[cluster.ID] = struct{}{}
+		}
 	}
 	grants, err := app.FindRecordsByFilter("user_platform_roles", "user = {:user}", "", 0, 0, dbx.Params{"user": userID})
 	if err != nil {
@@ -76,6 +92,9 @@ func Resolve(app core.App, userID string) (Access, error) {
 			continue
 		}
 		clusterID := grant.GetString("cluster")
+		if !result.authenticationAllows(clusterID) {
+			continue
+		}
 		entry := byCluster[clusterID]
 		if entry == nil {
 			record, err := app.FindRecordById("clusters", clusterID)
@@ -98,6 +117,9 @@ func Resolve(app core.App, userID string) (Access, error) {
 	result.PlatformRoles = unique(result.PlatformRoles)
 	result.PlatformPermissions = unique(result.PlatformPermissions)
 	for _, entry := range byCluster {
+		if !result.authenticationAllows(entry.Cluster.ID) {
+			continue
+		}
 		entry.Roles = unique(entry.Roles)
 		entry.Permissions = unique(entry.Permissions)
 		result.Clusters = append(result.Clusters, *entry)
@@ -126,7 +148,31 @@ func rolePermissions(app core.App, roleID, scope string) ([]string, error) {
 
 func unique(values []string) []string { sort.Strings(values); return slices.Compact(values) }
 
+func (access Access) authenticationAllows(clusterID string) bool {
+	if access.authenticationClusters == nil {
+		return true
+	}
+	_, allowed := access.authenticationClusters[clusterID]
+	return allowed
+}
+
+// AuthenticationClusterIDs returns nil for platform-password accounts; an empty
+// non-nil slice means that no cluster accepts this external authentication source.
+func (access Access) AuthenticationClusterIDs() []string {
+	if access.authenticationClusters == nil {
+		return nil
+	}
+	ids := make([]string, 0, len(access.authenticationClusters))
+	for id := range access.authenticationClusters {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
 func (access Access) Allows(permission, clusterID string) bool {
+	if clusterID != "" && !access.authenticationAllows(clusterID) {
+		return false
+	}
 	if slices.Contains(access.PlatformPermissions, permission) {
 		return true
 	}

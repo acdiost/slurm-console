@@ -17,26 +17,30 @@ var ErrInvalid = errors.New("invalid configuration version")
 var ErrConflict = errors.New("configuration version already has different content")
 
 type Snapshot struct {
-	Name           string `json:"name"`
-	Slug           string `json:"slug"`
-	Description    string `json:"description"`
-	ConnectionRef  string `json:"connectionRef"`
-	APIVersion     string `json:"apiVersion"`
-	Enabled        bool   `json:"enabled"`
-	TimeoutSeconds int    `json:"timeoutSeconds"`
+	Name                 string `json:"name"`
+	Slug                 string `json:"slug"`
+	Description          string `json:"description"`
+	ConnectionRef        string `json:"connectionRef"`
+	APIVersion           string `json:"apiVersion"`
+	AuthenticationMethod string `json:"authenticationMethod"`
+	Enabled              bool   `json:"enabled"`
+	TimeoutSeconds       int    `json:"timeoutSeconds"`
 }
 
 func FromRecord(r *core.Record) Snapshot {
-	return Snapshot{r.GetString("name"), r.GetString("slug"), r.GetString("description"), r.GetString("connection_ref"), r.GetString("api_version"), r.GetBool("enabled"), r.GetInt("timeout_seconds")}
+	return Snapshot{Name: r.GetString("name"), Slug: r.GetString("slug"), Description: r.GetString("description"), ConnectionRef: r.GetString("connection_ref"), APIVersion: r.GetString("api_version"), AuthenticationMethod: r.GetString("authentication_method"), Enabled: r.GetBool("enabled"), TimeoutSeconds: r.GetInt("timeout_seconds")}
 }
 func (s Snapshot) valid() bool {
+	if s.AuthenticationMethod != "" && s.AuthenticationMethod != "pam" && s.AuthenticationMethod != "ldap" && s.AuthenticationMethod != "freeipa" {
+		return false
+	}
 	return s.Name != "" && s.Slug != "" && utf8.ValidString(s.Name) && utf8.RuneCountInString(s.Name) <= 100 && len(s.Slug) <= 64 && utf8.ValidString(s.Description) && utf8.RuneCountInString(s.Description) <= 1000 && len(s.ConnectionRef) <= 64 && len(s.APIVersion) <= 16 && s.TimeoutSeconds >= 0 && s.TimeoutSeconds <= 30
 }
 func (s Snapshot) Values() map[string]string {
-	return map[string]string{"name": s.Name, "slug": s.Slug, "description": s.Description, "connectionRef": s.ConnectionRef, "apiVersion": s.APIVersion, "enabled": strconv.FormatBool(s.Enabled), "timeoutSeconds": strconv.Itoa(s.TimeoutSeconds)}
+	return map[string]string{"name": s.Name, "slug": s.Slug, "description": s.Description, "connectionRef": s.ConnectionRef, "apiVersion": s.APIVersion, "authenticationMethod": s.AuthenticationMethod, "enabled": strconv.FormatBool(s.Enabled), "timeoutSeconds": strconv.Itoa(s.TimeoutSeconds)}
 }
 
-var Fields = []string{"name", "slug", "description", "connectionRef", "apiVersion", "enabled", "timeoutSeconds"}
+var Fields = []string{"name", "slug", "description", "connectionRef", "apiVersion", "authenticationMethod", "enabled", "timeoutSeconds"}
 
 type Field struct {
 	Field   string  `json:"field"`
@@ -81,18 +85,23 @@ func Metadata(r *core.Record) Version {
 }
 func Decode(r *core.Record) (Snapshot, error) {
 	var s Snapshot
-	if r.GetInt("schema_version") != 1 {
+	schema := r.GetInt("schema_version")
+	if schema != 1 && schema != 2 {
 		return s, ErrInvalid
 	}
 	raw, e := json.Marshal(r.GetRaw("snapshot"))
 	if e != nil {
 		return s, ErrInvalid
 	}
+	fieldsRequired := Fields
+	if schema == 1 {
+		fieldsRequired = []string{"name", "slug", "description", "connectionRef", "apiVersion", "enabled", "timeoutSeconds"}
+	}
 	var fields map[string]json.RawMessage
-	if json.Unmarshal(raw, &fields) != nil || len(fields) != len(Fields) {
+	if json.Unmarshal(raw, &fields) != nil || len(fields) != len(fieldsRequired) {
 		return s, ErrInvalid
 	}
-	for _, key := range Fields {
+	for _, key := range fieldsRequired {
 		if v, ok := fields[key]; !ok || bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
 			return s, ErrInvalid
 		}
@@ -136,7 +145,7 @@ func Capture(app core.App, cluster *core.Record, evidence *core.Record) error {
 	r := core.NewRecord(collection)
 	r.Set("cluster_id", cluster.Id)
 	r.Set("revision", cluster.GetInt("revision"))
-	r.Set("schema_version", 1)
+	r.Set("schema_version", 2)
 	r.Set("snapshot", snapshot)
 	r.Set("kind", "baseline")
 	r.Set("action", "baseline")

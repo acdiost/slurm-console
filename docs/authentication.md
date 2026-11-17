@@ -2,6 +2,8 @@
 
 使用 PocketBase v0.40.6 管理平台账户、令牌及 RBAC；支持平台密码、Linux PAM、LDAP 与 FreeIPA 四种认证来源。外部账户必须由管理员显式关联，平台 ID 与集群权限独立保存；系统/目录密码不进入 PocketBase。安装及关联命令见 [PAM 接入](pam.md)、[LDAP 接入](ldap.md)。FreeIPA 独立认证、目录用户/组管理与直接成员组角色映射见 [FreeIPA 接入](freeipa.md)；AD 专属策略及自动 Slurm 身份映射尚未接入。
 
+集群身份认证与集群配置一对一：每个集群只能选 PAM、LDAP、FreeIPA 中的一种。平台密码保留为平台管理账户认证，不列入这三种集群方式。外部账户登录后仍须满足 RBAC，且其 `auth_source` 必须与目标集群的 `authenticationMethod` 一致；现有令牌和平台级角色不能绕过此检查。各集群独立选择，不会因为另一个集群改选而改变认证方式。配置及升级规则见 [集群连接配置](cluster-connections.md)。
+
 ## 首次启动
 
 正式部署使用[两文件交付与终端向导](deployment.md#两文件交付与终端引导推荐)，目标主机无需安装构建工具：
@@ -48,7 +50,7 @@ make dev
 
 ## 集群范围授权
 
-集群集合保存标识、服务端连接引用及非敏感配置/检测结果；普通授权接口只返回 `id/name/slug/description`。平台 Super Admin 可通过 [集群配置](cluster-connections.md) 接入真实连接；CLI 登记的旧标识默认停用。数据库不保存 JWT 或其他凭据。
+集群集合保存标识、服务端连接引用及非敏感配置/检测结果；普通授权接口返回 `id/name/slug/description/authenticationMethod`，不包含连接凭据。平台 Super Admin 可通过 [集群配置](cluster-connections.md) 接入真实连接；CLI 登记的旧标识默认停用。数据库不保存 Slurm JWT。
 
 在 `backend/` 中登记集群标识后，可分配集群角色：
 

@@ -39,10 +39,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  ClusterPicker,
   pageNumber,
-  useAccessibleClusters,
+  type AccessibleClusters,
 } from "@/features/clusters/cluster-picker"
+import { ClusterIdentityPage } from "@/features/clusters/identity-page"
+import { identityLabel } from "@/features/clusters/identity-navigation"
+import type { AuthenticationMethod } from "@/features/clusters/schema"
 import { LinuxUserManagement } from "@/features/linux-users/management"
 import { LinuxUserDetail } from "@/features/linux-users/user-detail"
 import { LinuxUserSourceConfiguration } from "@/features/linux-users/source-configuration"
@@ -214,8 +216,23 @@ function ExactLookup({ onLookup }: { onLookup: (name: string) => void }) {
   )
 }
 export function LinuxUsersPage() {
+  return (
+    <ClusterIdentityPage path="/linux-users">
+      {(selection, method) => (
+        <LinuxUserList selection={selection} authenticationMethod={method} />
+      )}
+    </ClusterIdentityPage>
+  )
+}
+
+function LinuxUserList({
+  selection,
+  authenticationMethod,
+}: {
+  selection: AccessibleClusters
+  authenticationMethod: AuthenticationMethod
+}) {
   const [params, setParams] = useSearchParams(),
-    selection = useAccessibleClusters(),
     clusterId = selection.id,
     [automatic, setAutomatic] = useState(true),
     [sourceVersion, setSourceVersion] = useState(0)
@@ -345,7 +362,8 @@ export function LinuxUsersPage() {
             Linux 系统用户
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {selection.current?.name || "选择集群以查询 Linux 身份"}
+            {selection.current?.name} · 身份认证方式：
+            {identityLabel(authenticationMethod)}
           </p>
         </div>
         <div className="flex gap-2">
@@ -374,7 +392,6 @@ export function LinuxUsersPage() {
           </Button>
         </div>
       </header>
-      <ClusterPicker selection={selection} label="Linux 用户" />
       {selection.inventory.isError && (
         <p role="alert" className="panel p-4 text-sm text-destructive">
           集群候选列表读取失败，请刷新后重试。

@@ -12,6 +12,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/spf13/cobra"
 	"slurm-console/backend/internal/audit"
+	"slurm-console/backend/internal/clusterconfig"
 	"slurm-console/backend/internal/maintenance"
 )
 
@@ -120,7 +121,7 @@ func Commands(app core.App) *cobra.Command {
 		_ = cmd.MarkFlagRequired("role")
 		root.AddCommand(cmd)
 	}
-	var name, slug string
+	var name, slug, authenticationMethod string
 	inventory := &cobra.Command{Use: "register-cluster", Short: "Register non-sensitive cluster metadata for authorization (no connection)", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		unlock, lockErr := maintenance.Shared()
 		if lockErr != nil {
@@ -135,10 +136,14 @@ func Commands(app core.App) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if !clusterconfig.ValidAuthenticationMethod(authenticationMethod) {
+			return fmt.Errorf("authentication-method must be pam, ldap, or freeipa")
+		}
 		record := core.NewRecord(collection)
 		record.Set("name", strings.TrimSpace(name))
 		record.Set("slug", strings.TrimSpace(slug))
-		if err := audit.SaveLocal(app, record, audit.Event{Action: "clusters.register", TargetType: "cluster", Message: "本地命令登记集群。"}); err != nil {
+		record.Set("authentication_method", authenticationMethod)
+		if err := audit.SaveLocal(app, record, audit.Event{Action: "clusters.register", TargetType: "cluster", Message: "本地命令登记集群。", Changes: []audit.Change{{Field: "authenticationMethod", After: authenticationMethod}}}); err != nil {
 			return err
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), "Cluster inventory registered:", record.Id)
@@ -146,6 +151,7 @@ func Commands(app core.App) *cobra.Command {
 	}}
 	inventory.Flags().StringVar(&name, "name", "", "Display name")
 	inventory.Flags().StringVar(&slug, "slug", "", "Stable inventory slug")
+	inventory.Flags().StringVar(&authenticationMethod, "authentication-method", "pam", "Cluster identity authentication method: pam, ldap, freeipa (CLI default: pam)")
 	_ = inventory.MarkFlagRequired("name")
 	_ = inventory.MarkFlagRequired("slug")
 	root.AddCommand(inventory)

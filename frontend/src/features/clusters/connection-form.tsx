@@ -14,6 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  authenticationMethods,
+  type AuthenticationMethod,
   connectionFormSchema,
   versionDiscoverySchema,
   type ClusterConfiguration,
@@ -51,6 +53,7 @@ export function ConnectionForm({
       name: config?.name ?? "",
       slug: config?.slug ?? "",
       description: config?.description ?? "",
+      authenticationMethod: config?.authenticationMethod || undefined,
       connectionRef: config?.connectionRef || profiles[0]?.ref || "",
       apiVersion: config?.apiVersion || profiles[0]?.apiVersions[0] || "",
       enabled: config?.connectionRef ? config.enabled : true,
@@ -166,6 +169,37 @@ export function ConnectionForm({
             {...register("description")}
           />
           {fieldError("description")}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="cluster-authenticationMethod">身份认证方式</Label>
+          <Select
+            value={values.authenticationMethod ?? ""}
+            onValueChange={(value) =>
+              setValue("authenticationMethod", value as AuthenticationMethod, {
+                shouldValidate: true,
+              })
+            }
+          >
+            <SelectTrigger
+              id="cluster-authenticationMethod"
+              className="w-full"
+              aria-invalid={!!errors.authenticationMethod}
+              aria-describedby="cluster-authenticationMethod-error"
+            >
+              <SelectValue placeholder="选择一种身份认证方式" />
+            </SelectTrigger>
+            <SelectContent>
+              {authenticationMethods.map((method) => (
+                <SelectItem key={method.value} value={method.value}>
+                  {method.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-2xs text-muted-foreground">
+            每个集群使用一种身份认证方式，认证服务连接由服务端管理。平台密码账户继续按已有角色与授权访问。
+          </p>
+          {fieldError("authenticationMethod")}
         </div>
         <div className="space-y-2">
           <Label htmlFor="cluster-connectionRef">连接方式</Label>

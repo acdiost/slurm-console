@@ -6,7 +6,13 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PAMSetup } from "@/features/setup/pam"
 import { SlurmSetup } from "@/features/setup/slurm"
 import { setupError, useSetupStatus } from "@/features/setup/status"
-import type { ClusterConfiguration } from "@/features/clusters/schema"
+import {
+  authenticationMethods,
+  authenticationMethodLabel,
+  authenticationMethodSchema,
+  type AuthenticationMethod,
+  type ClusterConfiguration,
+} from "@/features/clusters/schema"
 import { useAuth } from "@/stores/auth"
 
 export function SetupPage() {
@@ -20,7 +26,13 @@ function SetupWizard() {
   const canUsers =
     permissions.includes("platform.users.manage") ||
     permissions.includes("platform.roles.manage")
-  const [step, setStep] = useState<"pam" | "slurm" | "done">("pam")
+  const [step, setStep] = useState<"method" | "pam" | "slurm" | "done">(
+    "method"
+  )
+  const [authenticationMethod, setAuthenticationMethod] = useState<
+    AuthenticationMethod | ""
+  >("")
+  const [methodError, setMethodError] = useState("")
   const [saved, setSaved] = useState<ClusterConfiguration>()
   if (!allowed)
     return (
@@ -40,7 +52,7 @@ function SetupWizard() {
           首次接入引导
         </h1>
         <p className="text-sm leading-7 text-muted-foreground">
-          准备可选的系统身份登录，然后连接已有的 slurmrestd
+          为集群选择一种身份认证方式，再连接已有的 slurmrestd
           服务，开始使用集群工作台。
         </p>
         <div className="flex flex-wrap gap-3">
@@ -66,7 +78,10 @@ function SetupWizard() {
       <ol aria-label="接入步骤" className="grid gap-3 sm:grid-cols-3">
         {(
           [
-            { value: "pam", label: "系统身份登录（可选）" },
+            { value: "method", label: "选择身份认证方式" },
+            ...(authenticationMethod === "pam"
+              ? ([{ value: "pam", label: "准备 PAM 系统认证" }] as const)
+              : []),
             { value: "slurm", label: "连接 slurmrestd" },
             { value: "done", label: "完成设置" },
           ] as const
@@ -98,23 +113,93 @@ function SetupWizard() {
               role="status"
               className="rounded-lg border bg-muted/20 p-4 text-sm leading-7"
             >
-              平台已有启用且配置有效的集群。仍可在向导中管理 PAM
-              或新增连接，亦可直接进入工作台。
+              平台已有启用且配置有效的集群。仍可为新集群选择身份认证方式并新增连接，亦可直接进入工作台。
             </p>
           )}
-          {step === "pam" && (
+          {step === "method" && (
+            <section
+              className="panel space-y-5 p-5 sm:p-7"
+              aria-labelledby="setup-method-title"
+            >
+              <h2 id="setup-method-title" className="text-lg font-semibold">
+                选择身份认证方式
+              </h2>
+              <p className="text-sm leading-7 text-muted-foreground">
+                每个集群使用一种身份认证方式。LDAP 和 FreeIPA
+                的连接配置由服务器管理员维护。平台密码管理员继续使用已有管理权限。
+              </p>
+              <form
+                className="space-y-5"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  const result =
+                    authenticationMethodSchema.safeParse(authenticationMethod)
+                  if (!result.success) {
+                    setMethodError("请选择一种身份认证方式")
+                    return
+                  }
+                  setMethodError("")
+                  setStep(result.data === "pam" ? "pam" : "slurm")
+                }}
+              >
+                <fieldset
+                  className="grid gap-3 sm:grid-cols-3"
+                  aria-describedby={
+                    methodError ? "setup-method-error" : undefined
+                  }
+                >
+                  <legend className="mb-3 text-sm font-medium">
+                    身份认证方式
+                  </legend>
+                  {authenticationMethods.map((method) => (
+                    <label
+                      key={method.value}
+                      className="flex cursor-pointer items-center gap-3 rounded-lg border p-4 text-sm has-checked:border-primary has-checked:bg-primary/5"
+                    >
+                      <input
+                        type="radio"
+                        name="authenticationMethod"
+                        value={method.value}
+                        checked={authenticationMethod === method.value}
+                        onChange={() => {
+                          setAuthenticationMethod(method.value)
+                          setMethodError("")
+                        }}
+                      />
+                      {method.label}
+                    </label>
+                  ))}
+                </fieldset>
+                {methodError && (
+                  <p
+                    id="setup-method-error"
+                    role="alert"
+                    className="text-sm text-destructive"
+                  >
+                    {methodError}
+                  </p>
+                )}
+                <Button type="submit">继续配置</Button>
+              </form>
+            </section>
+          )}
+          {step === "pam" && authenticationMethod === "pam" && (
             <PAMSetup
               status={status.pam}
               canManage={canPAM}
               canUsers={canUsers}
               onContinue={() => setStep("slurm")}
+              onBack={() => setStep("method")}
             />
           )}
-          {step === "slurm" && (
+          {step === "slurm" && authenticationMethod && (
             <SlurmSetup
+              authenticationMethod={authenticationMethod}
               status={status.slurm}
               canManage={canSlurm}
-              onBack={() => setStep("pam")}
+              onBack={() =>
+                setStep(authenticationMethod === "pam" ? "pam" : "method")
+              }
               onComplete={(config) => {
                 setSaved(config)
                 setStep("done")
@@ -132,9 +217,9 @@ function SetupWizard() {
               </h2>
               <p className="text-sm leading-7 text-muted-foreground">
                 {saved
-                  ? `已保存「${saved.name}」，使用 ${saved.apiVersion}。${saved.lastProbe.message}`
+                  ? `已保存「${saved.name}」，身份认证方式为 ${authenticationMethodLabel(saved.authenticationMethod)}，使用 ${saved.apiVersion}。${saved.lastProbe.message}`
                   : "可以进入工作台查看授权范围内的集群。"}{" "}
-                PAM 为可选设置，本地管理员继续使用原有平台密码。
+                本地管理员继续使用平台密码与已有角色和授权。
               </p>
               <div className="flex flex-wrap gap-3">
                 {saved && (
@@ -154,7 +239,7 @@ function SetupWizard() {
                     <Link to="/settings?tab=users">管理用户与角色</Link>
                   </Button>
                 )}
-                <Button variant="ghost" onClick={() => setStep("pam")}>
+                <Button variant="ghost" onClick={() => setStep("method")}>
                   返回设置步骤
                 </Button>
               </div>

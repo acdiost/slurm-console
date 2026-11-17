@@ -59,6 +59,11 @@ import { logout, useAuth } from "@/stores/auth"
 import { api } from "@/services/api"
 import { ClusterNavLink as NavLink } from "@/features/clusters/cluster-navigation"
 import {
+  identityDestination,
+  identityLabel,
+  useClusterIdentity,
+} from "@/features/clusters/identity-navigation"
+import {
   ClusterPickerNavigationProvider,
   ClusterPickerNavigationTarget,
 } from "@/features/clusters/cluster-picker"
@@ -81,6 +86,9 @@ const sections = [
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const platformName = usePlatformIdentity((s) => s.name)
   const user = useAuth((state) => state.user)
+  const { cluster } = useClusterIdentity()
+  const identityMethod = cluster?.authenticationMethod
+  const identityTo = identityDestination(identityMethod)
   const inventory = useQuery({
     queryKey: ["cluster-inventory"],
     queryFn: ({ signal }) =>
@@ -289,18 +297,20 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
               </NavLink>
             )}
             {section.label === "身份与策略" &&
-              user?.access.platformPermissions.includes(
-                "platform.directory.read"
-              ) && (
+              identityTo &&
+              (identityMethod !== "freeipa" ||
+                user?.access.platformPermissions.includes(
+                  "platform.directory.read"
+                )) && (
                 <NavLink
-                  to="/directory"
+                  to={identityTo}
                   onClick={onNavigate}
                   className={({ isActive }) =>
                     `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
                   }
                 >
                   <Users />
-                  <span>FreeIPA 目录</span>
+                  <span>{identityLabel(identityMethod)}</span>
                 </NavLink>
               )}
             {section.label === "身份与策略" && (
@@ -313,18 +323,6 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
               >
                 <ShieldCheck />
                 <span>账户与 Association</span>
-              </NavLink>
-            )}
-            {section.label === "身份与策略" && (
-              <NavLink
-                to="/linux-users"
-                onClick={onNavigate}
-                className={({ isActive }) =>
-                  `nav-item ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`
-                }
-              >
-                <Users />
-                <span>Linux 用户</span>
               </NavLink>
             )}
             {section.label === "身份与策略" && (

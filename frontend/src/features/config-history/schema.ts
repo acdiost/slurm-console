@@ -1,10 +1,15 @@
 import { z } from "zod"
 import { ClientResponseError } from "pocketbase"
-import { connectionFormSchema } from "@/features/clusters/schema"
+import {
+  authenticationMethodLabel,
+  connectionFormSchema,
+  savedAuthenticationMethodSchema,
+} from "@/features/clusters/schema"
 export const labels = {
   name: "集群名称",
   slug: "集群标识",
   description: "说明",
+  authenticationMethod: "身份认证方式",
   connectionRef: "连接方式引用",
   apiVersion: "REST API 版本",
   enabled: "平台连接状态",
@@ -14,6 +19,7 @@ export const snapshotSchema = z.object({
   name: z.string(),
   slug: z.string(),
   description: z.string(),
+  authenticationMethod: savedAuthenticationMethodSchema,
   connectionRef: z.string(),
   apiVersion: z.string(),
   enabled: z.boolean(),
@@ -24,6 +30,7 @@ const fieldSchema = z.object({
     "name",
     "slug",
     "description",
+    "authenticationMethod",
     "connectionRef",
     "apiVersion",
     "enabled",
@@ -33,7 +40,7 @@ const fieldSchema = z.object({
   after: z.string().nullable(),
   changed: z.boolean(),
 })
-export const fieldsSchema = z.array(fieldSchema).length(7)
+export const fieldsSchema = z.array(fieldSchema).length(8)
 export type DiffField = z.infer<typeof fieldSchema>
 export const previewSchema = z.object({
   clusterId: z.string(),
@@ -49,7 +56,7 @@ export const versionSchema = z.object({
   id: z.string(),
   clusterId: z.string(),
   revision: z.number().int().min(0),
-  schemaVersion: z.literal(1),
+  schemaVersion: z.union([z.literal(1), z.literal(2)]),
   kind: z.enum(["baseline", "change"]),
   action: z.string(),
   actorId: z.string(),
@@ -87,6 +94,10 @@ export function canHistory(permissions: string[]) {
 export const validId = (id: string) => /^[a-z0-9]{15}$/.test(id)
 export function display(field: string, value: string | null) {
   if (value === null) return "不存在"
+  if (field === "authenticationMethod")
+    return authenticationMethodLabel(
+      savedAuthenticationMethodSchema.parse(value)
+    )
   if (value === "") return "空值"
   if (field === "enabled") return value === "true" ? "启用" : "停用"
   if (field === "timeoutSeconds" && value === "0") return "0（未配置）"

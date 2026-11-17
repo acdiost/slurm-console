@@ -11,6 +11,7 @@ const operational = new Set([
   "/nodes",
   "/partitions",
   "/linux-users",
+  "/directory",
   "/accounts",
   "/policies",
   "/tres",
@@ -18,8 +19,11 @@ const operational = new Set([
   "/gpu",
   "/history",
 ])
+export function isClusterScopedPath(pathname: string) {
+  return operational.has(pathname)
+}
 export function scopedNavigation(to: string, pathname: string, search: string) {
-  if (!operational.has(to) || !operational.has(pathname)) return to
+  if (!isClusterScopedPath(to) || !isClusterScopedPath(pathname)) return to
   const source = new URLSearchParams(search),
     id = source.get("cluster")
   if (!id) return to

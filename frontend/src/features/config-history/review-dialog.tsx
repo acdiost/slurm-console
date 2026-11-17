@@ -8,6 +8,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
+import { authenticationMethodLabel } from "@/features/clusters/schema"
 import { ConfigurationDiff } from "./diff-table"
 import type { Preview } from "./schema"
 export function ConfigurationReview({
@@ -47,9 +48,13 @@ export function ConfigurationReview({
             : `当前 v${preview.currentRevision}`}{" "}
           → v{preview.nextRevision} · {preview.after.name}
         </p>
+        <p className="text-sm">
+          身份认证方式：
+          {authenticationMethodLabel(preview.after.authenticationMethod)}
+        </p>
         <ConfigurationDiff fields={preview.fields} />
         <p className="text-xs text-muted-foreground">
-          对比只包含平台连接字段；服务端
+          对比包含集群身份认证方式与平台连接字段；服务端
           endpoint、凭据、证书文件和连接检测结果不在快照中。
         </p>
         {error && (

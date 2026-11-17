@@ -192,7 +192,7 @@ func configure(app core.App, configDir string, p *prompts) error {
 		return fmt.Errorf("请输入 y 或 n")
 	}
 	var connection *clusterconfig.Input
-	var existingID string
+	var existingID, previousAuthenticationMethod string
 	var tokenPath, token string
 	if choice == "y" {
 		ref := "primary"
@@ -221,6 +221,18 @@ func configure(app core.App, configDir string, p *prompts) error {
 		if existing != nil {
 			profile.Label = existing.GetString("name")
 			defaultVersion = existing.GetString("api_version")
+		}
+		authenticationMethod := "pam"
+		if existing != nil {
+			authenticationMethod = existing.GetString("authentication_method")
+			previousAuthenticationMethod = authenticationMethod
+		}
+		authenticationMethod, err = p.read("集群身份认证方式（pam/ldap/freeipa）", authenticationMethod, false)
+		if err != nil {
+			return err
+		}
+		if !clusterconfig.ValidAuthenticationMethod(authenticationMethod) {
+			return fmt.Errorf("请选择一种集群身份认证方式：pam、ldap 或 freeipa")
 		}
 		profile.Label, err = p.read("集群名称", profile.Label, false)
 		if err != nil {
@@ -279,7 +291,7 @@ func configure(app core.App, configDir string, p *prompts) error {
 			version = detected.Recommended
 			fmt.Fprintf(p.out, "slurmrestd 可用版本: %s；本次选择 %s。\n", strings.Join(detected.Versions, ", "), version)
 		}
-		in := clusterconfig.Input{Name: profile.Label, Slug: ref, ConnectionRef: ref, APIVersion: version, Enabled: true, TimeoutSeconds: 5}
+		in := clusterconfig.Input{Name: profile.Label, Slug: ref, ConnectionRef: ref, APIVersion: version, AuthenticationMethod: authenticationMethod, Enabled: true, TimeoutSeconds: 5}
 		if existing != nil {
 			existingID = existing.Id
 			in.Slug, in.Revision = existing.GetString("slug"), existing.GetInt("revision")
@@ -329,7 +341,7 @@ func configure(app core.App, configDir string, p *prompts) error {
 			if existingID == "" {
 				action = "clusters.create"
 			}
-			if err = audit.Write(tx, audit.LocalActor(), audit.Event{Action: action, ClusterID: view.ID, TargetType: "cluster", TargetID: view.ID, Message: "root 终端向导保存连接配置。"}); err != nil {
+			if err = audit.Write(tx, audit.LocalActor(), audit.Event{Action: action, ClusterID: view.ID, TargetType: "cluster", TargetID: view.ID, Message: "root 终端向导保存连接配置。", Changes: []audit.Change{{Field: "authenticationMethod", Before: previousAuthenticationMethod, After: view.AuthenticationMethod}}}); err != nil {
 				return err
 			}
 		}

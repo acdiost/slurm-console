@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/select"
 import { textareaClass } from "@/features/platform-settings/common"
 import {
+  authenticationMethodLabel,
+  type AuthenticationMethod,
   configurationSchema,
   type ClusterConfiguration,
 } from "@/features/clusters/schema"
@@ -30,11 +32,13 @@ import { invalidateSetupQueries, setupError } from "./status"
 
 export function SlurmSetup({
   status,
+  authenticationMethod,
   canManage,
   onBack,
   onComplete,
 }: {
   status: SetupStatus["slurm"]
+  authenticationMethod: AuthenticationMethod
   canManage: boolean
   onBack: () => void
   onComplete: (config?: ClusterConfiguration) => void
@@ -56,6 +60,7 @@ export function SlurmSetup({
     defaultValues: {
       name: "",
       slug: "",
+      authenticationMethod,
       authType: "local",
       endpoint: "",
       username: "",
@@ -129,6 +134,9 @@ export function SlurmSetup({
         使用管理员已经部署的 Slurm / slurmrestd
         服务。保存时由后端检测版本、验证连接并持久化配置；检测失败时可以修改后重试。
       </p>
+      <p className="text-sm">
+        身份认证方式：{authenticationMethodLabel(authenticationMethod)}
+      </p>
       {status.clusterCount > 0 && (
         <div className="space-y-3 rounded-lg border bg-muted/20 p-4 text-sm leading-7">
           <p>
@@ -154,7 +162,7 @@ export function SlurmSetup({
         <div className="space-y-4 text-sm">
           <p>需要集群管理权限才能添加连接，请联系平台管理员。</p>
           <Button variant="outline" onClick={onBack}>
-            返回系统身份设置
+            返回身份认证设置
           </Button>
         </div>
       ) : (
@@ -382,7 +390,7 @@ export function SlurmSetup({
               disabled={busy}
               onClick={onBack}
             >
-              返回系统身份设置
+              返回身份认证设置
             </Button>
             <Button type="submit" disabled={busy}>
               {busy && <LoaderCircle className="animate-spin" />}

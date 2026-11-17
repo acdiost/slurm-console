@@ -29,12 +29,18 @@ const before = {
     name: "旧集群",
     slug: "research",
     description: "历史说明",
+    authenticationMethod: "",
     connectionRef: "approved",
     apiVersion: "v0.0.43",
     enabled: true,
     timeoutSeconds: 5,
   },
-  after = { ...before, name: "新集群", description: "" }
+  after = {
+    ...before,
+    name: "新集群",
+    description: "",
+    authenticationMethod: "pam",
+  }
 const fields: DiffField[] = (
   Object.keys(labels) as (keyof typeof labels)[]
 ).map((k) => ({
@@ -61,6 +67,7 @@ const newer: Version = {
   ...version,
   id: v2,
   revision: 5,
+  schemaVersion: 2,
   kind: "change",
   action: "clusters.update",
   actorId: "admin",
@@ -151,6 +158,9 @@ it("reads versions only until two explicit versions are selected, then compares 
   expect(result).toHaveTextContent("历史说明")
   expect(result).toHaveTextContent("空值")
   expect(result).toHaveTextContent("原始修改人未记录")
+  expect(result).toHaveTextContent("身份认证方式")
+  expect(result).toHaveTextContent("未选择身份认证方式")
+  expect(result).toHaveTextContent("PAM 系统认证")
   expect(
     within(result).getByRole("link", { name: "查看关联审计" })
   ).toHaveAttribute("href", "/audits?operation=operation123")

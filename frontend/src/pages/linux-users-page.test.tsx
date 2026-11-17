@@ -204,16 +204,13 @@ it("详情刷新不存在后不显示上次的身份记录", async () => {
   expect(within(dialog).queryByText("/home/worker")).not.toBeInTheDocument()
 })
 it("旧筛选的迟到结果不能覆盖新查询", async () => {
-  let finish: (value: unknown) => void = () => {}
-  const delayed = new Promise((resolve) => {
-    finish = resolve
-  })
+  const { promise: delayed, resolve: finish } = Promise.withResolvers<unknown>()
   mockSources((path) =>
     path.includes("q=old") ? delayed : page([{ ...worker, name: "newuser" }])
   )
   show("/linux-users?cluster=alpha&q=old")
   const user = userEvent.setup()
-  await user.clear(screen.getByLabelText("搜索枚举结果"))
+  await user.clear(await screen.findByLabelText("搜索枚举结果"))
   await user.type(screen.getByLabelText("搜索枚举结果"), "new")
   await user.click(screen.getByRole("button", { name: "查询用户" }))
   await screen.findByText("newuser")

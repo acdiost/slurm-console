@@ -13,6 +13,12 @@ it("跨业务导航保留集群和候选位置，不携带作业、节点、确�
 it("审计的历史集群过滤器与全局工作台不被当作操作上下文", () => {
   expect(scopedNavigation("/jobs", "/audits", "?cluster=deleted")).toBe("/jobs")
   expect(scopedNavigation("/fleet", "/nodes", "?cluster=beta")).toBe("/fleet")
+  expect(scopedNavigation("/directory", "/settings", "?cluster=alpha")).toBe(
+    "/directory"
+  )
+  expect(
+    scopedNavigation("/linux-users", "/notifications", "?cluster=alpha")
+  ).toBe("/linux-users")
 })
 it("实际导航链接带上当前集群", () => {
   render(
@@ -37,4 +43,17 @@ it("Linux 身份查询与其他业务页共享集群但不共享用户名详情"
       "?cluster=beta&username=worker&source=local"
     )
   ).toBe("/jobs?cluster=beta")
+})
+
+it("FreeIPA 身份页保留集群候选上下文并丢弃目录详情", () => {
+  expect(
+    scopedNavigation(
+      "/directory",
+      "/linux-users",
+      "?cluster=beta&clusterPage=2&clusterQ=gpu&username=worker"
+    )
+  ).toBe("/directory?cluster=beta&clusterPage=2&clusterQ=gpu")
+  expect(
+    scopedNavigation("/nodes", "/directory", "?cluster=beta&user=worker")
+  ).toBe("/nodes?cluster=beta")
 })

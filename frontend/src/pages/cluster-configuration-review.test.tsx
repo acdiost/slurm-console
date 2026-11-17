@@ -27,6 +27,7 @@ const original: ClusterConfiguration = {
   name: "原始集群",
   slug: "research",
   description: "原始说明",
+  authenticationMethod: "ldap",
   connectionRef: "approved",
   apiVersion: "v0.0.43",
   enabled: true,
@@ -49,7 +50,7 @@ function snap(v: ClusterConfiguration | ConnectionValues) {
     (Object.keys(labels) as (keyof typeof labels)[]).map((k) => [k, v[k]])
   )
 }
-function preview(v: ConnectionValues, disable = false) {
+function preview(v: ConnectionValues | ClusterConfiguration, disable = false) {
   const before = snap(current),
     after = snap(v)
   return {
@@ -140,13 +141,19 @@ afterEach(() => {
 it("previews the exact normalized changes and only saves after explicit confirmation", async () => {
   show()
   await screen.findByText("原始集群")
+  expect(screen.getByText("LDAP")).toBeVisible()
   await userEvent.click(screen.getByRole("button", { name: "编辑 原始集群" }))
   await userEvent.clear(screen.getByLabelText("说明"))
   await userEvent.type(screen.getByLabelText("说明"), "更新说明")
+  await userEvent.click(screen.getByLabelText("身份认证方式"))
+  await userEvent.click(screen.getByRole("option", { name: "FreeIPA" }))
   await userEvent.click(screen.getByRole("button", { name: "预览变更" }))
   const dialog = await screen.findByRole("alertdialog")
   expect(dialog).toHaveTextContent("更新说明")
   expect(dialog).toHaveTextContent("原始说明")
+  expect(dialog).toHaveTextContent("身份认证方式")
+  expect(dialog).toHaveTextContent("LDAP")
+  expect(dialog).toHaveTextContent("FreeIPA")
   expect(vi.mocked(api).mock.calls.some(([, o]) => o?.method === "PATCH")).toBe(
     false
   )
@@ -161,6 +168,7 @@ it("previews the exact normalized changes and only saves after explicit confirma
           ([, o]) =>
             o?.method === "PATCH" &&
             (o.body as ConnectionValues).description === "更新说明" &&
+            (o.body as ConnectionValues).authenticationMethod === "freeipa" &&
             (o.body as ConnectionValues).revision === 4
         )
     ).toBe(true)

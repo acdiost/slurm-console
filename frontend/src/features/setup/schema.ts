@@ -26,6 +26,7 @@ export const slurmSetupSchema = z
   .object({
     name: connectionFormSchema.shape.name,
     slug: connectionFormSchema.shape.slug,
+    authenticationMethod: connectionFormSchema.shape.authenticationMethod,
     endpoint: z.string().trim().min(1, "请输入 slurmrestd 地址"),
     authType: z.enum(["local", "jwt"]),
     username: z.string().trim().max(63, "用户名最多 63 个字符"),

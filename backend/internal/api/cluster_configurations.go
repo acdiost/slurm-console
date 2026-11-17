@@ -126,7 +126,7 @@ func readConfigurationBody(e *core.RequestEvent, target any) error {
 func configurationError(e *core.RequestEvent, err error) error {
 	switch {
 	case errors.Is(err, clusterconfig.ErrInvalid):
-		return e.BadRequestError("请检查集群名称、标识、连接方式、API 版本和超时设置；集群标识创建后不可修改。", nil)
+		return e.BadRequestError("请检查集群名称、标识、认证方式（pam、ldap 或 freeipa）、连接方式、API 版本和超时设置；集群标识创建后不可修改。", nil)
 	case errors.Is(err, clusterconfig.ErrConflict):
 		return e.Error(409, "配置已变更、标识已被使用或连接已停用，请刷新后重试。", nil)
 	case errors.Is(err, clusterconfig.ErrBusy):
@@ -176,7 +176,7 @@ func mutateConfiguration(e *core.RequestEvent, action, id string, input clusterc
 		}
 		after := configurationSnapshot(record)
 		changes := []audit.Change{}
-		for _, key := range []string{"name", "slug", "description", "enabled", "apiVersion", "connectionRef", "timeoutSeconds", "revision"} {
+		for _, key := range []string{"name", "slug", "description", "enabled", "apiVersion", "authenticationMethod", "connectionRef", "timeoutSeconds", "revision"} {
 			if before[key] != after[key] {
 				changes = append(changes, audit.Change{Field: key, Before: before[key], After: after[key]})
 			}

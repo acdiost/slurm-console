@@ -44,6 +44,10 @@ func TestAdministrativeCommandsPersistSelectedEvidence(t *testing.T) {
 	if e != nil || len(versions) != 1 || versions[0].GetInt("revision") != 0 || versions[0].GetString("kind") != "change" || versions[0].GetString("actor_source") != "local" {
 		t.Fatal("CLI registration version missing", e, len(versions))
 	}
+	registered, err := app.FindFirstRecordByData("clusters", "slug", "test-cluster")
+	if err != nil || registered.GetString("authentication_method") != "pam" {
+		t.Fatal("CLI registration did not apply documented PAM default", err)
+	}
 	actions := map[string]bool{}
 	keys := map[string]bool{}
 	for _, r := range rows {
@@ -86,5 +90,36 @@ func TestAccessCommandRollsBackIfAuditFails(t *testing.T) {
 	n, err := app.CountRecords("user_platform_roles")
 	if err != nil || n != 0 {
 		t.Fatal("role grant survived audit rollback")
+	}
+}
+
+func TestRegisterClusterAcceptsOneAuthenticationMethod(t *testing.T) {
+	app := core.NewBaseApp(core.BaseAppConfig{DataDir: t.TempDir()})
+	t.Cleanup(func() { _ = app.ResetBootstrapState() })
+	for _, method := range []string{"pam", "ldap", "freeipa"} {
+		run(t, rbac.Commands(app), "register-cluster", "--slug", method, "--name", "Cluster "+method, "--authentication-method", method)
+		if err := app.Bootstrap(); err != nil {
+			t.Fatal(err)
+		}
+		registered, err := app.FindFirstRecordByData("clusters", "slug", method)
+		if err != nil || registered.GetString("authentication_method") != method {
+			t.Fatal("CLI authentication choice was not retained", method, err)
+		}
+	}
+	for _, invalid := range []string{"", "unknown", "pam,ldap", "PAM"} {
+		cmd := rbac.Commands(app)
+		cmd.SetArgs([]string{"register-cluster", "--slug", "invalid", "--name", "Invalid cluster", "--authentication-method", invalid})
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		cmd.SilenceErrors, cmd.SilenceUsage = true, true
+		if err := cmd.Execute(); err == nil {
+			t.Fatal("CLI accepted invalid authentication choice", invalid)
+		}
+	}
+	if err := app.Bootstrap(); err != nil {
+		t.Fatal(err)
+	}
+	if count, err := app.CountRecords("clusters"); err != nil || count != 3 {
+		t.Fatal("invalid CLI choices changed inventory", count, err)
 	}
 }

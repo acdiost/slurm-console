@@ -120,7 +120,7 @@ func TestFreeIPAGroupMappingsAreLiveScopedAndBindImmutableGroups(t *testing.T) {
 	p := newIPA()
 	auth.RegisterFreeIPA(app, p)
 	r := ipaAccount(t, app)
-	c := cluster(t, app, "ipa-cluster")
+	c := clusterWithAuthentication(t, app, "ipa-cluster", "freeipa")
 	collection, e := app.FindCollectionByNameOrId("directory_role_mappings")
 	if e != nil {
 		t.Fatal(e)

@@ -13,7 +13,7 @@ import (
 func registerSetupSlurmRoutes(group *router.RouterGroup[*core.RequestEvent]) {
 	group.POST("/slurm", func(e *core.RequestEvent) error {
 		var input clusterconfig.SetupInput
-		if err := platformBody(e, &input, "name", "slug", "endpoint", "authType", "apiVersion", "timeoutSeconds"); err != nil {
+		if err := platformBody(e, &input, "name", "slug", "endpoint", "authType", "apiVersion", "authenticationMethod", "timeoutSeconds"); err != nil {
 			return err
 		}
 		requestID, _ := e.Get("requestId").(string)

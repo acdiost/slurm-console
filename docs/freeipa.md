@@ -2,6 +2,8 @@
 
 `/directory` 提供 FreeIPA 用户、组及组角色映射。FreeIPA 身份、平台账户和 Slurm 身份分别管理；不按邮箱合并、不自动创建平台账户、不自动授予角色，不创建 Slurm Association。现有平台密码、PAM 与通用 LDAP 保持各自的认证来源。
 
+先在业务页选择绑定 FreeIPA 的集群，侧栏“身份与策略”才显示 **FreeIPA** 入口；该入口仍要求 `platform.directory.read`。页面沿用右上角集群切换和服务器已配置的 FreeIPA 服务。改选 PAM/LDAP 集群时进入其身份主机用户视图，原目录筛选、详情与未提交操作不沿用。目录搜索、分页及标签切换保留当前集群和候选浏览上下文。
+
 ## 服务端配置
 
 将 `deploy/freeipa.example.json` 安装到 `/etc/slurm-console/freeipa.json`，设置 `SLURM_CONSOLE_FREEIPA_CONFIG=/etc/slurm-console/freeipa.json` 后重启应用。URL 必须是 HTTPS origin，验证系统或显式 CA 信任及主机名，不跟随重定向；配置与 CA 不允许组/其他用户写入，服务密码文件必须为普通文件、绝对路径及 0600 或更严。密码与会话 Cookie 不进入平台数据库、审计、浏览器、URL 或仓库。配置无效阻止启动；目录故障不阻止本地恢复账户登录。

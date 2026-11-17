@@ -48,6 +48,7 @@ func TestConfigurationPreviewAndVersionComparisonStayReadOnlyAndScoped(t *testin
 	input.Name = "Updated research"
 	input.Description = "After description"
 	input.TimeoutSeconds = 8
+	input.AuthenticationMethod = "ldap"
 	r = request(mux, "POST", base+"/"+id+"/preview", payload(t, input), token)
 	if r.Code != 200 || !strings.Contains(r.Body.String(), "Before description") || !strings.Contains(r.Body.String(), "After description") {
 		t.Fatal(r.Code, r.Body.String())
@@ -70,6 +71,23 @@ func TestConfigurationPreviewAndVersionComparisonStayReadOnlyAndScoped(t *testin
 	r = request(mux, "GET", base+"/"+id+"/compare"+q, "", token)
 	if r.Code != 200 || !strings.Contains(r.Body.String(), `"field":"description"`) || !strings.Contains(r.Body.String(), `"changed":true`) || strings.Contains(r.Body.String(), "endpoint") || strings.Contains(r.Body.String(), "lastProbe") {
 		t.Fatal(r.Code, r.Body.String())
+	}
+	var compared struct {
+		Data struct {
+			Fields []confighistory.Field `json:"fields"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(r.Body.Bytes(), &compared); err != nil || len(compared.Data.Fields) != 8 {
+		t.Fatal("authentication choice missing from history diff", err, r.Body.String())
+	}
+	foundAuthentication := false
+	for _, field := range compared.Data.Fields {
+		if field.Field == "authenticationMethod" {
+			foundAuthentication = field.Changed && field.Before != nil && *field.Before == "pam" && field.After != nil && *field.After == "ldap"
+		}
+	}
+	if !foundAuthentication {
+		t.Fatal("authentication change not represented in history")
 	}
 	r = request(mux, "GET", base+"/"+id+"/versions?perPage=1", "", token)
 	if r.Code != 200 || !strings.Contains(r.Body.String(), `"totalItems":2`) || !strings.Contains(r.Body.String(), `"currentStatus":"matched"`) {
@@ -224,5 +242,47 @@ func TestConfigurationHistoryBaselineNoopAndAuthorization(t *testing.T) {
 	}
 	if r := request(mux, "GET", base+"/versions", "", ""); r.Code != 401 {
 		t.Fatal(r.Code)
+	}
+}
+
+func TestLegacyConfigurationHistoryRequiresExplicitAuthenticationChoiceBeforeRestore(t *testing.T) {
+	app, mux := setup(t)
+	manager := clusterconfig.Register(app, connectionRegistry(t, func(http.ResponseWriter, *http.Request) {
+		t.Error("history restoration contacted Slurm")
+	}))
+	person := user(t, app, "users")
+	grant(t, app, person.Id, "super_admin", "")
+	token := login(t, mux)
+	current, err := manager.Save("", validConnection())
+	if err != nil {
+		t.Fatal(err)
+	}
+	collection, err := app.FindCollectionByNameOrId("cluster_config_versions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := core.NewRecord(collection)
+	legacy.Set("schema_version", 1)
+	legacy.Set("snapshot", map[string]any{"name": "Historical cluster", "slug": current.Slug, "description": "", "connectionRef": current.ConnectionRef, "apiVersion": current.APIVersion, "enabled": true, "timeoutSeconds": 2})
+	snapshot, err := confighistory.Decode(legacy)
+	if err != nil || snapshot.AuthenticationMethod != "" {
+		t.Fatal("legacy history is unreadable or acquired an invented choice", err, snapshot)
+	}
+	input := current.Input
+	input.Name = snapshot.Name
+	input.AuthenticationMethod = snapshot.AuthenticationMethod
+	base := "/api/v1/cluster-configurations/" + current.ID
+	for _, operation := range []struct{ method, suffix string }{{"POST", "/preview"}, {"PATCH", ""}} {
+		result := request(mux, operation.method, base+operation.suffix, payload(t, input), token)
+		if result.Code != 400 {
+			t.Fatal("legacy restore silently chose authentication", result.Code, result.Body.String())
+		}
+	}
+	input.AuthenticationMethod = "ldap"
+	if result := request(mux, "POST", base+"/preview", payload(t, input), token); result.Code != 200 {
+		t.Fatal("reviewed authentication choice rejected", result.Code, result.Body.String())
+	}
+	if result := request(mux, "PATCH", base, payload(t, input), token); result.Code != 200 {
+		t.Fatal("reviewed restore failed", result.Code, result.Body.String())
 	}
 }

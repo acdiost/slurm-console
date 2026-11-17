@@ -3,13 +3,8 @@ import { create } from "zustand"
 import { z } from "zod"
 import { pb } from "@/services/pocketbase"
 import { queryClient } from "@/lib/query-client"
+import { clusterSchema } from "@/features/overview/schema"
 
-const clusterSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  slug: z.string(),
-  description: z.string(),
-})
 export const accessSchema = z.object({
   platformRoles: z.array(z.string()),
   platformPermissions: z.array(z.string()),

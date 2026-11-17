@@ -42,14 +42,22 @@ func TestUpgradeCapturesCurrentBaselineOnceWithoutInventingHistory(t *testing.T)
 	if e := app.RunAllMigrations(); e != nil {
 		t.Fatal(e)
 	}
-	rows, e := app.FindRecordsByFilter("cluster_config_versions", "", "", 10, 0)
-	if e != nil || len(rows) != 1 {
+	rows, e := app.FindRecordsByFilter("cluster_config_versions", "", "revision", 10, 0)
+	if e != nil || len(rows) != 2 {
 		t.Fatal(e, len(rows))
 	}
 	version := confighistory.Metadata(rows[0])
 	snap, e := confighistory.Decode(rows[0])
 	if e != nil || version.Kind != "baseline" || version.Revision != 7 || version.ActorID != "" || version.OperationID != "" || snap.Description != "Current description" {
 		t.Fatal(e, version, snap)
+	}
+	latest, e := confighistory.Decode(rows[1])
+	if e != nil || latest.AuthenticationMethod != "pam" || rows[1].GetInt("revision") != 8 || rows[1].GetString("kind") != "baseline" {
+		t.Fatal("authentication inference did not retain and advance baseline", e, latest)
+	}
+	current, e := app.FindRecordById("clusters", r.Id)
+	if e != nil || current.GetInt("revision") != 8 || current.GetString("authentication_method") != "pam" {
+		t.Fatal("authentication inference did not advance current revision", e)
 	}
 	when, e := time.Parse("2006-01-02 15:04:05.000Z", version.RecordedAt)
 	if e != nil || when.Before(started) {

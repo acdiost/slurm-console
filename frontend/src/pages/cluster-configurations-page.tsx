@@ -60,6 +60,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { ConnectionForm } from "@/features/clusters/connection-form"
 import {
+  authenticationMethodLabel,
   configurationPageSchema,
   configurationSchema,
   connectionStatus,
@@ -235,6 +236,9 @@ export function ClusterConfigurationsPage() {
             <p className="mt-1 font-mono text-2xs text-muted-foreground">
               {config.slug}
             </p>
+            <p className="mt-1 text-2xs text-muted-foreground">
+              {authenticationMethodLabel(config.authenticationMethod)}
+            </p>
             {config.description && (
               <p
                 className="mt-1 max-w-40 truncate text-2xs text-muted-foreground xl:max-w-64"
@@ -369,7 +373,8 @@ export function ClusterConfigurationsPage() {
           </p>
           <h1 className="mt-2 text-2xl font-semibold">集群连接配置</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            管理连接方式、API 版本与启停状态，检测 Slurm 控制器连通性。
+            管理集群身份认证方式、连接方式、API 版本与启停状态，检测 Slurm
+            控制器连通性。
           </p>
         </div>
         <div className="flex gap-2">
@@ -608,7 +613,7 @@ export function ClusterConfigurationsPage() {
           <SheetHeader>
             <SheetTitle>{editor ? "编辑集群连接" : "新建集群"}</SheetTitle>
             <SheetDescription>
-              选择连接方式并设置 REST API 参数，预览差异后确认保存。
+              选择一种身份认证方式并设置 REST API 参数，预览差异后确认保存。
             </SheetDescription>
           </SheetHeader>
           {editor !== undefined && (

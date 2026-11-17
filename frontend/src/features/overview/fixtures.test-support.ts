@@ -4,6 +4,7 @@ export const cluster = {
   name: "科研集群",
   slug: "research",
   description: "生产计算环境",
+  authenticationMethod: "pam" as const,
 }
 const source = <T>(item: T) => ({
   status: "ok" as const,

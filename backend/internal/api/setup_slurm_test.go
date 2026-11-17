@@ -60,7 +60,7 @@ func TestSlurmSetupRequiresPermissionAndRejectsInvalidInputsBeforeConnecting(t *
 	var calls atomic.Int32
 	reg := connectionRegistry(t, func(w http.ResponseWriter, r *http.Request) { calls.Add(1); setupSlurmFixture(w, r) })
 	p, _ := reg.Get("local-test")
-	in := clusterconfig.SetupInput{Name: "Research cluster", Slug: "research", Endpoint: p.Endpoint, AuthType: "local", APIVersion: "auto", TimeoutSeconds: 2}
+	in := clusterconfig.SetupInput{Name: "Research cluster", Slug: "research", Endpoint: p.Endpoint, AuthType: "local", APIVersion: "auto", AuthenticationMethod: "pam", TimeoutSeconds: 2}
 	if out := request(mux, "POST", "/api/v1/setup/slurm", payload(t, in), ""); out.Code != 401 {
 		t.Fatal(out.Code, out.Body.String())
 	}
@@ -81,6 +81,8 @@ func TestSlurmSetupRequiresPermissionAndRejectsInvalidInputsBeforeConnecting(t *
 		func(i *clusterconfig.SetupInput) { i.APIVersion = "v0.0.99" },
 		func(i *clusterconfig.SetupInput) { i.TimeoutSeconds = 0 },
 		func(i *clusterconfig.SetupInput) { i.Slug = "../unsafe" },
+		func(i *clusterconfig.SetupInput) { i.AuthenticationMethod = "" },
+		func(i *clusterconfig.SetupInput) { i.AuthenticationMethod = "unknown" },
 	} {
 		bad := in
 		change(&bad)
@@ -93,6 +95,9 @@ func TestSlurmSetupRequiresPermissionAndRejectsInvalidInputsBeforeConnecting(t *
 		`{}`,
 		strings.TrimSuffix(payload(t, in), "}") + `,"endpoint":"unix:///duplicate.sock"}`,
 		strings.TrimSuffix(payload(t, in), "}") + `,"helper":"/arbitrary/path"}`,
+		strings.Replace(payload(t, in), `,"authenticationMethod":"pam"`, "", 1),
+		strings.Replace(payload(t, in), `"authenticationMethod":"pam"`, `"authenticationMethod":["pam"]`, 1),
+		strings.Replace(payload(t, in), `"authenticationMethod":"pam"`, `"authenticationMethod":["pam","ldap"]`, 1),
 	} {
 		if out := request(mux, "POST", "/api/v1/setup/slurm", body, token); out.Code != 400 {
 			t.Fatal("incomplete, duplicate or unknown input accepted", out.Code, out.Body.String())
@@ -112,7 +117,7 @@ func TestSlurmSetupLocalPersistsAndImmediatelyServesNormalClusterAPIs(t *testing
 	envRegistry := connectionRegistry(t, setupSlurmFixture)
 	clusterconfig.Register(app, envRegistry)
 	p, _ := envRegistry.Get("local-test")
-	in := clusterconfig.SetupInput{Name: "Research cluster", Slug: "research", Endpoint: p.Endpoint, AuthType: "local", APIVersion: "auto", TimeoutSeconds: 2}
+	in := clusterconfig.SetupInput{Name: "Research cluster", Slug: "research", Endpoint: p.Endpoint, AuthType: "local", APIVersion: "auto", AuthenticationMethod: "pam", TimeoutSeconds: 2}
 	out := request(mux, "POST", "/api/v1/setup/slurm", payload(t, in), token)
 	if out.Code != 200 {
 		t.Fatal(out.Code, out.Body.String())
@@ -203,7 +208,7 @@ func TestSlurmSetupJWTProtectsCredentialsAndRollsBackEveryFailureStage(t *testin
 			}))
 			defer server.Close()
 			ca := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}))
-			in := clusterconfig.SetupInput{Name: "Remote cluster", Slug: "remote", Endpoint: server.URL, AuthType: "jwt", Username: "monitor", Token: secret, CAPEM: ca, APIVersion: "0.0.43", TimeoutSeconds: 2}
+			in := clusterconfig.SetupInput{Name: "Remote cluster", Slug: "remote", Endpoint: server.URL, AuthType: "jwt", Username: "monitor", Token: secret, CAPEM: ca, APIVersion: "0.0.43", AuthenticationMethod: "pam", TimeoutSeconds: 2}
 			if mode == "discovery" {
 				in.APIVersion = "auto"
 			}
@@ -306,7 +311,7 @@ func TestSlurmSetupManualVersionWorksWithoutOpenAPIDocument(t *testing.T) {
 		writeFixture(w, r)
 	})
 	profile, _ := registry.Get("local-test")
-	in := clusterconfig.SetupInput{Name: "Manual cluster", Slug: "manual", Endpoint: profile.Endpoint, AuthType: "local", APIVersion: "0.0.43", TimeoutSeconds: 2}
+	in := clusterconfig.SetupInput{Name: "Manual cluster", Slug: "manual", Endpoint: profile.Endpoint, AuthType: "local", APIVersion: "0.0.43", AuthenticationMethod: "pam", TimeoutSeconds: 2}
 	out := request(mux, "POST", "/api/v1/setup/slurm", payload(t, in), token)
 	var saved struct{ Data clusterconfig.Configuration }
 	if out.Code != 200 || json.Unmarshal(out.Body.Bytes(), &saved) != nil || saved.Data.APIVersion != "v0.0.43" || saved.Data.LastProbe.Status != "connected" {

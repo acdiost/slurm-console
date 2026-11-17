@@ -25,9 +25,19 @@ import {
 } from "@/features/config-history/schema"
 import { dateTime, actions } from "@/features/audits/schema"
 import { pageNumber } from "@/features/clusters/cluster-picker"
+import {
+  authenticationMethodLabel,
+  type AuthenticationMethod,
+} from "@/features/clusters/schema"
 import { api } from "@/services/api"
 import { useAuth } from "@/stores/auth"
-function Evidence({ version }: { version: Version }) {
+function Evidence({
+  version,
+  authenticationMethod,
+}: {
+  version: Version
+  authenticationMethod: AuthenticationMethod | ""
+}) {
   return (
     <article className="rounded-md border p-4 text-sm">
       <h3 className="font-semibold">
@@ -37,6 +47,9 @@ function Evidence({ version }: { version: Version }) {
           : actions[version.action] || version.action}
       </h3>
       <p className="mt-2">记录于 {dateTime(version.recordedAt)}</p>
+      <p className="mt-2">
+        身份认证方式：{authenticationMethodLabel(authenticationMethod)}
+      </p>
       <p className="mt-2 break-all">
         {version.kind === "baseline"
           ? "迁移时的当前配置，原始修改人未记录"
@@ -171,8 +184,8 @@ function Workspace({ cid }: { cid: string }) {
         aria-label="版本覆盖说明"
       >
         <p>
-          版本记录从上线基线开始；基线记录时间是采集时间，不代表原始修改时间。快照仅保存名称、标识、说明、连接引用、API
-          版本、启停和超时。
+          版本记录从上线基线开始；基线记录时间是采集时间，不代表原始修改时间。快照仅保存名称、标识、说明、身份认证方式、连接引用、API
+          版本、启停和超时。旧版本未明确记录的身份认证方式显示为未选择。
         </p>
         <p className="text-muted-foreground">
           这里只读对比，不恢复或应用历史配置。第三方配置文件、服务端连接方式文件与直接数据库修改不在版本写入覆盖内。编号可能不连续，缺失版本不从旧审计推算。
@@ -361,8 +374,14 @@ function Workspace({ cid }: { cid: string }) {
             v{diff.from.revision} → v{diff.to.revision} · 只读对比
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Evidence version={diff.from} />
-            <Evidence version={diff.to} />
+            <Evidence
+              version={diff.from}
+              authenticationMethod={diff.before.authenticationMethod}
+            />
+            <Evidence
+              version={diff.to}
+              authenticationMethod={diff.after.authenticationMethod}
+            />
           </div>
           <ConfigurationDiff key={`${from}:${to}`} fields={diff.fields} />
           <p className="text-xs text-muted-foreground">

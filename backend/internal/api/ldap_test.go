@@ -50,7 +50,7 @@ func TestLDAPNativeLoginUsesDirectoryIdentityAndRetainsClusterRBAC(t *testing.T)
 	if err := app.Save(record); err != nil {
 		t.Fatal(err)
 	}
-	a, b := cluster(t, app, "ldap-alpha"), cluster(t, app, "ldap-beta")
+	a, b := clusterWithAuthentication(t, app, "ldap-alpha", "ldap"), clusterWithAuthentication(t, app, "ldap-beta", "ldap")
 	grant(t, app, record.Id, "viewer", a.Id)
 	for _, identity := range []string{record.Email(), "ldap_fixture"} {
 		res := request(mux, "POST", "/api/collections/users/auth-with-password", `{"identity":"`+identity+`","password":"directory-password"}`, "")

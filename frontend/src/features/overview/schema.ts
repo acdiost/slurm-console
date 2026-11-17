@@ -1,10 +1,12 @@
 import { z } from "zod"
+import { savedAuthenticationMethodSchema } from "@/features/clusters/schema"
 
 export const clusterSchema = z.object({
   id: z.string(),
   name: z.string(),
   slug: z.string(),
   description: z.string(),
+  authenticationMethod: savedAuthenticationMethodSchema,
 })
 export const clusterPageSchema = z.object({
   items: z.array(clusterSchema),

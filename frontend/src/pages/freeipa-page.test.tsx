@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { SendOptions } from "pocketbase"
-import { MemoryRouter } from "react-router"
+import { MemoryRouter, useLocation } from "react-router"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { api } from "@/services/api"
 import { useAuth, refreshAccess } from "@/stores/auth"
@@ -24,6 +24,13 @@ const directoryUser = {
   accountExpired: false,
   groups: ["research"],
   version: "a".repeat(64),
+}
+const identityCluster = {
+  id: "aaaaaaaaaaaaaaa",
+  name: "科研集群",
+  slug: "research",
+  description: "",
+  authenticationMethod: "freeipa" as const,
 }
 let client: QueryClient
 let denied = false
@@ -48,13 +55,27 @@ beforeEach(() => {
           "platform.directory.manage",
           "platform.roles.manage",
         ],
-        clusters: [],
+        clusters: [
+          {
+            cluster: identityCluster,
+            roles: [],
+            permissions: ["clusters.read"],
+          },
+        ],
       },
     },
   })
   vi.mocked(api).mockReset()
   vi.mocked(refreshAccess).mockClear()
   vi.mocked(api).mockImplementation(async <T,>(path: string) => {
+    if (path.startsWith("/clusters?"))
+      return {
+        items: [identityCluster],
+        page: 1,
+        perPage: 20,
+        totalItems: 1,
+      } as T
+    if (path === `/clusters/${identityCluster.id}`) return identityCluster as T
     if (path === "/directory")
       return {
         configured: true,
@@ -92,17 +113,27 @@ beforeEach(() => {
   })
 })
 afterEach(() => client.clear())
-function show() {
+function CurrentContext() {
+  return <output aria-label="当前目录查询">{useLocation().search}</output>
+}
+function show(path = "/directory?cluster=aaaaaaaaaaaaaaa") {
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <FreeIPAPage />
+        <CurrentContext />
       </MemoryRouter>
     </QueryClientProvider>
   )
 }
 it("requires configuration before querying the directory", async () => {
-  vi.mocked(api).mockResolvedValue({ configured: false, domain: "", realm: "" })
+  const original = vi.mocked(api).getMockImplementation()!
+  vi.mocked(api).mockImplementation(
+    async <T,>(path: string, options?: SendOptions) =>
+      path === "/directory"
+        ? ({ configured: false, domain: "", realm: "" } as T)
+        : (original(path, options) as Promise<T>)
+  )
   show()
   expect(await screen.findByText("尚未接入 FreeIPA")).toBeVisible()
   expect(
@@ -196,4 +227,38 @@ it("requires a cluster and typed confirmation when mapping a cluster role", asyn
     clusterId: "aaaaaaaaaaaaaaa",
     confirmation: "CHANGE ACCESS",
   })
+})
+
+it("目录搜索和翻页保留当前集群及候选浏览上下文", async () => {
+  const original = vi.mocked(api).getMockImplementation()!
+  vi.mocked(api).mockImplementation(
+    async <T,>(path: string, options?: SendOptions) => {
+      if (path.startsWith("/directory/users?"))
+        return {
+          items: [directoryUser],
+          totalItems: 21,
+          page: path.includes("page=2") ? 2 : 1,
+          perPage: 20,
+        } as T
+      return original(path, options) as Promise<T>
+    }
+  )
+  show("/directory?cluster=aaaaaaaaaaaaaaa&clusterPage=2&clusterQ=research")
+  await screen.findByText("alice")
+  const user = userEvent.setup()
+  await user.type(screen.getByLabelText("搜索 FreeIPA 目录"), "alice")
+  await user.click(screen.getByRole("button", { name: "查询目录" }))
+  await waitFor(() =>
+    expect(screen.getByLabelText("当前目录查询")).toHaveTextContent("q=alice")
+  )
+  await user.click(screen.getByRole("button", { name: "下一页" }))
+  await waitFor(() =>
+    expect(screen.getByLabelText("当前目录查询")).toHaveTextContent("page=2")
+  )
+  for (const field of [
+    "cluster=aaaaaaaaaaaaaaa",
+    "clusterPage=2",
+    "clusterQ=research",
+  ])
+    expect(screen.getByLabelText("当前目录查询")).toHaveTextContent(field)
 })

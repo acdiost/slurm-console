@@ -29,14 +29,15 @@ var ErrInvalid = errors.New("invalid cluster connection configuration")
 var ErrNotFound = errors.New("cluster configuration not found")
 
 type Input struct {
-	Name           string `json:"name"`
-	Slug           string `json:"slug"`
-	Description    string `json:"description"`
-	ConnectionRef  string `json:"connectionRef"`
-	APIVersion     string `json:"apiVersion"`
-	Enabled        bool   `json:"enabled"`
-	TimeoutSeconds int    `json:"timeoutSeconds"`
-	Revision       int    `json:"revision"`
+	Name                 string `json:"name"`
+	Slug                 string `json:"slug"`
+	Description          string `json:"description"`
+	ConnectionRef        string `json:"connectionRef"`
+	APIVersion           string `json:"apiVersion"`
+	AuthenticationMethod string `json:"authenticationMethod"`
+	Enabled              bool   `json:"enabled"`
+	TimeoutSeconds       int    `json:"timeoutSeconds"`
+	Revision             int    `json:"revision"`
 }
 type Configuration struct {
 	ID string `json:"id"`
@@ -75,7 +76,7 @@ func For(app core.App) *Manager {
 }
 
 func (m *Manager) View(record *core.Record) Configuration {
-	view := Configuration{ID: record.Id, Input: Input{Name: record.GetString("name"), Slug: record.GetString("slug"), Description: record.GetString("description"), ConnectionRef: record.GetString("connection_ref"), APIVersion: record.GetString("api_version"), Enabled: record.GetBool("enabled"), TimeoutSeconds: record.GetInt("timeout_seconds"), Revision: record.GetInt("revision")}, LastProbe: ProbeResult{Status: "not_tested", Message: "尚未检测连接。", Controllers: []Controller{}}}
+	view := Configuration{ID: record.Id, Input: Input{Name: record.GetString("name"), Slug: record.GetString("slug"), Description: record.GetString("description"), ConnectionRef: record.GetString("connection_ref"), APIVersion: record.GetString("api_version"), AuthenticationMethod: record.GetString("authentication_method"), Enabled: record.GetBool("enabled"), TimeoutSeconds: record.GetInt("timeout_seconds"), Revision: record.GetInt("revision")}, LastProbe: ProbeResult{Status: "not_tested", Message: "尚未检测连接。", Controllers: []Controller{}}}
 	if profile, ok := m.Registry.Get(view.ConnectionRef); ok {
 		view.ProfileAvailable = true
 		view.Endpoint = profile.Endpoint
@@ -97,7 +98,15 @@ func (m *Manager) View(record *core.Record) Configuration {
 	return view
 }
 
+// ValidAuthenticationMethod accepts the single identity provider selected for a cluster.
+func ValidAuthenticationMethod(method string) bool {
+	return method == "pam" || method == "ldap" || method == "freeipa"
+}
+
 func (m *Manager) validate(input *Input) error {
+	if !ValidAuthenticationMethod(input.AuthenticationMethod) {
+		return ErrInvalid
+	}
 	version, ok := protocol.Normalize(input.APIVersion)
 	if !ok {
 		return ErrInvalid
@@ -171,6 +180,7 @@ func (m *Manager) draft(tx core.App, id string, input Input) (*core.Record, Prev
 	record.Set("description", input.Description)
 	record.Set("connection_ref", input.ConnectionRef)
 	record.Set("api_version", input.APIVersion)
+	record.Set("authentication_method", input.AuthenticationMethod)
 	record.Set("enabled", input.Enabled)
 	record.Set("timeout_seconds", input.TimeoutSeconds)
 	record.Set("revision", input.Revision+1)

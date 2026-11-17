@@ -36,7 +36,7 @@ func TestPAMLoginUsesSystemPasswordAndPreservesRBAC(t *testing.T) {
 	if err := app.Save(record); err != nil {
 		t.Fatal(err)
 	}
-	a := cluster(t, app, "pam-cluster")
+	a := clusterWithAuthentication(t, app, "pam-cluster", "pam")
 	grant(t, app, record.Id, "viewer", a.Id)
 	for _, identity := range []string{"fixture_linux", record.Email()} {
 		res := request(mux, "POST", "/api/collections/users/auth-with-password", `{"identity":"`+identity+`","password":"system-password"}`, "")

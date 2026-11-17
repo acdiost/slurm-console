@@ -51,6 +51,16 @@ func clusterFilter(access rbac.Access, query, configuration string) dbx.Expressi
 		} else {
 			filters = append(filters, dbx.In("id", ids...))
 		}
+	} else if authenticated := access.AuthenticationClusterIDs(); authenticated != nil {
+		if len(authenticated) == 0 {
+			filters = append(filters, dbx.NewExp("0=1"))
+		} else {
+			ids := make([]any, len(authenticated))
+			for i, id := range authenticated {
+				ids[i] = id
+			}
+			filters = append(filters, dbx.In("id", ids...))
+		}
 	}
 	if term := strings.TrimSpace(query); term != "" {
 		filters = append(filters, dbx.NewExp("(instr(lower(name),lower({:term}))>0 OR instr(lower(slug),lower({:term}))>0 OR instr(lower(description),lower({:term}))>0)", dbx.Params{"term": term}))
@@ -83,10 +93,13 @@ func permissionFingerprint(access rbac.Access) string {
 		ID      string
 		Actions []string
 	}
+	authenticated := access.AuthenticationClusterIDs()
+	slices.Sort(authenticated)
 	value := struct {
-		Platform []string
-		Clusters []scope
-	}{Platform: access.PlatformPermissions, Clusters: []scope{}}
+		Platform       []string
+		Clusters       []scope
+		Authentication []string
+	}{Platform: access.PlatformPermissions, Clusters: []scope{}, Authentication: authenticated}
 	for _, entry := range access.Clusters {
 		value.Clusters = append(value.Clusters, scope{entry.Cluster.ID, entry.Permissions})
 	}

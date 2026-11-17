@@ -9,6 +9,7 @@ beforeEach(() => {
 })
 import {
   connectionFormSchema,
+  configurationSchema,
   connectionStatus,
   type ClusterConfiguration,
 } from "./schema"
@@ -27,6 +28,7 @@ const configuration: ClusterConfiguration = {
   name: "科研集群",
   slug: "research",
   description: "",
+  authenticationMethod: "ldap",
   connectionRef: "local",
   apiVersion: "v0.0.43",
   enabled: true,
@@ -126,7 +128,7 @@ describe("集群连接配置", () => {
     expect(screen.getByLabelText("REST API 版本")).toHaveTextContent("v0.0.43")
     expect(screen.getByRole("button", { name: "保存配置" })).toBeEnabled()
   })
-  it("拒绝空名称，只提交配置引用和非敏感字段", async () => {
+  it("要求新集群显式选择一种认证方式，只提交配置引用和非敏感字段", async () => {
     const user = userEvent.setup()
     const save = vi.fn()
     render(
@@ -145,11 +147,18 @@ describe("集群连接配置", () => {
     await user.type(screen.getByLabelText("集群名称"), "科研集群")
     await user.type(screen.getByLabelText("集群标识"), "research")
     await user.click(screen.getByRole("button", { name: "保存配置" }))
+    expect(await screen.findByText("请选择一种身份认证方式")).toBeVisible()
+    expect(save).not.toHaveBeenCalled()
+    await user.click(screen.getByLabelText("身份认证方式"))
+    expect(screen.getAllByRole("option")).toHaveLength(3)
+    await user.click(screen.getByRole("option", { name: "FreeIPA" }))
+    await user.click(screen.getByRole("button", { name: "保存配置" }))
     expect(save).toHaveBeenCalledWith(
       {
         name: "科研集群",
         slug: "research",
         description: "",
+        authenticationMethod: "freeipa",
         connectionRef: "local",
         apiVersion: "v0.0.43",
         enabled: true,
@@ -173,6 +182,79 @@ describe("集群连接配置", () => {
     expect(screen.getByLabelText("集群标识")).toHaveAttribute("readonly")
     expect(screen.getByLabelText("集群标识")).toHaveValue("research")
     expect(screen.getByRole("alert")).toHaveTextContent("配置已被修改")
+  })
+  it.each([
+    ["pam", "PAM 系统认证"],
+    ["ldap", "LDAP"],
+    ["freeipa", "FreeIPA"],
+  ] as const)(
+    "编辑保留已保存的 %s 认证方式",
+    async (authenticationMethod, label) => {
+      const save = vi.fn()
+      const user = userEvent.setup()
+      render(
+        <ConnectionForm
+          config={{ ...configuration, authenticationMethod }}
+          profiles={profiles}
+          saving={false}
+          error=""
+          onSave={save}
+          onCancel={vi.fn()}
+        />
+      )
+      expect(screen.getByLabelText("身份认证方式")).toHaveTextContent(label)
+      await user.click(screen.getByRole("button", { name: "保存配置" }))
+      expect(save).toHaveBeenCalledWith(
+        expect.objectContaining({ authenticationMethod }),
+        expect.anything()
+      )
+    }
+  )
+  it("旧集群未选择认证方式时必须补选后才能保存", async () => {
+    const save = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <ConnectionForm
+        config={{ ...configuration, authenticationMethod: "" }}
+        profiles={profiles}
+        saving={false}
+        error=""
+        onSave={save}
+        onCancel={vi.fn()}
+      />
+    )
+    await user.click(screen.getByRole("button", { name: "保存配置" }))
+    expect(save).not.toHaveBeenCalled()
+    expect(await screen.findByText("请选择一种身份认证方式")).toBeVisible()
+    await user.click(screen.getByLabelText("身份认证方式"))
+    await user.click(screen.getByRole("option", { name: "LDAP" }))
+    await user.click(screen.getByRole("button", { name: "保存配置" }))
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ authenticationMethod: "ldap", revision: 3 }),
+      expect.anything()
+    )
+  })
+  it("允许读取旧集群空选择，但写入拒绝空值、缺失、多选和未知方式", () => {
+    expect(
+      configurationSchema.safeParse({
+        ...configuration,
+        authenticationMethod: "",
+      }).success
+    ).toBe(true)
+    for (const authenticationMethod of [
+      undefined,
+      "",
+      ["pam", "ldap"],
+      "other",
+      null,
+    ]) {
+      expect(
+        connectionFormSchema.safeParse({
+          ...configuration,
+          authenticationMethod,
+        }).success
+      ).toBe(false)
+    }
   })
   it("超时必须为 1–30 秒，额外凭据字段不会进入提交对象", () => {
     expect(

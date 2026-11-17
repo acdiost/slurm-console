@@ -19,15 +19,16 @@ import (
 var ErrSetupUnavailable = errors.New("Slurm connection prerequisites or connection check failed")
 
 type SetupInput struct {
-	Name           string `json:"name"`
-	Slug           string `json:"slug"`
-	Endpoint       string `json:"endpoint"`
-	AuthType       string `json:"authType"`
-	Username       string `json:"username"`
-	Token          string `json:"token"`
-	CAPEM          string `json:"caPem"`
-	APIVersion     string `json:"apiVersion"`
-	TimeoutSeconds int    `json:"timeoutSeconds"`
+	Name                 string `json:"name"`
+	Slug                 string `json:"slug"`
+	Endpoint             string `json:"endpoint"`
+	AuthType             string `json:"authType"`
+	Username             string `json:"username"`
+	Token                string `json:"token"`
+	CAPEM                string `json:"caPem"`
+	APIVersion           string `json:"apiVersion"`
+	AuthenticationMethod string `json:"authenticationMethod"`
+	TimeoutSeconds       int    `json:"timeoutSeconds"`
 }
 
 // LoadManaged merges persistent web-managed profiles into the environment registry.
@@ -126,7 +127,7 @@ func (m *Manager) Setup(ctx context.Context, in SetupInput, actor audit.Actor, f
 	if err != nil {
 		return Configuration{}, ErrInvalid
 	}
-	input := Input{Name: in.Name, Slug: in.Slug, ConnectionRef: ref, APIVersion: version, Enabled: true, TimeoutSeconds: in.TimeoutSeconds}
+	input := Input{Name: in.Name, Slug: in.Slug, ConnectionRef: ref, APIVersion: version, AuthenticationMethod: in.AuthenticationMethod, Enabled: true, TimeoutSeconds: in.TimeoutSeconds}
 	staged := &Manager{App: m.App, Registry: registry}
 	if err = staged.validate(&input); err != nil {
 		return Configuration{}, err
@@ -249,7 +250,7 @@ func (m *Manager) Setup(ctx context.Context, in SetupInput, actor audit.Actor, f
 			return audit.Event{}, err
 		}
 		view = writer.View(cluster)
-		return audit.Event{Action: "clusters.create", ClusterID: view.ID, TargetType: "cluster", TargetID: view.ID, Message: "集群连接已验证并保存。", Changes: []audit.Change{{Field: "name", After: view.Name}, {Field: "slug", After: view.Slug}, {Field: "connectionRef", After: ref}, {Field: "apiVersion", After: view.APIVersion}, {Field: "enabled", After: "true"}, {Field: "revision", After: "1"}}}, nil
+		return audit.Event{Action: "clusters.create", ClusterID: view.ID, TargetType: "cluster", TargetID: view.ID, Message: "集群连接已验证并保存。", Changes: []audit.Change{{Field: "name", After: view.Name}, {Field: "slug", After: view.Slug}, {Field: "connectionRef", After: ref}, {Field: "apiVersion", After: view.APIVersion}, {Field: "authenticationMethod", After: view.AuthenticationMethod}, {Field: "enabled", After: "true"}, {Field: "revision", After: "1"}}}, nil
 	})
 	if err != nil {
 		return Configuration{}, err

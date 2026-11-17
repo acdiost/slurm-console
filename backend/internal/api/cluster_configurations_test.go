@@ -39,7 +39,7 @@ func connectionRegistry(t *testing.T, handler http.HandlerFunc) *clusterconfig.R
 	return registry
 }
 func validConnection() clusterconfig.Input {
-	return clusterconfig.Input{Name: "Research cluster", Slug: "research", ConnectionRef: "local-test", APIVersion: "v0.0.43", Enabled: true, TimeoutSeconds: 2}
+	return clusterconfig.Input{Name: "Research cluster", Slug: "research", ConnectionRef: "local-test", APIVersion: "v0.0.43", AuthenticationMethod: "pam", Enabled: true, TimeoutSeconds: 2}
 }
 func payload(t *testing.T, value any) string {
 	t.Helper()
@@ -186,5 +186,94 @@ func TestConfigurationProfilesNeverExposeTokenFileOrCredential(t *testing.T) {
 	res := request(mux, "GET", "/api/v1/cluster-connection-profiles", "", token)
 	if res.Code != 200 || strings.Contains(res.Body.String(), secretFile) || strings.Contains(res.Body.String(), "fixture-value-never-returned") || strings.Contains(res.Body.String(), "tokenFile") {
 		t.Fatal("credentials leaked through profiles")
+	}
+}
+
+func TestClusterAuthenticationMethodsSaveIndependentlyAndRejectInvalidRequests(t *testing.T) {
+	app, mux := setup(t)
+	manager := clusterconfig.Register(app, connectionRegistry(t, func(http.ResponseWriter, *http.Request) {
+		t.Error("configuration save or preview contacted Slurm")
+	}))
+	person := user(t, app, "users")
+	grant(t, app, person.Id, "super_admin", "")
+	token := login(t, mux)
+	base := "/api/v1/cluster-configurations"
+	saved := make([]clusterconfig.Configuration, 0, 3)
+	for _, method := range []string{"pam", "ldap", "freeipa"} {
+		input := validConnection()
+		input.Slug = "research-" + method
+		input.AuthenticationMethod = method
+		result := request(mux, "POST", base, payload(t, input), token)
+		var body struct{ Data clusterconfig.Configuration }
+		if result.Code != 200 || json.Unmarshal(result.Body.Bytes(), &body) != nil || body.Data.AuthenticationMethod != method {
+			t.Fatal(method, result.Code, result.Body.String())
+		}
+		stored, err := app.FindRecordById("clusters", body.Data.ID)
+		if err != nil || stored.GetString("authentication_method") != method {
+			t.Fatal("authentication choice was not persisted", method, err)
+		}
+		saved = append(saved, body.Data)
+	}
+	input := saved[0].Input
+	input.AuthenticationMethod = "freeipa"
+	result := request(mux, "PATCH", base+"/"+saved[0].ID, payload(t, input), token)
+	if result.Code != 200 {
+		t.Fatal(result.Code, result.Body.String())
+	}
+	for index, want := range []string{"freeipa", "ldap", "freeipa"} {
+		stored, err := app.FindRecordById("clusters", saved[index].ID)
+		if err != nil || manager.View(stored).AuthenticationMethod != want || stored.GetInt("revision") != saved[index].Revision+map[bool]int{true: 1}[index == 0] {
+			t.Fatal("changing cluster A changed another cluster", index, err)
+		}
+	}
+	for _, invalid := range []string{"missing", `""`, `"unknown"`, `"PAM"`, `["pam"]`, `["pam","ldap"]`, "null"} {
+		var body map[string]any
+		if err := json.Unmarshal([]byte(payload(t, validConnection())), &body); err != nil {
+			t.Fatal(err)
+		}
+		delete(body, "authenticationMethod")
+		if invalid != "missing" {
+			body["authenticationMethod"] = json.RawMessage(invalid)
+		}
+		for _, path := range []string{base, base + "/preview"} {
+			result := request(mux, "POST", path, payload(t, body), token)
+			if result.Code != 400 {
+				t.Fatal("invalid authentication choice accepted", invalid, path, result.Code, result.Body.String())
+			}
+		}
+	}
+	if count, err := app.CountRecords("clusters"); err != nil || count != 3 {
+		t.Fatal("invalid requests changed inventory", count, err)
+	}
+}
+
+func TestLegacyClusterRemainsVisibleAndAllowsProbeAndDisableWithoutChoosingAuthentication(t *testing.T) {
+	app, _ := setup(t)
+	manager := clusterconfig.Register(app, connectionRegistry(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(fixturePing))
+	}))
+	legacy := cluster(t, app, "legacy-unconfigured")
+	legacy.Set("authentication_method", "")
+	legacy.Set("connection_ref", "local-test")
+	legacy.Set("api_version", "v0.0.43")
+	legacy.Set("enabled", true)
+	legacy.Set("timeout_seconds", 2)
+	if err := app.Save(legacy); err != nil {
+		t.Fatal(err)
+	}
+	if view := manager.View(legacy); view.ID != legacy.Id || view.AuthenticationMethod != "" {
+		t.Fatal("legacy view invented an authentication choice", view)
+	}
+	probed, err := manager.Test(context.Background(), legacy.Id, legacy.GetInt("revision"))
+	if err != nil || probed.AuthenticationMethod != "" || probed.LastProbe.Status != "connected" {
+		t.Fatal("legacy connection probe failed or chose authentication", err, probed)
+	}
+	preview, err := manager.PreviewDisable(legacy.Id, legacy.GetInt("revision"))
+	if err != nil || preview.After.AuthenticationMethod != "" || preview.After.Enabled {
+		t.Fatal("legacy disable preview failed or chose authentication", err, preview)
+	}
+	disabled, err := manager.Disable(legacy.Id, legacy.GetInt("revision"))
+	if err != nil || disabled.AuthenticationMethod != "" || disabled.Enabled {
+		t.Fatal("legacy cluster could not be retired without choosing authentication", err, disabled)
 	}
 }

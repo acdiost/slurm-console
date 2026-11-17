@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Slurm Console API
-  version: 0.36.0
-  description: 平台密码/PAM/LDAP/FreeIPA 认证和基础 RBAC。FreeIPA 目录管理及直接成员组角色映射由独立平台权限控制。外部账户的业务请求复查 PAM account 策略或 LDAP 目录资格及唯一标识，服务不可用时返回 503。集群标识查询保留授权范围隔离，集群连接配置和控制器检测要求平台范围 platform.clusters.manage。
+  version: 0.38.0
+  description: 平台账户认证与基础 RBAC。每个集群独立选择唯一的 PAM、LDAP 或 FreeIPA 身份认证方式，外部账户的认证来源必须与目标集群匹配；平台密码管理账户保留已有授权。FreeIPA 目录管理和直接成员组角色映射受独立平台权限控制。业务请求复查外部身份资格，服务不可用时返回 503。集群候选列表及工作台在计数与分页前执行权限和认证来源隔离；集群配置与控制器检测要求 platform.clusters.manage。
 servers:
   - url: /
 paths:
@@ -8518,7 +8518,7 @@ paths:
       "post": {
         "operationId": "previewClusterConfigurationCreate",
         "summary": "预览创建集群配置，不保存",
-        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints remain compatible and independently recheck management permission/revision. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. Preview requires platform.clusters.manage only and rejects unknown body/query fields. configuration is normalized input for create/update, null for disable. before/currentRevision are null for create. Legacy unconfigured snapshots may have timeout0; save input still requires1-30.",
+        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, authenticationMethod, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints independently recheck management permission/revision and require one PAM/LDAP/FreeIPA choice on create/update. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. Schema 1 history remains readable with an empty authenticationMethod; schema 2 captures the method. Preview requires platform.clusters.manage only and rejects unknown body/query fields. configuration is normalized input for create/update, null for disable. before/currentRevision are null for create. Legacy unconfigured snapshots may have timeout0 and an empty authenticationMethod; save input still requires1-30 and an explicit method. Disabling a legacy unresolved configuration remains available.",
         "security": [
           {
             "platformToken": []
@@ -8595,7 +8595,7 @@ paths:
       "post": {
         "operationId": "previewClusterConfigurationUpdate",
         "summary": "预览修改集群配置，不保存",
-        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints remain compatible and independently recheck management permission/revision. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. Preview requires platform.clusters.manage only and rejects unknown body/query fields. configuration is normalized input for create/update, null for disable. before/currentRevision are null for create. Legacy unconfigured snapshots may have timeout0; save input still requires1-30.",
+        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, authenticationMethod, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints independently recheck management permission/revision and require one PAM/LDAP/FreeIPA choice on create/update. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. Schema 1 history remains readable with an empty authenticationMethod; schema 2 captures the method. Preview requires platform.clusters.manage only and rejects unknown body/query fields. configuration is normalized input for create/update, null for disable. before/currentRevision are null for create. Legacy unconfigured snapshots may have timeout0 and an empty authenticationMethod; save input still requires1-30 and an explicit method. Disabling a legacy unresolved configuration remains available.",
         "security": [
           {
             "platformToken": []
@@ -8683,7 +8683,7 @@ paths:
       "post": {
         "operationId": "previewClusterConfigurationDisable",
         "summary": "预览停用集群配置，不保存",
-        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints remain compatible and independently recheck management permission/revision. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. Preview requires platform.clusters.manage only and rejects unknown body/query fields. configuration is normalized input for create/update, null for disable. before/currentRevision are null for create. Legacy unconfigured snapshots may have timeout0; save input still requires1-30.",
+        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, authenticationMethod, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints independently recheck management permission/revision and require one PAM/LDAP/FreeIPA choice on create/update. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. Schema 1 history remains readable with an empty authenticationMethod; schema 2 captures the method. Preview requires platform.clusters.manage only and rejects unknown body/query fields. configuration is normalized input for create/update, null for disable. before/currentRevision are null for create. Legacy unconfigured snapshots may have timeout0 and an empty authenticationMethod; save input still requires1-30 and an explicit method. Disabling a legacy unresolved configuration remains available.",
         "security": [
           {
             "platformToken": []
@@ -8781,7 +8781,7 @@ paths:
       "get": {
         "operationId": "listClusterConfigurationVersions",
         "summary": "读取集群连接配置版本元数据",
-        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints remain compatible and independently recheck management permission/revision. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. History requires BOTH platform.clusters.manage and platform.audit.read, with fresh authorization after reads. Metadata pagination max100 and indexed two-version reads; 5s database read budget, no external requests. Both selected IDs must belong to the given cluster, including deleted/disabled clusters; missing/cross-cluster versions return404. Unknown/duplicate query parameters rejected.",
+        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, authenticationMethod, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints independently recheck management permission/revision and require one PAM/LDAP/FreeIPA choice on create/update. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. Schema 1 history remains readable with an empty authenticationMethod; schema 2 captures the method. History requires BOTH platform.clusters.manage and platform.audit.read, with fresh authorization after reads. Metadata pagination max100 and indexed two-version reads; 5s database read budget, no external requests. Both selected IDs must belong to the given cluster, including deleted/disabled clusters; missing/cross-cluster versions return404. Unknown/duplicate query parameters rejected.",
         "security": [
           {
             "platformToken": []
@@ -8879,7 +8879,7 @@ paths:
       "get": {
         "operationId": "compareClusterConfigurationVersions",
         "summary": "只读比较同一集群两个已保存版本",
-        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints remain compatible and independently recheck management permission/revision. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. History requires BOTH platform.clusters.manage and platform.audit.read, with fresh authorization after reads. Metadata pagination max100 and indexed two-version reads; 5s database read budget, no external requests. Both selected IDs must belong to the given cluster, including deleted/disabled clusters; missing/cross-cluster versions return404. Unknown/duplicate query parameters rejected.",
+        "description": "Only platform-managed cluster connection fields: name, slug, description, connectionRef, authenticationMethod, apiVersion, enabled, timeoutSeconds. Never resolves profiles or reads endpoints, credentials, certificate files, Slurm configuration files or probes. Preview shares normalization/validation with save and writes nothing; no proof/permission grant, lock or required API handshake. Existing mutation endpoints independently recheck management permission/revision and require one PAM/LDAP/FreeIPA choice on create/update. Supported configuration mutation, success audit and snapshot commit atomically; failures roll back all three. Baseline captures current fields/revision at migration time with unknown original actor/request/audit, never reconstructs earlier snapshots. Text cluster/user IDs retain history after deletion; no automatic pruning or rollback endpoints. Same/reversed version comparison allowed. Version metadata is not a claim that its actor caused every difference between arbitrary snapshots. Direct database and external file edits are outside capture coverage; local database administrators can alter data. Schema 1 history remains readable with an empty authenticationMethod; schema 2 captures the method. History requires BOTH platform.clusters.manage and platform.audit.read, with fresh authorization after reads. Metadata pagination max100 and indexed two-version reads; 5s database read budget, no external requests. Both selected IDs must belong to the given cluster, including deleted/disabled clusters; missing/cross-cluster versions return404. Unknown/duplicate query parameters rejected.",
         "security": [
           {
             "platformToken": []
@@ -11332,7 +11332,7 @@ components:
   schemas:
     Cluster:
       type: object
-      required: [id, name, slug, description]
+      required: [id, name, slug, description, authenticationMethod]
       properties:
         id:
           type: string
@@ -11342,6 +11342,10 @@ components:
           type: string
         description:
           type: string
+        authenticationMethod:
+          type: string
+          enum: [pam, ldap, freeipa, ""]
+          description: 当前集群保存的身份认证方式；空字符串表示尚未配置，不包含连接凭据
     Access:
       type: object
       required: [platformRoles, platformPermissions, clusters]
@@ -11422,12 +11426,13 @@ components:
     SlurmSetupInput:
       type: object
       additionalProperties: false
-      required: [name, slug, endpoint, authType, apiVersion, timeoutSeconds]
+      required: [name, slug, endpoint, authType, authenticationMethod, apiVersion, timeoutSeconds]
       properties:
         name: { type: string, minLength: 2, maxLength: 100 }
         slug: { type: string, description: 不可变集群标识，已有标识不可覆盖 }
         endpoint: { type: string, description: "unix:///绝对路径，或不含路径、查询、用户信息的 HTTPS origin" }
         authType: { type: string, enum: [local, jwt] }
+        authenticationMethod: { type: string, enum: [pam, ldap, freeipa], description: 此集群唯一的身份认证方式；与 Slurm 连接凭据类型独立 }
         username: { type: string, maxLength: 63, writeOnly: true, description: HTTPS/JWT 使用的 Slurm 用户名；本机模式留空 }
         token: { type: string, maxLength: 8192, writeOnly: true, description: HTTPS/JWT 必填；本机模式留空 }
         caPem: { type: string, maxLength: 8192, writeOnly: true, description: 可选 PEM CA；留空使用系统信任库 }
@@ -11443,6 +11448,7 @@ components:
             "slug",
             "description",
             "connectionRef",
+            "authenticationMethod",
             "apiVersion",
             "enabled",
             "timeoutSeconds",
@@ -11464,6 +11470,7 @@ components:
                 "type": "string",
                 "description": "服务端批准的引用，不接受任意 endpoint 或凭据",
               },
+            "authenticationMethod": { "type": "string", "enum": ["pam", "ldap", "freeipa"], "description": "每个集群只能选择一种；缺省或多个值均拒绝。" },
             "apiVersion":
               {
                 "type": "string",
@@ -11575,6 +11582,7 @@ components:
             "slug",
             "description",
             "connectionRef",
+            "authenticationMethod",
             "apiVersion",
             "enabled",
             "timeoutSeconds",
@@ -11601,6 +11609,7 @@ components:
                 "type": "string",
                 "description": "服务端批准的引用，不接受任意 endpoint 或凭据",
               },
+            "authenticationMethod": { "type": "string", "enum": ["", "pam", "ldap", "freeipa"], "description": "空值仅表示旧配置存在冲突、需管理员明确选择；不回退到其他认证方式。" },
             "apiVersion":
               {
                 "type": "string",
@@ -16930,6 +16939,7 @@ components:
           "slug",
           "description",
           "connectionRef",
+          "authenticationMethod",
           "apiVersion",
           "enabled",
           "timeoutSeconds"
@@ -16952,6 +16962,7 @@ components:
             "type": "string",
             "maxLength": 64
           },
+          "authenticationMethod": { "type": "string", "enum": ["", "pam", "ldap", "freeipa"] },
           "apiVersion": {
             "type": "string",
             "maxLength": 16
@@ -17000,7 +17011,7 @@ components:
           "schemaVersion": {
             "type": "integer",
             "enum": [
-              1
+              1, 2
             ]
           },
           "kind": {
@@ -17051,6 +17062,7 @@ components:
               "slug",
               "description",
               "connectionRef",
+              "authenticationMethod",
               "apiVersion",
               "enabled",
               "timeoutSeconds"
@@ -17104,6 +17116,7 @@ components:
               "slug",
               "description",
               "connectionRef",
+              "authenticationMethod",
               "apiVersion",
               "enabled",
               "timeoutSeconds"
@@ -17126,6 +17139,7 @@ components:
                 "type": "string",
                 "maxLength": 64
               },
+              "authenticationMethod": { "type": "string", "enum": ["", "pam", "ldap", "freeipa"] },
               "apiVersion": {
                 "type": "string",
                 "maxLength": 16
@@ -17146,8 +17160,8 @@ components:
           },
           "fields": {
             "type": "array",
-            "minItems": 7,
-            "maxItems": 7,
+            "minItems": 8,
+            "maxItems": 8,
             "items": {
               "$ref": "#/components/schemas/ConfigHistoryDiffField"
             }
@@ -17160,6 +17174,7 @@ components:
               "slug",
               "description",
               "connectionRef",
+              "authenticationMethod",
               "apiVersion",
               "enabled",
               "timeoutSeconds",
@@ -17183,6 +17198,7 @@ components:
                 "type": "string",
                 "maxLength": 64
               },
+              "authenticationMethod": { "type": "string", "enum": ["pam", "ldap", "freeipa"] },
               "apiVersion": {
                 "type": "string",
                 "maxLength": 16
@@ -17290,8 +17306,8 @@ components:
           },
           "fields": {
             "type": "array",
-            "minItems": 7,
-            "maxItems": 7,
+            "minItems": 8,
+            "maxItems": 8,
             "items": {
               "$ref": "#/components/schemas/ConfigHistoryDiffField"
             }

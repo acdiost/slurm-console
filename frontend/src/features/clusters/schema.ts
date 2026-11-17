@@ -1,5 +1,25 @@
 import { z } from "zod"
 
+export const authenticationMethods = [
+  { value: "pam", label: "PAM 系统认证" },
+  { value: "ldap", label: "LDAP" },
+  { value: "freeipa", label: "FreeIPA" },
+] as const
+export const authenticationMethodSchema = z.enum(["pam", "ldap", "freeipa"], {
+  error: "请选择一种身份认证方式",
+})
+export type AuthenticationMethod = z.infer<typeof authenticationMethodSchema>
+export const savedAuthenticationMethodSchema = z.union([
+  authenticationMethodSchema,
+  z.literal(""),
+])
+export function authenticationMethodLabel(method: AuthenticationMethod | "") {
+  return (
+    authenticationMethods.find((item) => item.value === method)?.label ??
+    "未选择身份认证方式"
+  )
+}
+
 export const profileSchema = z.object({
   ref: z.string(),
   label: z.string(),
@@ -19,6 +39,7 @@ export const configurationSchema = z.object({
   name: z.string(),
   slug: z.string(),
   description: z.string(),
+  authenticationMethod: savedAuthenticationMethodSchema,
   connectionRef: z.string(),
   apiVersion: z.string(),
   enabled: z.boolean(),
@@ -57,6 +78,7 @@ export const connectionFormSchema = z.object({
     .max(64)
     .regex(/^[a-z0-9][a-z0-9-]*$/, "使用小写字母、数字或连字符"),
   description: z.string().trim().max(1000, "说明最多 1000 个字符"),
+  authenticationMethod: authenticationMethodSchema,
   connectionRef: z.string().min(1, "请选择连接方式"),
   apiVersion: z.string().min(1, "请选择 API 版本"),
   enabled: z.boolean(),

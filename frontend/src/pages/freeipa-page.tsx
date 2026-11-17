@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/sheet"
 import { catalogSchema } from "@/features/platform-settings/schema"
 import { pageNumber } from "@/features/clusters/cluster-picker"
+import { ClusterIdentityPage } from "@/features/clusters/identity-page"
 import {
   infoSchema,
   userPageSchema,
@@ -48,6 +49,13 @@ import {
 } from "@/features/freeipa/schema"
 const selectClass = "h-9 rounded-md border bg-card px-3 text-xs"
 export function FreeIPAPage() {
+  return (
+    <ClusterIdentityPage path="/directory">
+      {(selection) => <FreeIPAContent clusterId={selection.id} />}
+    </ClusterIdentityPage>
+  )
+}
+function FreeIPAContent({ clusterId }: { clusterId: string }) {
   const user = useAuth((s) => s.user)
   if (!user?.access.platformPermissions.includes("platform.directory.read"))
     return (
@@ -59,6 +67,7 @@ export function FreeIPAPage() {
     <Directory
       key={user.id}
       actor={user.id}
+      clusterId={clusterId}
       manage={user.access.platformPermissions.includes(
         "platform.directory.manage"
       )}
@@ -68,15 +77,27 @@ export function FreeIPAPage() {
 }
 function Directory({
   actor,
+  clusterId,
   manage,
   roles,
 }: {
   actor: string
+  clusterId: string
   manage: boolean
   roles: boolean
 }) {
   const [params, setParams] = useSearchParams(),
     client = useQueryClient()
+  const setDirectoryParams = (values: Record<string, string>) => {
+    setParams((previous) => {
+      const next = new URLSearchParams(values)
+      for (const key of ["cluster", "clusterPage", "clusterQ"]) {
+        const value = previous.get(key)
+        if (value) next.set(key, value)
+      }
+      return next
+    })
+  }
   const tab =
       params.get("tab") === "groups"
         ? "groups"
@@ -89,13 +110,13 @@ function Directory({
     [editing, setEditing] = useState<Draft | null>(null),
     [latest, setLatest] = useState<Operation | null>(null)
   const info = useQuery({
-    queryKey: ["freeipa-info", actor],
+    queryKey: ["freeipa-info", actor, clusterId],
     queryFn: async ({ signal }) =>
       infoSchema.parse(await api("/directory", { signal })),
     retry: false,
   })
   const users = useQuery({
-    queryKey: ["freeipa-users", actor, page, q],
+    queryKey: ["freeipa-users", actor, clusterId, page, q],
     enabled: !!info.data?.configured && tab === "users",
     queryFn: async ({ signal }) =>
       userPageSchema.parse(
@@ -107,7 +128,7 @@ function Directory({
     retry: false,
   })
   const groups = useQuery({
-    queryKey: ["freeipa-groups", actor, page, q],
+    queryKey: ["freeipa-groups", actor, clusterId, page, q],
     enabled: !!info.data?.configured && tab === "groups",
     queryFn: async ({ signal }) =>
       groupPageSchema.parse(
@@ -119,14 +140,14 @@ function Directory({
     retry: false,
   })
   const mappings = useQuery({
-    queryKey: ["freeipa-mappings", actor],
+    queryKey: ["freeipa-mappings", actor, clusterId],
     enabled: !!info.data?.configured && roles && tab === "mappings",
     queryFn: async ({ signal }) =>
       mappingsSchema.parse(await api("/directory/role-mappings", { signal })),
     retry: false,
   })
   const operations = useQuery({
-    queryKey: ["freeipa-operations", actor],
+    queryKey: ["freeipa-operations", actor, clusterId],
     enabled: !!info.data?.configured && manage,
     queryFn: async ({ signal }) =>
       operationsSchema.parse(await api("/directory/operations", { signal })),
@@ -141,7 +162,7 @@ function Directory({
   const active = tab === "groups" ? groups : users,
     data = !active.isError ? active.data : undefined
   const changeTab = (v: string) => {
-    setParams({ tab: v })
+    setDirectoryParams({ tab: v })
     setSearch("")
     setEditing(null)
   }
@@ -217,7 +238,7 @@ function Directory({
                   className="flex min-w-0 flex-wrap gap-2"
                   onSubmit={(e) => {
                     e.preventDefault()
-                    setParams({ tab, q: search.trim(), page: "1" })
+                    setDirectoryParams({ tab, q: search.trim(), page: "1" })
                   }}
                 >
                   <Input
@@ -417,7 +438,7 @@ function Directory({
                         variant="outline"
                         disabled={page <= 1 || active.isFetching}
                         onClick={() =>
-                          setParams({ tab, q, page: String(page - 1) })
+                          setDirectoryParams({ tab, q, page: String(page - 1) })
                         }
                       >
                         上一页
@@ -429,7 +450,7 @@ function Directory({
                           active.isFetching
                         }
                         onClick={() =>
-                          setParams({ tab, q, page: String(page + 1) })
+                          setDirectoryParams({ tab, q, page: String(page + 1) })
                         }
                       >
                         下一页
